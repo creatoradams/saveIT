@@ -426,3 +426,60 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# SaveIT ASP.NET Core / Next.js / Terraform monorepo
+**/bin/
+**/obj/
+node_modules/
+.next/
+.turbo/
+dist/
+build/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.env
+.env.*
+*.env
+appsettings.Local.json
+appsettings.*.Local.json
+secrets.json
+*.pem
+*.key
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.nyc_output/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.idea/
+.vscode/
+*.sln.iml
+.local/
+.data/
+
+# Versioned reproducibility and safe templates (never ignore these).
+!package-lock.json
+!pnpm-lock.yaml
+!yarn.lock
+!packages.lock.json
+!project.lock.json
+!.terraform.lock.hcl
+!.env.example
+!.env.*.example
+!*.env.example
+!*.tfvars.example
+# EF migrations live in services/api/Migrations and remain tracked.

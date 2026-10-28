@@ -1,0 +1,97 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+
+namespace SaveIT.Api.Data;
+
+public sealed class TenantScope
+{
+    public Guid TenantId { get; set; }
+    public Guid MembershipId { get; set; }
+    public string Subject { get; set; } = "";
+}
+
+public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope scope) : DbContext(options)
+{
+    public Guid CurrentTenantId => scope.TenantId;
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<Membership> Memberships => Set<Membership>();
+    public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<OrganizationGrant> OrganizationGrants => Set<OrganizationGrant>();
+    public DbSet<Asset> Assets => Set<Asset>();
+    public DbSet<Document> Documents => Set<Document>();
+    public DbSet<DocumentRevision> DocumentRevisions => Set<DocumentRevision>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+
+    protected override void OnModelCreating(ModelBuilder m)
+    {
+        m.Entity<Tenant>().ToTable("Tenants").HasKey(x => x.Id);
+        m.Entity<Tenant>().Property(x => x.Name).HasMaxLength(160);
+        TenantEntity<Membership>(m, "Memberships");
+        m.Entity<Membership>().HasKey(x => x.Id);
+        m.Entity<Membership>().HasAlternateKey(x => new { x.TenantId, x.Id });
+        m.Entity<Membership>().HasIndex(x => new { x.TenantId, x.Subject }).IsUnique();
+        TenantEntity<Organization>(m, "Organizations");
+        m.Entity<Organization>().HasKey(x => x.Id);
+        m.Entity<Organization>().HasAlternateKey(x => new { x.TenantId, x.Id });
+        m.Entity<Organization>().Property(x => x.Name).HasMaxLength(160);
+        TenantEntity<OrganizationGrant>(m, "OrganizationGrants");
+        m.Entity<OrganizationGrant>().HasKey(x => new { x.TenantId, x.MembershipId, x.OrganizationId });
+        m.Entity<OrganizationGrant>().HasOne<Membership>().WithMany().HasForeignKey(x => new { x.TenantId, x.MembershipId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<OrganizationGrant>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<OrganizationGrant>().ToTable(t => t.HasCheckConstraint("CK_Grant_Role", "\"Role\" IN ('Editor', 'Viewer')"));
+        TenantEntity<Asset>(m, "Assets");
+        m.Entity<Asset>().HasKey(x => x.Id);
+        m.Entity<Asset>().HasAlternateKey(x => new { x.TenantId, x.OrganizationId, x.Id });
+        m.Entity<Asset>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<Asset>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<Asset>().Property(x => x.Kind).HasMaxLength(80);
+        m.Entity<Asset>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.Id });
+        TenantEntity<Document>(m, "Documents");
+        m.Entity<Document>().HasKey(x => x.Id);
+        m.Entity<Document>().HasAlternateKey(x => new { x.TenantId, x.OrganizationId, x.Id });
+        m.Entity<Document>().HasOne<Asset>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.AssetId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<Document>().Property(x => x.Title).HasMaxLength(160);
+        m.Entity<Document>().Property(x => x.Content).HasMaxLength(50000);
+        m.Entity<Document>().Property(x => x.Version).IsConcurrencyToken();
+        m.Entity<Document>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.AssetId, x.Id });
+        TenantEntity<DocumentRevision>(m, "DocumentRevisions");
+        m.Entity<DocumentRevision>().HasKey(x => new { x.TenantId, x.DocumentId, x.Version });
+        m.Entity<DocumentRevision>().HasOne<Document>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.DocumentId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentRevision>().Property(x => x.Title).HasMaxLength(160);
+        m.Entity<DocumentRevision>().Property(x => x.Content).HasMaxLength(50000);
+        TenantEntity<AuditEvent>(m, "AuditEvents");
+        m.Entity<AuditEvent>().HasKey(x => x.Id);
+        m.Entity<AuditEvent>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<AuditEvent>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.Id });
+        TenantEntity<OutboxEvent>(m, "OutboxEvents");
+        m.Entity<OutboxEvent>().HasKey(x => x.Id);
+        m.Entity<OutboxEvent>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<OutboxEvent>().HasIndex(x => new { x.TenantId, x.DeliveredAt });
+    }
+
+    private void TenantEntity<T>(ModelBuilder m, string table) where T : class, ITenantOwned
+    {
+        m.Entity<T>().ToTable(table);
+        m.Entity<T>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        m.Entity<T>().HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var entry in ChangeTracker.Entries<ITenantOwned>().Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        {
+            if (entry.Entity.TenantId != scope.TenantId || scope.TenantId == Guid.Empty)
+                throw new InvalidOperationException("A write requires the current tenant boundary.");
+            if (entry.State == EntityState.Modified && entry.Property(nameof(ITenantOwned.TenantId)).IsModified)
+                throw new InvalidOperationException("Tenant ownership is immutable.");
+        }
+        return base.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class DesignTimeDbFactory : IDesignTimeDbContextFactory<SaveItDb>
+{
+    public SaveItDb CreateDbContext(string[] args) => new(new DbContextOptionsBuilder<SaveItDb>()
+        .UseNpgsql(Environment.GetEnvironmentVariable("SAVEIT_MIGRATION_CONNECTION") ?? "Host=127.0.0.1;Port=55432;Database=saveit;Username=postgres;Password=local-development-only").Options, new TenantScope());
+}

@@ -1,0 +1,62 @@
+name: SaveIT checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: local-development-only
+        ports:
+          - 55433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+      SAVEIT_TEST_ADMIN: Host=127.0.0.1;Port=55433;Database=postgres;Username=postgres;Password=local-development-only
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.16.0"
+          cache: npm
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          global-json-file: global.json
+      - run: npm ci
+      - run: dotnet restore SaveIT.slnx --locked-mode
+      - run: dotnet build SaveIT.slnx --no-restore
+      - run: dotnet test SaveIT.slnx --no-build --no-restore --logger trx
+      - run: npm run check:ignore
+      - run: npm run contracts && git diff --exit-code -- apps/web/lib/api.generated.ts
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm audit --audit-level=high
+      - run: dotnet list SaveIT.slnx package --vulnerable --include-transitive --format json > dependency-audit.json
+      - run: node scripts/check-nuget-audit.mjs dependency-audit.json
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.13.5
+      - run: terraform -chdir=infra/terraform fmt -check
+      - run: terraform -chdir=infra/terraform init -backend=false
+      - run: terraform -chdir=infra/terraform validate
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: saveit-test-evidence
+          path: |
+            **/TestResults/*.trx
+            test-results/
+            playwright-report/
+            dependency-audit.json
+          retention-days: 7

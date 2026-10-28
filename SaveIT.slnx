@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/services/" />
+  <Folder Name="/services/api/">
+    <Project Path="services/api/SaveIT.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/workers/">
+    <Project Path="services/workers/SaveIT.Workers.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SaveIT.Api.Tests/SaveIT.Api.Tests.csproj" />
+  </Folder>
+</Solution>

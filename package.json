@@ -1,0 +1,28 @@
+{
+  "name": "saveit",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "db": "node scripts/database.mjs",
+    "contracts": "openapi-typescript contracts/openapi.json -o apps/web/lib/api.generated.ts && prettier --write apps/web/lib/api.generated.ts",
+    "typecheck": "npm run typecheck --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "test": "dotnet test SaveIT.slnx --no-restore",
+    "test:e2e": "playwright test",
+    "check:ignore": "node --test tests/gitignore.test.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "embedded-postgres": "18.4.0-beta.17",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.10"
+  }
+}
