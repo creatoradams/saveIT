@@ -50,7 +50,9 @@ The continuation implements document recovery end to end. The migration adds nul
 - All **11 Chromium browser checks** passed. Four added flows cover comparison/title changes, modal reason/keyboard cancel/focus, persisted restore/audit/history, real worker search catch-up, Viewer comparison without restore controls, concurrent edit conflict/review/retry, literal HTML, 200-row pagination, mobile layout and automated axe. The first run found low-contrast diff headings; corrected styles passed the focused suite and then the full 11-test suite.
 - Full solution build passed with zero warnings/errors. Locked NuGet restore, generated OpenAPI/TypeScript/live-contract check, TypeScript, optimized Next.js build, root ignore-policy test and npm/NuGet vulnerability audits passed. No dependency was added. The updated documented launcher migrated the retained database and started PostgreSQL/API/web/search worker successfully. Viewport screenshots of the comparison and mobile confirmation were inspected; the focused large-comparison flow and optimized build passed again after improving screenshot capture.
 
-Push and clean-run CI results will be recorded after verification. No production identity, load/SLO, backup/deletion recovery or enterprise parity claim is made by this slice.
+Implementation commit **980037af2c5f3b047478737539de22cf92895a37** was pushed to `main`. [GitHub Actions run 40808645125](https://github.com/creatoradams/saveIT/actions/runs/40808645125) **completed successfully** on Ubuntu 24.04: clean npm/locked NuGet restores, zero-warning solution build, all 48 backend tests, ignore policy, generated-contract drift check, TypeScript/optimized web build, npm/NuGet audits, Terraform formatting/init/validation, all 11 Chromium checks and evidence artifact upload. All **147 capability inventory entries** were retained. This documentation-only follow-up records the verified result without changing application or tests.
+
+No production identity, load/SLO, backup/deletion recovery or enterprise parity claim is made by this slice.
 
 ## Remaining gaps and release risks
 
