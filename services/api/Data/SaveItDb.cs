@@ -18,6 +18,9 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<OrganizationGrant> OrganizationGrants => Set<OrganizationGrant>();
     public DbSet<Asset> Assets => Set<Asset>();
+    public DbSet<Location> Locations => Set<Location>();
+    public DbSet<Contact> Contacts => Set<Contact>();
+    public DbSet<AssetRevision> AssetRevisions => Set<AssetRevision>();
     public DbSet<AssetRelationship> AssetRelationships => Set<AssetRelationship>();
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentRevision> DocumentRevisions => Set<DocumentRevision>();
@@ -34,6 +37,10 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<Membership>().HasKey(x => x.Id);
         m.Entity<Membership>().HasAlternateKey(x => new { x.TenantId, x.Id });
         m.Entity<Membership>().HasIndex(x => new { x.TenantId, x.Subject }).IsUnique();
+        m.Entity<Membership>().Property(x => x.ExternalIssuer).HasMaxLength(500);
+        m.Entity<Membership>().Property(x => x.ExternalSubject).HasMaxLength(256);
+        m.Entity<Membership>().HasIndex(x => new { x.TenantId, x.ExternalIssuer, x.ExternalSubject }).IsUnique();
+        m.Entity<Membership>().ToTable(t => t.HasCheckConstraint("CK_Membership_ExternalIdentity", "(\"ExternalIssuer\" IS NULL AND \"ExternalSubject\" IS NULL) OR (\"ExternalIssuer\" IS NOT NULL AND \"ExternalSubject\" IS NOT NULL AND length(\"ExternalIssuer\") > 0 AND length(\"ExternalSubject\") > 0)"));
         TenantEntity<Organization>(m, "Organizations");
         m.Entity<Organization>().HasKey(x => x.Id);
         m.Entity<Organization>().HasAlternateKey(x => new { x.TenantId, x.Id });
@@ -43,6 +50,28 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<OrganizationGrant>().HasOne<Membership>().WithMany().HasForeignKey(x => new { x.TenantId, x.MembershipId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         m.Entity<OrganizationGrant>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         m.Entity<OrganizationGrant>().ToTable(t => t.HasCheckConstraint("CK_Grant_Role", "\"Role\" IN ('Editor', 'Viewer')"));
+        TenantEntity<Location>(m, "Locations");
+        m.Entity<Location>().HasKey(x => x.Id);
+        m.Entity<Location>().HasAlternateKey(x => new { x.TenantId, x.OrganizationId, x.Id });
+        m.Entity<Location>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<Location>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<Location>().Property(x => x.Details).HasMaxLength(500);
+        m.Entity<Location>().Property(x => x.Notes).HasMaxLength(4000);
+        m.Entity<Location>().Property(x => x.Version).IsConcurrencyToken();
+        m.Entity<Location>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.IsArchived, x.Id });
+        m.Entity<Location>().ToTable(t => t.HasCheckConstraint("CK_Location_Version", "\"Version\" > 0"));
+        TenantEntity<Contact>(m, "Contacts");
+        m.Entity<Contact>().HasKey(x => x.Id);
+        m.Entity<Contact>().HasAlternateKey(x => new { x.TenantId, x.OrganizationId, x.Id });
+        m.Entity<Contact>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<Contact>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<Contact>().Property(x => x.Details).HasMaxLength(500);
+        m.Entity<Contact>().Property(x => x.Email).HasMaxLength(320);
+        m.Entity<Contact>().Property(x => x.Phone).HasMaxLength(80);
+        m.Entity<Contact>().Property(x => x.Notes).HasMaxLength(4000);
+        m.Entity<Contact>().Property(x => x.Version).IsConcurrencyToken();
+        m.Entity<Contact>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.IsArchived, x.Id });
+        m.Entity<Contact>().ToTable(t => t.HasCheckConstraint("CK_Contact_Version", "\"Version\" > 0"));
         TenantEntity<Asset>(m, "Assets");
         m.Entity<Asset>().HasKey(x => x.Id);
         m.Entity<Asset>().HasAlternateKey(x => new { x.TenantId, x.OrganizationId, x.Id });
@@ -50,6 +79,19 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<Asset>().Property(x => x.Name).HasMaxLength(160);
         m.Entity<Asset>().Property(x => x.Kind).HasMaxLength(80);
         m.Entity<Asset>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.Id });
+        m.Entity<Asset>().Property(x => x.Version).HasDefaultValue(1).IsConcurrencyToken();
+        m.Entity<Asset>().Property(x => x.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        m.Entity<Asset>().HasOne<Location>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.LocationId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<Asset>().ToTable(t => t.HasCheckConstraint("CK_Asset_Version", "\"Version\" > 0"));
+        TenantEntity<AssetRevision>(m, "AssetRevisions");
+        m.Entity<AssetRevision>().HasKey(x => new { x.TenantId, x.AssetId, x.Version });
+        m.Entity<AssetRevision>().HasOne<Asset>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.AssetId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<AssetRevision>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<AssetRevision>().Property(x => x.Kind).HasMaxLength(80);
+        m.Entity<AssetRevision>().Property(x => x.RestoreReason).HasMaxLength(500);
+        m.Entity<AssetRevision>().HasOne<Location>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.LocationId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<AssetRevision>().HasOne<AssetRevision>().WithMany().HasForeignKey(x => new { x.TenantId, x.AssetId, x.RestoredFromVersion }).HasPrincipalKey(x => new { x.TenantId, x.AssetId, x.Version }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<AssetRevision>().ToTable(t => t.HasCheckConstraint("CK_AssetRevision_Provenance", "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)"));
         TenantEntity<AssetRelationship>(m, "AssetRelationships");
         m.Entity<AssetRelationship>().HasKey(x => x.Id);
         m.Entity<AssetRelationship>().HasOne<Asset>().WithMany()
@@ -114,6 +156,8 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<SearchDelivery>().HasKey(x => new { x.TenantId, x.EventId });
         m.Entity<SearchDelivery>().HasOne<OutboxEvent>().WithMany().HasForeignKey(x => new { x.TenantId, x.EventId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         m.Entity<SearchDelivery>().Property(x => x.ErrorCode).HasMaxLength(48);
+        m.Entity<SearchDelivery>().HasIndex(x => new { x.TenantId, x.NextAttemptAt, x.EventId })
+            .HasDatabaseName("IX_SearchDeliveries_Due").HasFilter("\"CompletedAt\" IS NULL AND \"DeadLetteredAt\" IS NULL");
     }
 
     private void TenantEntity<T>(ModelBuilder m, string table) where T : class, ITenantOwned

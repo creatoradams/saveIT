@@ -34,6 +34,9 @@ public static class DevelopmentSeed
             }
             db.Assets.Add(new Asset { Id = Guid.Parse(tenant == TenantA ? "10000000-0000-0000-0000-000000001000" : "20000000-0000-0000-0000-000000001000"), TenantId = tenant, OrganizationId = org, Name = "Core switch", Kind = "Network", CreatedAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync();
+            foreach (var asset in await db.Assets.Where(x => x.OrganizationId == org).ToListAsync())
+                db.AssetRevisions.Add(new() { TenantId = tenant, OrganizationId = org, AssetId = asset.Id, Version = 1, Name = asset.Name, Kind = asset.Kind, Actor = "seed", CreatedAt = asset.CreatedAt });
+            await db.SaveChangesAsync();
             db.ChangeTracker.Clear();
         }
     }

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SaveIT.Api.Data;
 using SaveIT.Api.Security;
+using SaveIT.Api.Assets;
 
 namespace SaveIT.Api;
 
@@ -21,7 +22,7 @@ public static class Endpoints
         {
             if (await Permissions.RoleAsync(db, s, organizationId) is null) return Permissions.Hidden();
             var items = await db.Assets.Where(x => x.OrganizationId == organizationId && (after == null || x.Id.CompareTo(after.Value) > 0))
-                .OrderBy(x => x.Id).Take(PageSize + 1).Select(x => new AssetDto(x.Id, x.OrganizationId, x.Name, x.Kind, x.CreatedAt)).ToListAsync();
+                .OrderBy(x => x.Id).Take(PageSize + 1).Select(x => new AssetDto(x.Id, x.OrganizationId, x.Name, x.Kind, x.CreatedAt, x.Version, x.LocationId)).ToListAsync();
             return Results.Ok(new CursorPage<AssetDto>(items.Take(PageSize).ToList(), items.Count > PageSize ? items[PageSize - 1].Id.ToString() : null));
         }).Produces<CursorPage<AssetDto>>();
 
@@ -33,15 +34,16 @@ public static class Endpoints
             if (!Valid(input.Name, 160) || !Valid(input.Kind, 80)) return Invalid("Name and kind are required (maximum 160 and 80 characters).");
             var asset = new Asset { Id = Guid.NewGuid(), TenantId = s.TenantId, OrganizationId = organizationId, Name = input.Name.Trim(), Kind = input.Kind.Trim(), CreatedAt = DateTimeOffset.UtcNow };
             db.Assets.Add(asset);
+            AssetHistoryEndpoints.Snapshot(db, s, asset);
             Record(db, s, c, organizationId, asset.Id, "Asset.Created");
             await db.SaveChangesAsync();
-            return Results.Created($"/api/v1/organizations/{organizationId}/assets/{asset.Id}", new AssetDto(asset.Id, organizationId, asset.Name, asset.Kind, asset.CreatedAt));
+            return Results.Created($"/api/v1/organizations/{organizationId}/assets/{asset.Id}", AssetHistoryEndpoints.Dto(asset));
         }).Produces<AssetDto>(201);
 
         group.MapGet("/organizations/{organizationId:guid}/assets/{assetId:guid}", async (Guid organizationId, Guid assetId, SaveItDb db, TenantScope s) =>
         {
             if (await Permissions.RoleAsync(db, s, organizationId) is null) return Permissions.Hidden();
-            var asset = await db.Assets.Where(x => x.OrganizationId == organizationId && x.Id == assetId).Select(x => new AssetDto(x.Id, x.OrganizationId, x.Name, x.Kind, x.CreatedAt)).SingleOrDefaultAsync();
+            var asset = await db.Assets.Where(x => x.OrganizationId == organizationId && x.Id == assetId).Select(x => new AssetDto(x.Id, x.OrganizationId, x.Name, x.Kind, x.CreatedAt, x.Version, x.LocationId)).SingleOrDefaultAsync();
             return asset is null ? Results.NotFound() : Results.Ok(asset);
         }).Produces<AssetDto>();
 

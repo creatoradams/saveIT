@@ -22,6 +22,23 @@ async function login(page: Page, name = "Alice Chen") {
   ).toBeVisible();
 }
 
+async function openAsset(page: Page, name: string) {
+  const inventory = page.getByRole("region", { name: "Asset inventory" });
+  const target = inventory.getByRole("button", { name: new RegExp(name) });
+  await expect(inventory.getByRole("list")).toBeVisible();
+  // Retained development data can place the new UUID beyond the first bounded page.
+  for (let i = 0; i < 30 && (await target.count()) === 0; i++) {
+    const previous = await inventory.getByRole("listitem").count();
+    await inventory
+      .getByRole("button", { name: "Load more assets", exact: true })
+      .click();
+    await expect
+      .poll(() => inventory.getByRole("listitem").count())
+      .toBeGreaterThan(previous);
+  }
+  await target.click();
+}
+
 test("persistent asset → linked document → revision → audit, plus organization switching", async ({
   page,
 }) => {
@@ -57,7 +74,7 @@ test("persistent asset → linked document → revision → audit, plus organiza
     page.getByText("Disconnect the synthetic uplink.", { exact: true }),
   ).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: new RegExp(assetName) }).click();
+  await openAsset(page, assetName);
   await page.getByRole("button", { name: /Failover procedure/ }).click();
   await expect(
     page.getByText("Check the synthetic standby uplink first.", {
@@ -82,8 +99,9 @@ test("persistent asset → linked document → revision → audit, plus organiza
   await page
     .getByRole("combobox", { name: "ORGANIZATION" })
     .selectOption({ label: "Acme Manufacturing" });
+  await openAsset(page, assetName);
   await expect(
-    page.getByRole("button", { name: new RegExp(assetName) }),
+    page.getByRole("heading", { name: assetName, exact: true }),
   ).toBeVisible();
 });
 

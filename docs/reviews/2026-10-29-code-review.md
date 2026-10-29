@@ -1,0 +1,17 @@
+# SaveIT efficiency and security review
+
+Date: 2026-10-29. Two separate agents performed read-only code reviews at the user's request. They inspected the API routes/policy/identity, EF model/migrations/RLS, search/worker, web components, tests, launch scripts, CI and Terraform scaffold. They did not mutate code or run integration tests. The primary agent implemented fixes, added regressions and performed verification.
+
+| Finding | Resolution | Regression evidence |
+| --- | --- | --- |
+| E1 / P2: placement GET shared a controller with history/edit actions, allowing permanent cancellation/loading | Independent placement controller and captured signal, explicit error/retry state, retained current-location option | Browser holds a real placement response, loads asset history, releases placement and verifies the location appears |
+| E2 / P2: already-open asset forms ignored parent workspace busy/edit state | Every relevant control and submission guard honors disabled or busy; document recovery now does the same | Browser opens asset editing, begins document editing and verifies asset input/save are disabled; existing document recovery suite retained |
+| E3 / P2: worker polling repeatedly walked completed retained outbox history | Transactional trigger-enqueued pending receipt queue, preserving backfill, matching partial due index and receipt-reset replay | Late commit after newer event, due index eligibility, scoped replay, retry/receipt failure tests; no latency benchmark claimed |
+| S1 / P2: startup ownership coverage was incomplete and NOINHERIT membership could hide reachable privileges; worker omitted DocumentRevisions | Shared guard covers all 15 protected tables, reachable owner/superuser/BYPASSRLS roles and reachable core table/column writes | Real PostgreSQL temporary owner, column-writer and bypass roles with INHERIT FALSE are rejected; API startup rejection and normal-role recovery tested |
+| H1 / hardening: receipt DELETE became unnecessary and could orphan pending work under queue discovery | Revoke worker DELETE on SearchDeliveries; guard requires only SELECT/INSERT/UPDATE there; replay resets existing scoped receipt | Actual worker DELETE denied; scoped replay/current projection recovery tests |
+
+The efficiency agent re-reviewed request ownership, disabled controls and the queue query/index/trigger. The security agent reviewed the exact SECURITY DEFINER function: fixed NEW tenant/event key, qualified public tables, pg_catalog/pg_temp path, no dynamic SQL, revoked PUBLIC execute and atomic source transaction. Queue enqueue failure intentionally blocks/rolls back the business write; production definer/backfill authority remains unresolved in ADR 011.
+
+No additional actionable tenant access, injection or authentication bypass was identified in the reviewed code. This statement describes the review result, not a guarantee that all code is safe. Static review does not establish load efficiency, penetration resistance, live Okta interoperability, cryptographic vault safety, production operations or enterprise completeness.
+
+Verification results and the pushed commit/CI evidence are recorded in [progress](../progress.md). Release prerequisites include live Okta policy/lifecycle testing, HTTPS/proxy/CSP and key operations, broader audit/quotas, backups/restore drills, servicing updates and independent deployment/security assessment. The vault and most enterprise expansion capabilities remain unimplemented; see the [completion register](../completion-register.md).

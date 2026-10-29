@@ -9,12 +9,17 @@ using SaveIT.Api.Data;
 using SaveIT.Api.Security;
 using SaveIT.Api.Documentation;
 using SaveIT.Api.Assets;
+using SaveIT.Api.Core;
+using SaveIT.Search;
 
 var builder = WebApplication.CreateBuilder(args);
 var devIdentity = builder.Configuration.GetValue<bool>("DevelopmentIdentity:Enabled");
+var oktaEnabled = builder.Configuration.GetValue<bool>("Identity:Okta:Enabled");
+if (devIdentity && oktaEnabled) throw new InvalidOperationException("Choose development identity or Okta, never both.");
+var okta = oktaEnabled ? OktaConnection.Read(builder.Configuration) : null;
 if (devIdentity && !builder.Environment.IsDevelopment())
     throw new InvalidOperationException("Development identity requires the Development environment.");
-if (!builder.Environment.IsDevelopment())
+if (!builder.Environment.IsDevelopment() && !oktaEnabled)
     throw new InvalidOperationException("Production identity is unconfigured. Configure and review an enterprise identity adapter before deployment.");
 
 builder.Services.AddScoped<TenantScope>();
@@ -23,21 +28,23 @@ builder.Services.AddDbContext<SaveItDb>(o => o.UseNpgsql(builder.Configuration.G
 builder.Services.AddScoped<TenantFilter>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
 {
-    o.Cookie.Name = "SaveIT.Development";
+    o.Cookie.Name = oktaEnabled ? "SaveIT.Session" : "SaveIT.Development";
     o.Cookie.HttpOnly = true;
-    o.Cookie.SameSite = SameSiteMode.Strict;
-    o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    o.Cookie.SameSite = oktaEnabled ? SameSiteMode.Lax : SameSiteMode.Strict;
+    o.Cookie.SecurePolicy = oktaEnabled ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
     o.ExpireTimeSpan = TimeSpan.FromHours(2);
     o.SlidingExpiration = false;
     o.Events.OnRedirectToLogin = c => { c.Response.StatusCode = 401; return Task.CompletedTask; };
     o.Events.OnRedirectToAccessDenied = c => { c.Response.StatusCode = 403; return Task.CompletedTask; };
 });
+if (okta is not null) builder.AddOktaIdentity(okta);
 builder.Services.AddAuthorization();
 builder.Services.AddAntiforgery(o =>
 {
     o.HeaderName = "X-CSRF-TOKEN";
     o.Cookie.Name = "SaveIT.Csrf";
     o.Cookie.SameSite = SameSiteMode.Strict;
+    o.Cookie.SecurePolicy = oktaEnabled ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
     o.Cookie.HttpOnly = true;
 });
 builder.Services.AddProblemDetails();
@@ -66,9 +73,7 @@ if (args.Contains("--migrate"))
 await using (var connection = new NpgsqlConnection(builder.Configuration.GetConnectionString("App")))
 {
     await connection.OpenAsync();
-    await using var command = new NpgsqlCommand("SELECT rolsuper OR rolbypassrls OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='Assets' AND pg_has_role(current_user,c.relowner,'USAGE')) FROM pg_roles WHERE rolname=current_user", connection);
-    if (await command.ExecuteScalarAsync() is not false)
-        throw new InvalidOperationException("The API database role must be a non-owner without superuser or BYPASSRLS privileges.");
+    await DatabaseRoleGuard.ValidateAsync(connection);
 }
 
 app.UseExceptionHandler();
@@ -97,6 +102,9 @@ app.Use(async (context, next) =>
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "SaveIT" }));
 app.MapOpenApi();
 app.MapGet("/api/v1/csrf", (HttpContext c, IAntiforgery antiforgery) => Results.Ok(new { token = antiforgery.GetAndStoreTokens(c).RequestToken! }));
+app.MapGet("/api/v1/auth/options", () => Results.Ok(new { development = devIdentity, okta = oktaEnabled }));
+if (oktaEnabled)
+    app.MapPost("/api/v1/auth/login", () => Results.Challenge(new AuthenticationProperties { RedirectUri = "/" }, [OktaIdentity.Scheme]));
 if (devIdentity)
 {
     app.MapGet("/api/v1/dev/profiles", () => DevelopmentSeed.Profiles.Select(p => new ProfileDto(p.Id, p.Name, p.Tenant)));
@@ -121,6 +129,8 @@ app.MapSaveItEndpoints();
 app.MapSearchEndpoints();
 app.MapDocumentHistoryEndpoints();
 app.MapAssetRelationshipEndpoints();
+app.MapDirectoryEndpoints();
+app.MapAssetHistoryEndpoints();
 await app.RunAsync();
 
 public partial class Program;

@@ -5,7 +5,11 @@ public sealed record ProfileDto(string Id, string Name, string Tenant);
 public sealed record SessionDto(string Name, Guid TenantId, string TenantName);
 public sealed record OrganizationDto(Guid Id, string Name, string Role);
 public sealed record CreateAssetRequest(string Name, string Kind);
-public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string Kind, DateTimeOffset CreatedAt);
+public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string Kind, DateTimeOffset CreatedAt, int Version = 1, Guid? LocationId = null);
+public sealed record ReviseAssetRequest(string Name, string Kind, Guid? LocationId, int ExpectedVersion);
+public sealed record AssetRevisionDto(int Version, string Name, string Kind, Guid? LocationId, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, string? RestoreReason);
+public sealed record DirectoryRequest(string Name, string Details, string Email, string Phone, string Notes, bool IsArchived = false, int ExpectedVersion = 0);
+public sealed record DirectoryDto(Guid Id, Guid OrganizationId, string Name, string Details, string Email, string Phone, string Notes, bool IsArchived, int Version, DateTimeOffset UpdatedAt);
 public sealed record CreateRelationshipRequest(Guid TargetAssetId, string Kind);
 public sealed record RemoveRelationshipRequest(int ExpectedVersion);
 public sealed record AssetRelationshipDto(Guid Id, Guid OrganizationId, AssetDto Source, AssetDto Target,

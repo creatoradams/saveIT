@@ -4,15 +4,19 @@ namespace SaveIT.Search;
 
 public static class DatabaseRoleGuard
 {
+    private static readonly string[] ProtectedTables = ["Tenants", "Memberships", "Organizations", "OrganizationGrants", "Assets", "AssetRelationships",
+        "Documents", "DocumentRevisions", "AuditEvents", "OutboxEvents", "SearchEntries", "SearchDeliveries", "Locations", "Contacts", "AssetRevisions"];
+    private static readonly string[] CoreTables = ProtectedTables.Where(x => x is not ("SearchEntries" or "SearchDeliveries")).ToArray();
     public static async Task ValidateAsync(NpgsqlConnection connection, CancellationToken cancellationToken = default)
     {
         await using var command = new NpgsqlCommand("""
-            SELECT rolsuper OR rolbypassrls OR EXISTS (
+            SELECT EXISTS (SELECT 1 FROM pg_roles r WHERE (r.rolsuper OR r.rolbypassrls)
+                AND pg_has_role(current_user,r.oid,'MEMBER')) OR EXISTS (
                 SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-                WHERE n.nspname='public' AND c.relname IN ('Assets','SearchEntries')
-                AND pg_has_role(current_user,c.relowner,'USAGE'))
-            FROM pg_roles WHERE rolname=current_user
+                WHERE n.nspname='public' AND c.relname=ANY(@tables)
+                AND pg_has_role(current_user,c.relowner,'MEMBER'))
             """, connection);
+        command.Parameters.AddWithValue("tables", ProtectedTables);
         if (await command.ExecuteScalarAsync(cancellationToken) is not false)
             throw new InvalidOperationException("The database role must be a non-owner without superuser or BYPASSRLS privileges.");
     }
@@ -23,14 +27,18 @@ public static class DatabaseRoleGuard
         await using var command = new NpgsqlCommand("""
             SELECT
               (SELECT bool_and(has_table_privilege(current_user,t,p))
-               FROM (VALUES ('"SearchEntries"'),('"SearchDeliveries"')) AS tables(t)
+               FROM (VALUES ('"SearchEntries"')) AS tables(t)
                CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE')) AS privileges(p))
+              AND has_table_privilege(current_user,'"SearchDeliveries"','SELECT')
+              AND has_table_privilege(current_user,'"SearchDeliveries"','INSERT')
+              AND has_table_privilege(current_user,'"SearchDeliveries"','UPDATE')
               AND NOT EXISTS (
-                SELECT 1 FROM (VALUES ('"Assets"'),('"Documents"'),('"OutboxEvents"'),('"AuditEvents"'),
-                  ('"Memberships"'),('"OrganizationGrants"'),('"Organizations"'),('"Tenants"'),('"AssetRelationships"')) AS core(t)
-                WHERE has_table_privilege(current_user,t,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
-                  OR has_any_column_privilege(current_user,t,'INSERT,UPDATE'))
+                SELECT 1 FROM unnest(@core) AS core(t) CROSS JOIN pg_roles r
+                WHERE pg_has_role(current_user,r.oid,'MEMBER')
+                  AND (has_table_privilege(r.oid,format('%I',t),'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
+                  OR has_any_column_privilege(r.oid,format('%I',t),'INSERT,UPDATE')))
             """, connection);
+        command.Parameters.AddWithValue("core", CoreTables);
         if (await command.ExecuteScalarAsync(cancellationToken) is not true)
             throw new InvalidOperationException("Search requires its restricted worker role: projection/receipt writes and no core writes.");
     }

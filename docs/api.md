@@ -5,6 +5,9 @@ Source of truth: [OpenAPI](../contracts/openapi.json); generated TypeScript: `ap
 | Method and path | Required authority | Result |
 | --- | --- | --- |
 | GET /csrf | Anonymous or signed-in | Principal-bound antiforgery token and cookie |
+| GET /auth/options | Anonymous | Enabled development/Okta sign-in choices; no secrets |
+| POST /auth/login | Configured Okta + CSRF | Authorization-code/PKCE challenge to configured issuer |
+| GET/POST /auth/callback | OIDC middleware | State/nonce/correlation and verified token; exact preprovisioned membership mapping |
 | GET /dev/profiles | Explicit development identity opt-in | Synthetic profile metadata |
 | POST /dev/login | Same opt-in + CSRF | Valid persisted membership → HttpOnly cookie |
 | POST /logout | Signed-in + CSRF | Clear cookie |
@@ -13,6 +16,13 @@ Source of truth: [OpenAPI](../contracts/openapi.json); generated TypeScript: `ap
 | GET /organizations/{org}/assets?after={uuid} | Viewer/Editor | Scoped asset page |
 | POST /organizations/{org}/assets | Editor + CSRF | Persist asset, audit/outbox; 201 |
 | GET /organizations/{org}/assets/{asset} | Viewer/Editor | Scoped asset metadata |
+| PUT /organizations/{org}/assets/{asset} | Editor + CSRF | Expected-version name/type/location edit, snapshot/audit/outbox; 409 on conflict |
+| GET /organizations/{org}/assets/{asset}/revisions?before={int} | Viewer/Editor | Audited latest-first metadata snapshots, max 50 |
+| POST /organizations/{org}/assets/{asset}/restore | Editor + CSRF | Earlier metadata snapshot as new version with provenance; 409 on conflict |
+| GET /organizations/{org}/locations or /contacts?after={uuid}&includeArchived={bool} | Viewer/Editor | Audited directory page, max 50; active by default |
+| GET /organizations/{org}/locations/{id} or /contacts/{id} | Viewer/Editor | Audited directory record, including archived |
+| POST /organizations/{org}/locations or /contacts | Editor + CSRF | Scoped directory record/audit/outbox; 201 |
+| PUT /organizations/{org}/locations/{id} or /contacts/{id} | Editor + CSRF | Expected-version edit/archive/reactivate, audit/outbox; 409 on conflict |
 | GET /organizations/{org}/assets/{asset}/relationships?after={uuid} | Viewer/Editor | Active incoming/outgoing links with current scoped endpoint labels; audited page, max 50 |
 | POST /organizations/{org}/assets/{asset}/relationships | Editor + CSRF | Create directed link to a different asset in this organization, audit/outbox; 201 or duplicate 409 |
 | POST /organizations/{org}/assets/{asset}/relationships/{relationship}/remove | Editor + CSRF | Expected-version soft removal, audit/outbox; 204 or conflict 409 |
@@ -26,11 +36,15 @@ Source of truth: [OpenAPI](../contracts/openapi.json); generated TypeScript: `ap
 | GET /organizations/{org}/audit?before={long} | Editor | Latest-first organization audit |
 | GET /search?q={text}&organizationId={uuid}&type={asset or document}&after={cursor} | Active membership, per-result current Viewer/Editor grants | Ranked, audited asset/document previews; all optional filters except q |
 
-GET `/health` is process liveness, not dependency readiness. `/openapi/v1.json` is available in the local Development host; production startup is currently disabled.
+GET `/health` is process liveness, not dependency readiness. `/openapi/v1.json` exposes route schemas. Nondevelopment startup requires configured Okta and an explicit protected persisted key ring; no public deployment is configured. Callback validation is handled by OIDC middleware before API antiforgery; ordinary mutations/login initiation still require CSRF. See ADR 010 for provider prerequisites.
 
 Mutations send JSON and `X-CSRF-TOKEN` from GET `/csrf`. Obtain a new token after identity changes. Cookies are HttpOnly; no browser localStorage tokens. API responses use `Cache-Control: no-store`. Validation/conflict/internal errors use Problem Details; bare 401/403/404 may have no body. Internal failures include correlation IDs, not SQL or documentation.
 
 Create asset: `{ "name": "Edge firewall", "kind": "Network" }`. Create document: `{ "assetId": "<scoped UUID>", "title": "Failover", "content": "Synthetic plain text" }`. Revise: `{ "title": "Failover", "content": "Revised text", "expectedVersion": 1 }`.
+
+Directory create: `{ "name": "Branch", "details": "Synthetic address or contact role", "email": "", "phone": "", "notes": "Synthetic notes", "isArchived": false, "expectedVersion": 0 }`. Update requires the observed positive expectedVersion. Email/phone must be empty for locations; contact email must be a plain valid address, not a display-name expression. Limits: name 160, details 500, notes 4,000, email 320, phone 80; unsupported control characters are rejected. Updates return a new version, archival remains readable by ID/includeArchived, and physical deletion is unavailable. Read audit failure withholds rows/cursors.
+
+Asset DTO includes version/locationId. Asset edit: `{ "name": "Branch server", "kind": "Server", "locationId": "<active location in this organization>", "expectedVersion": 1 }`; null unassigns placement. An existing archived placement may be retained, but new assignments require active locations. Restore uses the same sourceVersion/expectedVersion/reason shape as document restoration. It appends a new snapshot of name/type/location, preserving documents and relationships. Archived historical placements must be reactivated before restore. Audit exposes numeric versions; reason appears only in audited snapshot history. Existing assets receive a migration-attributed initial snapshot. See ADR 009.
 
 Names/titles: max 160 characters; type: 80; content: 50,000; whitespace-only required values are invalid. Server generates stable UUIDs. Pages are `{ items, nextCursor }` with at most 50 entries. Assets/documents sort UUID ascending; revisions/audit sort numeric cursor descending. Pass returned cursor unchanged via the route's `after`/`before` parameter. No cross-scope total counts are exposed.
 
@@ -46,4 +60,4 @@ Search requires 2–120 characters, at most 12 complete-word terms and no contro
 
 Search writes read-audit events before serializing results/cursor; audit failure returns 500 without previews. A missing/unavailable projection/source returns 503 without fallback or cached results. Invalid query/filter/cursor returns 400. Search terms and snippets are not recorded in audit/outbox/log messages. Configure any future reverse-proxy access logging to redact query strings.
 
-404 hides guessed/inaccessible organizations and mismatched targets; a forbidden action inside a readable organization returns 403; inactive membership returns 401. A 409 does not overwrite the document or create a successful event. Body/history reads fail if their audit insert fails. Denied/authentication/metadata-read auditing remains incomplete. No delete, export, share, vault or permission-administration endpoint exists.
+404 hides guessed/inaccessible organizations and mismatched targets; a forbidden action inside a readable organization returns 403; inactive membership returns 401. A 409 does not overwrite the record or create a successful event. Audited body/history/directory/relationship reads fail if their audit insert fails. Denied/authentication and remaining metadata-read auditing are incomplete. No hard-delete, export, share, vault or permission-administration endpoint exists.

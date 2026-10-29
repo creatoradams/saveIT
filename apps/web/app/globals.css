@@ -1174,6 +1174,88 @@ td strong {
 .relationship-form .subtle {
   margin-bottom: 0;
 }
+.directory-panel {
+  padding-bottom: 24px;
+}
+.directory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  margin: 20px 24px;
+}
+.checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+.checkbox-label input {
+  width: auto;
+}
+.directory-list {
+  list-style: none;
+  padding: 0 24px;
+  margin: 0;
+}
+.directory-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.directory-list li > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.directory-list p {
+  margin: 6px 0;
+}
+.directory-list small {
+  color: var(--muted);
+}
+.directory-form {
+  display: grid;
+  gap: 15px;
+  margin: 22px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.directory-form input,
+.directory-form select,
+.directory-form textarea {
+  width: 100%;
+  min-width: 0;
+}
+.directory-form .checkbox-label input {
+  width: auto;
+}
+.directory-form .actions,
+.asset-metadata .actions {
+  flex-wrap: wrap;
+}
+.asset-metadata {
+  margin: 18px 0 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.asset-metadata .directory-form {
+  margin-inline: 0;
+}
+@media (max-width: 760px) {
+  .directory-form {
+    margin-inline: 14px;
+    padding: 14px;
+  }
+  .directory-controls {
+    margin-inline: 14px;
+  }
+  .directory-list {
+    padding-inline: 14px;
+  }
+}
 .comparison-form {
   display: flex;
   align-items: flex-end;

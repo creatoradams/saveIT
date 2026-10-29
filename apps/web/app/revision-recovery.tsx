@@ -7,6 +7,7 @@ export default function RevisionRecovery({
   document,
   organizationId,
   canEdit,
+  disabled = false,
   selection,
   onBusyChange,
   onRestored,
@@ -15,6 +16,7 @@ export default function RevisionRecovery({
   document: Doc;
   organizationId: string;
   canEdit: boolean;
+  disabled?: boolean;
   selection: { version: number; nonce: number } | null;
   onBusyChange: (value: boolean) => void;
   onRestored: (document: Doc, sourceVersion: number) => void;
@@ -60,6 +62,7 @@ export default function RevisionRecovery({
   }, [confirming]);
 
   async function compare(source: number, target: number, offset = 0) {
+    if (disabled || busy) return;
     request.current?.abort();
     const abort = new AbortController();
     request.current = abort;
@@ -93,7 +96,7 @@ export default function RevisionRecovery({
   }
   async function restore(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!comparison || !canRestore || conflict) return;
+    if (disabled || busy || !comparison || !canRestore || conflict) return;
     request.current?.abort();
     const abort = new AbortController();
     request.current = abort;
@@ -150,7 +153,7 @@ export default function RevisionRecovery({
             max={document.version}
             required
             value={from}
-            disabled={busy}
+            disabled={disabled || busy}
             onChange={(event) => {
               setFrom(Number(event.target.value));
               setComparison(null);
@@ -166,7 +169,7 @@ export default function RevisionRecovery({
             max={document.version}
             required
             value={to}
-            disabled={busy}
+            disabled={disabled || busy}
             onChange={(event) => {
               setTo(Number(event.target.value));
               setComparison(null);
@@ -174,7 +177,7 @@ export default function RevisionRecovery({
             }}
           />
         </label>
-        <button className="secondary" disabled={busy} type="submit">
+        <button className="secondary" disabled={disabled || busy} type="submit">
           Compare revisions
         </button>
       </form>
@@ -188,7 +191,7 @@ export default function RevisionRecovery({
       {error && !confirming && (
         <div className="message error" role="alert">
           {error}
-          <button onClick={reload} disabled={busy}>
+          <button onClick={reload} disabled={disabled || busy}>
             Reload current document
           </button>
         </div>
@@ -268,7 +271,7 @@ export default function RevisionRecovery({
           <div className="comparison-pagination">
             <button
               className="secondary"
-              disabled={busy || comparison.offset === 0}
+              disabled={disabled || busy || comparison.offset === 0}
               onClick={() =>
                 compare(
                   Number(comparison.from.version),
@@ -287,7 +290,7 @@ export default function RevisionRecovery({
             </span>
             <button
               className="secondary"
-              disabled={busy || comparison.nextOffset === null}
+              disabled={disabled || busy || comparison.nextOffset === null}
               onClick={() =>
                 compare(
                   Number(comparison.from.version),
@@ -303,7 +306,7 @@ export default function RevisionRecovery({
             <div className="message error" role="status">
               Compare with the current revision before restoring. Reload if the
               document has changed.
-              <button disabled={busy} onClick={reload}>
+              <button disabled={disabled || busy} onClick={reload}>
                 Reload current document
               </button>
             </div>
@@ -311,7 +314,7 @@ export default function RevisionRecovery({
           {canEdit && (
             <button
               className="primary"
-              disabled={busy || !canRestore}
+              disabled={disabled || busy || !canRestore}
               onClick={() => {
                 setReason("");
                 setError("");
@@ -327,7 +330,7 @@ export default function RevisionRecovery({
             className="restore-dialog"
             aria-labelledby="restore-heading"
             onCancel={(event) => {
-              if (busy) event.preventDefault();
+              if (busy || disabled) event.preventDefault();
               else setConfirming(false);
             }}
             onClose={() => setConfirming(false)}
@@ -357,7 +360,7 @@ export default function RevisionRecovery({
                   rows={3}
                   value={reason}
                   autoFocus
-                  disabled={busy}
+                  disabled={disabled || busy}
                   onChange={(event) => setReason(event.target.value)}
                 />
               </label>
@@ -369,7 +372,11 @@ export default function RevisionRecovery({
                 <div className="message error" role="alert">
                   {error}
                   {conflict && (
-                    <button type="button" disabled={busy} onClick={reload}>
+                    <button
+                      type="button"
+                      disabled={disabled || busy}
+                      onClick={reload}
+                    >
                       Reload current document
                     </button>
                   )}
@@ -379,14 +386,16 @@ export default function RevisionRecovery({
                 <button
                   type="submit"
                   className="primary"
-                  disabled={busy || conflict || reason.trim().length < 3}
+                  disabled={
+                    disabled || busy || conflict || reason.trim().length < 3
+                  }
                 >
                   Create restored revision
                 </button>
                 <button
                   type="button"
                   className="secondary"
-                  disabled={busy}
+                  disabled={disabled || busy}
                   onClick={() => setConfirming(false)}
                 >
                   Cancel restore

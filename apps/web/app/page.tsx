@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import SearchPanel from "./search-panel";
 import RevisionRecovery from "./revision-recovery";
 import AssetRelationships from "./asset-relationships";
+import DirectoryPanel from "./directory-panel";
+import AssetMetadata from "./asset-metadata";
 import {
   api,
   ApiError,
@@ -31,6 +33,10 @@ const time = (value: string) =>
 export default function Workspace() {
   const [session, setSession] = useState<Session | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [authOptions, setAuthOptions] = useState({
+    development: false,
+    okta: false,
+  });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState("");
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -47,9 +53,9 @@ export default function Workspace() {
   } | null>(null);
   const [events, setEvents] = useState<Audit[]>([]);
   const [auditCursor, setAuditCursor] = useState<string | null>(null);
-  const [view, setView] = useState<"workspace" | "audit" | "search">(
-    "workspace",
-  );
+  const [view, setView] = useState<
+    "workspace" | "audit" | "search" | "directory"
+  >("workspace");
   const searchSelection = useRef<SearchHit | null>(null);
   const [navigationVersion, setNavigationVersion] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -82,13 +88,19 @@ export default function Workspace() {
 
   useEffect(() => {
     (async () => {
+      let development = false;
       try {
+        const options = await api<{ development: boolean; okta: boolean }>(
+          "/auth/options",
+        );
+        setAuthOptions(options);
+        development = options.development;
         await loadSession();
       } catch (err) {
         if (!(err instanceof ApiError && err.status === 401))
           setError(errorText(err));
         try {
-          setProfiles(await api<Profile[]>("/dev/profiles"));
+          if (development) setProfiles(await api<Profile[]>("/dev/profiles"));
         } catch (err) {
           setError(errorText(err));
         }
@@ -223,7 +235,9 @@ export default function Workspace() {
       setEvents([]);
       setRevisions([]);
       setEditing(false);
-      setProfiles(await api<Profile[]>("/dev/profiles"));
+      setProfiles(
+        authOptions.development ? await api<Profile[]>("/dev/profiles") : [],
+      );
     });
   }
   async function createAsset(event: FormEvent<HTMLFormElement>) {
@@ -243,6 +257,22 @@ export default function Workspace() {
       setAssetForm(false);
       setRefresh((x) => x + 1);
       setNotice("Asset created. Add documentation to give your team context.");
+    });
+  }
+  async function startOkta() {
+    await perform(async () => {
+      const csrf = await api<{ token: string }>("/csrf");
+      const form = globalThis.document.createElement("form");
+      form.method = "POST";
+      form.action = "/api/v1/auth/login";
+      const token = globalThis.document.createElement("input");
+      token.type = "hidden";
+      token.name = "__RequestVerificationToken";
+      token.value = csrf.token;
+      form.appendChild(token);
+      globalThis.document.body.appendChild(form);
+      form.submit();
+      form.remove();
     });
   }
   async function openDocument(id: string) {
@@ -322,14 +352,29 @@ export default function Workspace() {
           <br />
           Welcome to SaveIT.
         </p>
-        <section className="login-panel" aria-label="Development sign in">
+        <section
+          className="login-panel"
+          aria-label={
+            authOptions.development
+              ? "Development sign in"
+              : "Enterprise sign in"
+          }
+        >
           <div className="dev-label">
-            <span className="dot" /> DEVELOPMENT WORKSPACE
+            <span className="dot" />{" "}
+            {authOptions.development
+              ? "DEVELOPMENT WORKSPACE"
+              : "SAVEIT SIGN IN"}
           </div>
-          <h2>Choose a synthetic profile</h2>
+          <h2>
+            {authOptions.development
+              ? "Choose a synthetic profile"
+              : "Sign in to your workspace"}
+          </h2>
           <p>
-            This local sign-in simulates identity for development. Use synthetic
-            data only.
+            {authOptions.development
+              ? "This local sign-in simulates identity for development. Use synthetic data only."
+              : "Use your organization's configured identity provider."}
           </p>
           {profiles.map((profile) => (
             <button
@@ -346,7 +391,12 @@ export default function Workspace() {
               <span aria-hidden="true">↗</span>
             </button>
           ))}
-          {!profiles.length && (
+          {authOptions.okta && (
+            <button className="primary" disabled={busy} onClick={startOkta}>
+              Sign in with Okta
+            </button>
+          )}
+          {!profiles.length && !authOptions.okta && (
             <p>
               Development identity is unavailable. Check the API configuration.
             </p>
@@ -401,6 +451,13 @@ export default function Workspace() {
           >
             <span aria-hidden="true">◷</span> Audit history
           </button>
+          <button
+            className={view === "directory" ? "nav-item active" : "nav-item"}
+            disabled={busy}
+            onClick={() => setView("directory")}
+          >
+            Locations & contacts
+          </button>
         </nav>
         <span className="nav-label roadmap-label">ON THE ROADMAP</span>
         <div className="planned">
@@ -436,11 +493,16 @@ export default function Workspace() {
                 ? "Assets & documentation"
                 : view === "search"
                   ? "Search"
-                  : "Audit history"}
+                  : view === "directory"
+                    ? "Locations & contacts"
+                    : "Audit history"}
             </strong>
           </div>
           <span className="development">
-            <span className="dot" /> Local development
+            <span className="dot" />{" "}
+            {authOptions.development
+              ? "Local development"
+              : "Enterprise identity"}
           </span>
         </header>
         <main id="main">
@@ -454,14 +516,18 @@ export default function Workspace() {
                   ? "Everything has a home."
                   : view === "search"
                     ? "Find the detail that matters."
-                    : "Every change leaves a trail."}
+                    : view === "directory"
+                      ? "People and places, connected."
+                      : "Every change leaves a trail."}
               </h1>
               <p>
                 {view === "workspace"
                   ? "Keep your infrastructure and its know-how connected."
                   : view === "search"
                     ? "Search your assets and documentation across the organizations you can access."
-                    : "Follow the people and changes behind your documentation."}
+                    : view === "directory"
+                      ? "Keep location and contact records inside their organization."
+                      : "Follow the people and changes behind your documentation."}
               </p>
             </div>
           </div>
@@ -695,6 +761,25 @@ export default function Workspace() {
                         onBusyChange={setBusy}
                         onNavigate={openLinkedAsset}
                       />
+                      <AssetMetadata
+                        key={`metadata:${organizationId}:${assetId}:${selectedAsset.version ?? 1}`}
+                        asset={selectedAsset}
+                        organizationId={organizationId}
+                        canEdit={canEdit}
+                        disabled={busy || editing}
+                        onBusyChange={setBusy}
+                        onUpdated={(updated) => {
+                          setAssets((previous) =>
+                            previous.map((item) =>
+                              item.id === updated.id ? updated : item,
+                            ),
+                          );
+                          setNotice(
+                            `Asset saved as version ${updated.version}.`,
+                          );
+                          setError("");
+                        }}
+                      />
                       <div className="documents-heading">
                         <h3>
                           Documentation{" "}
@@ -883,6 +968,7 @@ export default function Workspace() {
                               organizationId={organizationId}
                               canEdit={canEdit}
                               selection={revisionSelection}
+                              disabled={busy || editing}
                               onBusyChange={setBusy}
                               onReload={() => openDocument(document.id)}
                               onRestored={(restored, sourceVersion) => {
@@ -988,6 +1074,14 @@ export default function Workspace() {
                 setNotice("");
                 setView("workspace");
               }}
+            />
+          )}
+          {organizationId && view === "directory" && (
+            <DirectoryPanel
+              key={organizationId}
+              organizationId={organizationId}
+              canEdit={canEdit}
+              onBusyChange={setBusy}
             />
           )}
           {organizationId && view === "audit" && (

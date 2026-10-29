@@ -26,8 +26,8 @@ public static class AssetRelationshipEndpoints
                     && (after == null || edge.Id.CompareTo(after.Value) > 0)
                 orderby edge.Id
                 select new AssetRelationshipDto(edge.Id, edge.OrganizationId,
-                    new AssetDto(source.Id, source.OrganizationId, source.Name, source.Kind, source.CreatedAt),
-                    new AssetDto(target.Id, target.OrganizationId, target.Name, target.Kind, target.CreatedAt),
+                    new AssetDto(source.Id, source.OrganizationId, source.Name, source.Kind, source.CreatedAt, source.Version, source.LocationId),
+                    new AssetDto(target.Id, target.OrganizationId, target.Name, target.Kind, target.CreatedAt, target.Version, target.LocationId),
                     edge.Kind, edge.Version, edge.CreatedBy, edge.CreatedAt)).Take(PageSize + 1).ToListAsync(context.RequestAborted);
             Record(db, scope, context, organizationId, assetId, "Asset.RelationshipsRead", false);
             await db.SaveChangesAsync(context.RequestAborted);
@@ -77,7 +77,7 @@ public static class AssetRelationshipEndpoints
         }).Produces(204).ProducesProblem(400).ProducesProblem(409);
     }
 
-    private static AssetDto Dto(Asset asset) => new(asset.Id, asset.OrganizationId, asset.Name, asset.Kind, asset.CreatedAt);
+    private static AssetDto Dto(Asset asset) => AssetHistoryEndpoints.Dto(asset);
     private static IResult Invalid(string message) => Results.Problem(statusCode: 400, title: message);
     private static IResult Conflict() => Results.Problem(statusCode: 409, title: "This relationship already exists or changed. Reload relationships before trying again.");
     private static void Record(SaveItDb db, TenantScope scope, HttpContext context, Guid org, Guid target, string action, bool publish = true)

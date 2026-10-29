@@ -29,11 +29,11 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
             if (!await LockAsync(connection, transaction, tenantId, false, cancellationToken)) break;
             await using (var command = new NpgsqlCommand("""
                 SELECT e."Id",e."OrganizationId",e."TargetId",e."Type",e."SchemaVersion"
-                FROM "OutboxEvents" e LEFT JOIN "SearchDeliveries" d
+                FROM "SearchDeliveries" d JOIN "OutboxEvents" e
                   ON d."TenantId"=e."TenantId" AND d."EventId"=e."Id"
-                WHERE e."TenantId"=@tenant AND d."CompletedAt" IS NULL AND d."DeadLetteredAt" IS NULL
-                  AND (d."NextAttemptAt" IS NULL OR d."NextAttemptAt" <= @now)
-                ORDER BY e."CreatedAt",e."Id" LIMIT 1
+                WHERE d."TenantId"=@tenant AND d."CompletedAt" IS NULL AND d."DeadLetteredAt" IS NULL
+                  AND d."NextAttemptAt" <= @now
+                ORDER BY d."NextAttemptAt",d."EventId" LIMIT 1
                 """, connection, transaction))
             {
                 command.Parameters.AddWithValue("tenant", tenantId);
@@ -45,10 +45,10 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
             try
             {
                 var isDeadLetter = false;
-                var type = current.Type switch { "Asset.Created" => "asset", "Document.Created" or "Document.Revised" or "Document.Restored" => "document", _ => null };
+                var type = current.Type switch { "Asset.Created" or "Asset.Revised" or "Asset.Restored" => "asset", "Document.Created" or "Document.Revised" or "Document.Restored" => "document", _ => null };
                 // Explicitly acknowledge core relationship events; they have no searchable text and
                 // must not delete or create asset/document projections. Other schemas/types still fail.
-                var metadataOnly = current.Type is "AssetRelationship.Created" or "AssetRelationship.Removed";
+                var metadataOnly = current.Type is "AssetRelationship.Created" or "AssetRelationship.Removed" or "Location.Created" or "Location.Revised" or "Contact.Created" or "Contact.Revised";
                 if (current.SchemaVersion != 1 || (type is null && !metadataOnly))
                 {
                     await WriteFailureAsync(connection, transaction, tenantId, current.Id, "unsupported_event", true, cancellationToken);
@@ -125,7 +125,9 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
         await using var transaction = await BeginTenantAsync(connection, tenantId, cancellationToken);
         await LockAsync(connection, transaction, tenantId, true, cancellationToken);
         await using var command = new NpgsqlCommand("""
-            DELETE FROM "SearchDeliveries" WHERE "TenantId"=@tenant AND "EventId"=@event
+            UPDATE "SearchDeliveries" SET "Attempts"=0,"NextAttemptAt"=CURRENT_TIMESTAMP,
+                "CompletedAt"=NULL,"DeadLetteredAt"=NULL,"ErrorCode"=NULL
+            WHERE "TenantId"=@tenant AND "EventId"=@event
             """, connection, transaction);
         command.Parameters.AddWithValue("tenant", tenantId);
         command.Parameters.AddWithValue("event", eventId);

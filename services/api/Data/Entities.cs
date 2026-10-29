@@ -9,6 +9,8 @@ public sealed class Membership : ITenantOwned
     public string Subject { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public bool Active { get; set; } = true;
+    public string? ExternalIssuer { get; set; }
+    public string? ExternalSubject { get; set; }
 }
 public sealed class Organization : ITenantOwned
 {
@@ -31,6 +33,49 @@ public sealed class Asset : ITenantOwned
     public string Name { get; set; } = "";
     public string Kind { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid? LocationId { get; set; }
+    public int Version { get; set; } = 1;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+public sealed class Location : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = "";
+    public string Details { get; set; } = "";
+    public string Notes { get; set; } = "";
+    public int Version { get; set; } = 1;
+    public bool IsArchived { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+public sealed class Contact : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = "";
+    public string Details { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public string Notes { get; set; } = "";
+    public int Version { get; set; } = 1;
+    public bool IsArchived { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+public sealed class AssetRevision : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid AssetId { get; set; }
+    public int Version { get; set; }
+    public string Name { get; set; } = "";
+    public string Kind { get; set; } = "";
+    public Guid? LocationId { get; set; }
+    public string Actor { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+    public int? RestoredFromVersion { get; set; }
+    public string? RestoreReason { get; set; }
 }
 public sealed class Document : ITenantOwned
 {

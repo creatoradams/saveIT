@@ -1,0 +1,17 @@
+# ADR 011: enqueue search work in the outbox transaction
+
+Accepted after efficiency/security review, 2026-10-29. Supplements [ADR 006](006-search-and-delivery.md).
+
+Selecting unacknowledged outbox rows through retained completion history repeatedly scanned old events. A timestamp/UUID high-water mark could skip an older event whose transaction commits late. Instead, an AFTER INSERT trigger creates a pending SearchDelivery in the same business/outbox transaction. Attempts starts at zero. Migration backfill inserts only missing receipts and preserves existing completion, retry and dead-letter state.
+
+The worker selects only due, incomplete, non-dead-letter receipts, joins their tenant-qualified outbox event and orders by NextAttemptAt/EventId. The partial index `(TenantId, NextAttemptAt, EventId)` has the same pending predicate. Completed history remains retained outside this index; each poll no longer walks completed outbox history. Tests establish index eligibility, not measured latency or enterprise scaling. Batches remain bounded at 100 with the same per-tenant lock, atomic projection/receipt, retries and dead letters.
+
+The API still has no direct receipt writes. `public.enqueue_search_delivery()` is a fixed SECURITY DEFINER trigger function taking only NEW.TenantId/NEW.Id. It qualifies tables, sets search_path to pg_catalog,pg_temp, revokes PUBLIC execution and performs no dynamic SQL. The existing composite FK ties every receipt to its own tenant's event. The API's outbox insertion remains constrained by source RLS. Queue insert failure intentionally rolls back the entire business/revision/audit/outbox transaction; availability is traded for durable discovery.
+
+The search worker no longer needs DELETE on SearchDeliveries; migration revokes it and the startup guard requires SELECT/INSERT/UPDATE there. Replay resets an existing tenant/event receipt, including attempts and errors; wrong-tenant or missing receipt returns false. Do not manually delete receipts. A trusted operator can reinsert a missing receipt from its scoped outbox key after diagnosing an administrative deletion, or rebuild current projections. No public replay/admin API exists. SearchEntries still requires DELETE for rebuild/missing-source cleanup.
+
+The synthetic migration owner can bypass RLS and owns the trigger function. **Production provisioning remains unresolved:** independently review a narrowly privileged non-login definer, explicit forced-RLS policy/tenant context, controlled backfill authority, ownership changes and release grants. Never use the migration owner as the API/worker connection or weaken forced RLS to make deployment pass. The current migrations are coordinated local changes, not verified rolling production releases.
+
+Regression tests prove an older uncommitted event is processed after a newer committed one, scoped replay, enqueue-failure rollback, receipt privilege separation and partial-index eligibility across retained completed history. Static review checked the fixed function and query/index pair. No load benchmark or production operations claim follows.
+
+PostgreSQL references checked by the security reviewer: [SECURITY DEFINER function precautions](https://www.postgresql.org/docs/18/sql-createfunction.html#SQL-CREATEFUNCTION-SECURITY) and [role privilege inquiry semantics](https://www.postgresql.org/docs/18/functions-info.html#FUNCTIONS-INFO-ACCESS-TABLE).

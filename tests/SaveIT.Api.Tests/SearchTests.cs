@@ -254,7 +254,7 @@ public sealed class SearchTests(DatabaseFixture fixture) : IDisposable
             await using var count = new NpgsqlCommand($"SELECT count(*) FROM \"{table}\"", worker);
             Assert.Equal(0L, await count.ExecuteScalarAsync());
         }
-        foreach (var sql in new[] { "UPDATE \"Assets\" SET \"Name\"='Forbidden'", "UPDATE \"OutboxEvents\" SET \"DeliveredAt\"=now()", "SELECT * FROM \"Memberships\"", "INSERT INTO \"AuditEvents\" DEFAULT VALUES" })
+        foreach (var sql in new[] { "UPDATE \"Assets\" SET \"Name\"='Forbidden'", "UPDATE \"OutboxEvents\" SET \"DeliveredAt\"=now()", "SELECT * FROM \"Memberships\"", "INSERT INTO \"AuditEvents\" DEFAULT VALUES", "DELETE FROM \"SearchDeliveries\"" })
         {
             await using var command = new NpgsqlCommand(sql, worker);
             Assert.Equal("42501", (await Assert.ThrowsAsync<PostgresException>(async () => await command.ExecuteNonQueryAsync())).SqlState);
@@ -285,6 +285,109 @@ public sealed class SearchTests(DatabaseFixture fixture) : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, (await alice.GetAsync(Query("Router", type: "vault"))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await alice.GetAsync(Query("Router", after: "forged-cursor"))).StatusCode);
         Assert.Empty((await Find(alice, "') ; DROP TABLE nonexistent; --")).Items);
+    }
+
+    [Fact]
+    public async Task Queue_discovers_late_commits_and_replays_only_the_selected_tenant()
+    {
+        while ((await processor.ProcessBatchAsync(TA)).Completed > 0) { }
+        var early = Guid.NewGuid(); var late = Guid.NewGuid();
+        await using var owner = new NpgsqlConnection(fixture.OwnerConnection); await owner.OpenAsync();
+        await using var transaction = await owner.BeginTransactionAsync();
+        await using (var insert = new NpgsqlCommand($"""
+            INSERT INTO "OutboxEvents" ("Id","TenantId","OrganizationId","TargetId","Type","SchemaVersion","CreatedAt")
+            VALUES ('{late}','{TA}','{A}',gen_random_uuid(),'Location.Created',1,now()-interval '1 year')
+            """, owner, transaction)) await insert.ExecuteNonQueryAsync();
+        await fixture.Execute($"""
+            INSERT INTO "OutboxEvents" ("Id","TenantId","OrganizationId","TargetId","Type","SchemaVersion","CreatedAt")
+            VALUES ('{early}','{TA}','{A}',gen_random_uuid(),'Contact.Created',1,now())
+            """);
+        Assert.Equal(1, (await processor.ProcessBatchAsync(TA)).Completed);
+        Assert.Equal(0L, await fixture.Scalar<long>($"SELECT count(*) FROM \"SearchDeliveries\" WHERE \"EventId\"='{late}'"));
+        await transaction.CommitAsync();
+        Assert.Equal(1, (await processor.ProcessBatchAsync(TA)).Completed);
+        Assert.False(await processor.ReplayAsync(TB, late));
+        Assert.True(await processor.ReplayAsync(TA, late));
+        Assert.True(await fixture.Scalar<bool>($"SELECT \"Attempts\"=0 AND \"CompletedAt\" IS NULL AND \"ErrorCode\" IS NULL FROM \"SearchDeliveries\" WHERE \"EventId\"='{late}'"));
+        Assert.Equal(1, (await processor.ProcessBatchAsync(TA)).Completed);
+        Assert.Equal(0, (await processor.ProcessBatchAsync(TA)).Completed);
+    }
+
+    [Fact]
+    public async Task Queue_enqueue_failure_rolls_back_core_history_audit_and_outbox_without_granting_api_receipt_writes()
+    {
+        using var alice = await Login(); var name = Key();
+        var audit = await fixture.Scalar<long>("SELECT count(*) FROM \"AuditEvents\"");
+        var outbox = await fixture.Scalar<long>("SELECT count(*) FROM \"OutboxEvents\"");
+        var revisions = await fixture.Scalar<long>("SELECT count(*) FROM \"AssetRevisions\"");
+        Assert.False(await fixture.Scalar<bool>("SELECT has_function_privilege('saveit_app','public.enqueue_search_delivery()','EXECUTE') OR has_table_privilege('saveit_app','\"SearchDeliveries\"','INSERT,UPDATE,DELETE')"));
+        await fixture.Execute("CREATE FUNCTION fail_queue_enqueue() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic enqueue failure'; END $$; CREATE TRIGGER fail_queue_enqueue BEFORE INSERT ON \"SearchDeliveries\" FOR EACH ROW EXECUTE FUNCTION fail_queue_enqueue()");
+        try
+        {
+            Assert.Equal(HttpStatusCode.InternalServerError, (await Write(alice, HttpMethod.Post, Org(A) + "/assets", new { name, kind = "Network" })).StatusCode);
+            Assert.Equal(0L, await fixture.Scalar<long>($"SELECT count(*) FROM \"Assets\" WHERE \"Name\"='{name}'"));
+            Assert.Equal(audit, await fixture.Scalar<long>("SELECT count(*) FROM \"AuditEvents\""));
+            Assert.Equal(outbox, await fixture.Scalar<long>("SELECT count(*) FROM \"OutboxEvents\""));
+            Assert.Equal(revisions, await fixture.Scalar<long>("SELECT count(*) FROM \"AssetRevisions\""));
+        }
+        finally { await fixture.Execute("DROP TRIGGER fail_queue_enqueue ON \"SearchDeliveries\"; DROP FUNCTION fail_queue_enqueue()"); }
+        await Asset(alice, A, name);
+    }
+
+    [Fact]
+    public async Task Due_queue_can_use_its_partial_index_without_scanning_completed_outbox_history()
+    {
+        await fixture.Execute($"""
+            INSERT INTO "OutboxEvents" ("Id","TenantId","OrganizationId","TargetId","Type","SchemaVersion","CreatedAt")
+            SELECT gen_random_uuid(),'{TA}','{A}',gen_random_uuid(),'Contact.Created',1,now() FROM generate_series(1,1000);
+            UPDATE "SearchDeliveries" SET "CompletedAt"=now() WHERE "TenantId"='{TA}' AND "DeadLetteredAt" IS NULL;
+            """);
+        await using var worker = new NpgsqlConnection(fixture.WorkerConnection); await worker.OpenAsync();
+        await using var transaction = await worker.BeginTransactionAsync();
+        await using (var setup = new NpgsqlCommand($"SELECT set_config('app.tenant_id','{TA}',true); SET LOCAL enable_seqscan=off", worker, transaction)) await setup.ExecuteNonQueryAsync();
+        // Structural index eligibility, not a latency/load benchmark. The transaction-local setting is discarded.
+        await using var explain = new NpgsqlCommand($"""
+            EXPLAIN SELECT e."Id" FROM "SearchDeliveries" d JOIN "OutboxEvents" e
+              ON d."TenantId"=e."TenantId" AND d."EventId"=e."Id"
+            WHERE d."TenantId"='{TA}' AND d."CompletedAt" IS NULL AND d."DeadLetteredAt" IS NULL
+              AND d."NextAttemptAt"<=now() ORDER BY d."NextAttemptAt",d."EventId" LIMIT 1
+            """, worker, transaction);
+        await using var reader = await explain.ExecuteReaderAsync(); var plan = "";
+        while (await reader.ReadAsync()) plan += reader.GetString(0) + "\n";
+        Assert.Contains("IX_SearchDeliveries_Due", plan);
+    }
+
+    [Theory]
+    [InlineData("owner")]
+    [InlineData("writer")]
+    [InlineData("bypass")]
+    public async Task Guards_reject_indirect_noinherit_owner_writer_and_bypass_roles(string authority)
+    {
+        var role = "saveit_guard_" + Guid.NewGuid().ToString("N");
+        var login = authority == "writer" ? "saveit_search_worker" : "saveit_app";
+        var priorOwner = await fixture.Scalar<string>("SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid='\"Memberships\"'::regclass");
+        await fixture.Execute($"CREATE ROLE {role} NOLOGIN NOINHERIT " + (authority == "bypass" ? "BYPASSRLS" : "NOBYPASSRLS"));
+        try
+        {
+            if (authority == "owner") await fixture.Execute($"ALTER TABLE \"Memberships\" OWNER TO {role}");
+            if (authority == "writer") await fixture.Execute($"GRANT UPDATE (\"Content\") ON \"DocumentRevisions\" TO {role}");
+            await fixture.Execute($"GRANT {role} TO {login} WITH INHERIT FALSE");
+            if (authority == "writer") await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ValidateAsync());
+            else
+            {
+                await using var app = new NpgsqlConnection(fixture.AppConnection); await app.OpenAsync();
+                await Assert.ThrowsAsync<InvalidOperationException>(() => DatabaseRoleGuard.ValidateAsync(app));
+                using var unsafeFactory = new ApiFactory(fixture.AppConnection);
+                Assert.Throws<InvalidOperationException>(() => unsafeFactory.CreateClient());
+            }
+        }
+        finally
+        {
+            await fixture.Execute($"REVOKE {role} FROM {login}");
+            if (authority == "owner") await fixture.Execute($"ALTER TABLE \"Memberships\" OWNER TO \"{priorOwner}\"");
+            await fixture.Execute($"DROP OWNED BY {role}; DROP ROLE {role}");
+        }
+        await processor.ValidateAsync();
     }
 
     public void Dispose() => factory.Dispose();

@@ -1,0 +1,17 @@
+# ADR 009: scoped directory records and asset metadata history
+
+Accepted for the local core, 2026-10-29.
+
+Locations and contacts belong to one tenant and managed organization. Current Viewer grants permit audited lists/reads; Editor grants permit create, edit, archive and reactivate. No directory endpoint grants identity authority. Contact email is metadata, never a sign-in mapping. Names, address/role details, notes, email and phone are bounded plain text. React renders them as text. Contacts do not hold credentials.
+
+Directory pages use UUID keysets, at most 50 records, and an explicit includeArchived filter. Archival retains the row; normal lists omit it. Expected-version predicates reject simultaneous or stale updates with 409. Audit and schema-v1 outbox invalidation metadata commit with every successful change. Read audits commit before fields or cursors are returned. Versioned contact/location snapshots, merge/deduplication, bulk operations and richer address/person schemas remain future work.
+
+An asset may reference a location only through the composite TenantId/OrganizationId/LocationId FK. New assignments require an active location in that organization. Existing archived placements remain readable and may be retained during an unrelated edit; the UI labels them archived. Restoring a snapshot containing an archived location is rejected until that location is reactivated. Archival does not remove assets or rewrite historical snapshots.
+
+Assets now have optimistic integer versions and immutable name/type/location snapshots. Creation records version 1; editing appends the next revision; Editor restoration copies an earlier snapshot into a new version with source/reason provenance. Documents and relationships keep their asset identity. Revisions, business row, successful audit and outbox metadata commit together. Restoration reasons are in audited history only; audit contains numeric versions. A self-reference/check validates restoration provenance, and composite asset/location FKs preserve scope. The application cannot update/delete snapshots or hard-delete directory records.
+
+The migration backfills existing assets with a version-1 snapshot attributed to `migration`, using the previous created timestamp. This is an honest starting snapshot, not recovered past change history. Search's security-invoker core view now exposes actual asset version/update time. Asset.Created/Revised/Restored events rehydrate current state; stale versions are excluded until projection catch-up. Contact/location events are acknowledged without indexing personal directory fields.
+
+All 15 tenant tables have forced RLS. Startup rejects ownership or reachable privileged roles; worker startup also rejects reachable table/column core writes. Directory/history routes recheck membership and organization action independently of UI state. Placement reads have their own cancellation/retry state; editing and recovery controls honor other active workspace operations.
+
+Evidence: `DirectoryTests`, `SearchTests`, and `tests/e2e/directory.spec.ts` cover persistence, isolation, role/CSRF denial, archived placement, stale/concurrent changes, restoration races, injected audit/outbox/queue failures, raw FK/RLS/append-only rights, real search, browser conflict recovery, request cancellation, global edit locks and automated accessibility. Asset comparison, deletion recovery, richer schemas and generalized rollback remain in the roadmap.
