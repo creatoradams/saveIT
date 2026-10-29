@@ -36,6 +36,15 @@ public sealed class AssetSchemaTests(DatabaseFixture fixture) : IDisposable
     {
         var r = await Write(client, Root("asset-types", org), Input()); Assert.Equal(HttpStatusCode.Created, r.StatusCode); return (await r.Content.ReadFromJsonAsync<AssetTypeDto>())!;
     }
+    private static async Task<List<AssetTypeDto>> Types(HttpClient client, bool includeArchived = false)
+    {
+        var rows=new List<AssetTypeDto>();string? cursor=null;var pages=0;
+        do {
+            var page=(await client.GetFromJsonAsync<CursorPage<AssetTypeDto>>(Root("asset-types")+"?includeArchived="+includeArchived.ToString().ToLowerInvariant()+(cursor==null?"":"&after="+cursor)))!;
+            Assert.InRange(page.Items.Count,0,50);rows.AddRange(page.Items);cursor=page.NextCursor;Assert.True(++pages<100);
+        } while(cursor!=null);
+        return rows;
+    }
     private static async Task<AssetDto> Asset(HttpClient client, AssetTypeDto type, string values = """{"serial":"private-marker","managed":false,"watts":123.125,"expiry":"2028-02-29","tier":"Core"}""")
     {
         var r = await Write(client, Root("assets"), new CreateAssetRequest("Synthetic equipment", "Network", type.Id, type.Version, Json(values)));
@@ -172,8 +181,8 @@ public sealed class AssetSchemaTests(DatabaseFixture fixture) : IDisposable
     {
         using var client = await Login(); var type = await Type(client); var asset = await Asset(client,type); var typePath=Root("asset-types")+"/"+type.Id; var path=Root("assets")+"/"+asset.Id;
         Assert.Equal(HttpStatusCode.OK,(await Write(client,typePath,Input(1,true),true)).StatusCode);
-        Assert.DoesNotContain((await client.GetFromJsonAsync<CursorPage<AssetTypeDto>>(Root("asset-types")))!.Items,x=>x.Id==type.Id);
-        Assert.Contains((await client.GetFromJsonAsync<CursorPage<AssetTypeDto>>(Root("asset-types")+"?includeArchived=true"))!.Items,x=>x.Id==type.Id);
+        Assert.DoesNotContain(await Types(client),x=>x.Id==type.Id);
+        Assert.Contains(await Types(client,true),x=>x.Id==type.Id);
         Assert.Equal(HttpStatusCode.BadRequest,(await Write(client,Root("assets"),new CreateAssetRequest("No","Network",type.Id,1,Json("{\"serial\":\"S\",\"managed\":true}")))).StatusCode);
         Assert.Equal(HttpStatusCode.OK,(await Write(client,path+"/fields",new ReviseAssetFieldsRequest(1,type.Id,1,Json("{\"serial\":\"Changed\",\"managed\":true}")),true)).StatusCode);
         Assert.Equal(HttpStatusCode.OK,(await Write(client,path+"/restore",new RestoreDocumentRequest(1,2,"Retain same archived pin"))).StatusCode);
