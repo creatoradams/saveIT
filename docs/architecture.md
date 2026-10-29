@@ -40,8 +40,8 @@ All fifteen tenant tables have forced PostgreSQL RLS. API and worker roles are n
 | Record | Scope and constraints |
 | --- | --- |
 | Tenant | Subscribing account; RLS on Id |
-| Membership | Tenant + canonical subject; active flag; nullable exact external issuer/subject pair with scoped uniqueness |
-| Organization | Managed entity; alternate key (TenantId, Id) |
+| Membership | Tenant + canonical subject; active flag; separately provisioned CanManageOrganizations capability; nullable exact external issuer/subject pair with scoped uniqueness |
+| Organization | Managed entity; alternate key (TenantId, Id), bounded name, optimistic version/update time |
 | OrganizationGrant | Tenant/membership/organization key; checked Viewer/Editor role |
 | Location / Contact | Tenant/organization-qualified IDs; bounded plain-text fields, optimistic versions, retained archival |
 | Asset | Tenant/organization/Id key; bounded name/type, optional scoped location; optimistic version, created/updated timestamps |
@@ -60,7 +60,9 @@ The remaining required entities are explicitly planned: User/identity directory,
 
 Endpoint filters commit before executing the HTTP result. Exceptions, stale versions, and failed writes roll back the request transaction. A business write, its revision, its audit event, and its outbox event share a single atomic commit. Document body/revision reads also require a successful audit insert. Revision updates use an expected version in both API validation and the EF update predicate. A conflict returns 409 without overwriting user text or inserting a successful change event.
 
-Assets/directories/documents/revisions/audit use cursor pages of at most 50 rows. Organization selection is currently capped at 100 grants; a paginated organization picker is required for larger accounts. Document lists return metadata only; bodies are loaded through an audited endpoint. No hard delete, export, share, custom fields, secrets, HTML rendering, or uploads are exposed.
+Organizations/assets/directories/documents/revisions/audit use cursor pages of at most 50 rows. Organization pages use protected tenant/membership-bound name/UUID cursors and current grants before labels or continuation; authorized lookup by ID supports search navigation beyond loaded choices. All organization list/read metadata is audited before serialization. Document lists return metadata only; bodies are loaded through an audited endpoint. No hard delete, export, share, custom fields, secrets, HTML rendering, or uploads are exposed.
+
+Limited organization administration uses a live, separately provisioned capability. Creation gives only its creator an Editor grant to a server-generated brand-new organization; renaming additionally requires an existing Editor grant. Checked SECURITY DEFINER functions validate and lock the current tenant/membership/capability and rename grant, enforce plain creation/expected versions, and share the request's atomic audit/outbox transaction. No direct API organization/grant writes are allowed. The worker guard rejects execution of either function through direct/PUBLIC/reachable roles. No existing permission/grant/capability administration or revocation endpoint is exposed. Synthetic seed restores Alice/Bob's local capability; real provisioning and production definer/forced-RLS operation remain externally controlled/unverified. See [ADR 012](adr/012-organization-administration.md).
 
 Locations/contacts support audited create/read/edit/archive/reactivate with optimistic versions. Assets support versioned metadata changes, active scoped placement, audited history and confirmed restore as a new version; existing archived placements remain readable. Revisions retain exact name/type/location and restoration provenance, with no app update/delete permission. Migration backfill establishes an initial snapshot, not fabricated earlier history. See [ADR 009](adr/009-directory-and-asset-history.md).
 

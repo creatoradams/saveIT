@@ -12,11 +12,7 @@ public static class Endpoints
     {
         var group = app.MapGroup("/api/v1").RequireAuthorization().AddEndpointFilter<TenantFilter>();
         group.MapGet("/session", async (HttpContext c, SaveItDb db, TenantScope s) =>
-            new SessionDto(c.User.Identity!.Name!, s.TenantId, await db.Tenants.Where(x => x.Id == s.TenantId).Select(x => x.Name).SingleAsync()));
-        group.MapGet("/organizations", async (SaveItDb db, TenantScope s) =>
-            await (from grant in db.OrganizationGrants join org in db.Organizations on grant.OrganizationId equals org.Id
-                   where grant.MembershipId == s.MembershipId orderby org.Name, org.Id
-                   select new OrganizationDto(org.Id, org.Name, grant.Role)).Take(100).ToListAsync());
+            new SessionDto(c.User.Identity!.Name!, s.TenantId, await db.Tenants.Where(x => x.Id == s.TenantId).Select(x => x.Name).SingleAsync(), s.CanManageOrganizations));
 
         group.MapGet("/organizations/{organizationId:guid}/assets", async (Guid organizationId, Guid? after, SaveItDb db, TenantScope s) =>
         {

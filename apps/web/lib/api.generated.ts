@@ -301,41 +301,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/organizations": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: {
-      parameters: {
-        query?: never;
-        header?: never;
-        path?: never;
-        cookie?: never;
-      };
-      requestBody?: never;
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown;
-          };
-          content: {
-            "application/json": components["schemas"]["OrganizationDto"][];
-          };
-        };
-      };
-    };
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/v1/organizations/{organizationId}/assets": {
     parameters: {
       query?: never;
@@ -1281,6 +1246,182 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/organizations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          after?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CursorPageOfOrganizationDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["CreateOrganizationRequest"];
+        };
+      };
+      responses: {
+        /** @description Created */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["OrganizationDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Forbidden */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["OrganizationDto"];
+          };
+        };
+      };
+    };
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["ReviseOrganizationRequest"];
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["OrganizationDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Forbidden */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/organizations/{organizationId}/assets/{assetId}/revisions": {
     parameters: {
       query?: never;
@@ -1456,6 +1597,9 @@ export interface components {
       title: string;
       content: string;
     };
+    CreateOrganizationRequest: {
+      name: string;
+    };
     CreateRelationshipRequest: {
       /** Format: uuid */
       targetAssetId: string;
@@ -1483,6 +1627,10 @@ export interface components {
     };
     CursorPageOfDocumentDto: {
       items: components["schemas"]["DocumentDto"][];
+      nextCursor: null | string;
+    };
+    CursorPageOfOrganizationDto: {
+      items: components["schemas"]["OrganizationDto"][];
       nextCursor: null | string;
     };
     CursorPageOfRevisionDto: {
@@ -1572,6 +1720,10 @@ export interface components {
       id: string;
       name: string;
       role: string;
+      /** Format: int32 */
+      version: number | string;
+      /** Format: date-time */
+      updatedAt: string;
     };
     ProblemDetails: {
       type?: null | string;
@@ -1608,6 +1760,11 @@ export interface components {
     ReviseDocumentRequest: {
       title: string;
       content: string;
+      /** Format: int32 */
+      expectedVersion: number | string;
+    };
+    ReviseOrganizationRequest: {
+      name: string;
       /** Format: int32 */
       expectedVersion: number | string;
     };
@@ -1658,6 +1815,8 @@ export interface components {
       /** Format: uuid */
       tenantId: string;
       tenantName: string;
+      /** @default false */
+      canManageOrganizations: boolean;
     };
   };
   responses: never;

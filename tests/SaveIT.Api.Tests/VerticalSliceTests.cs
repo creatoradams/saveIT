@@ -42,8 +42,8 @@ public sealed class VerticalSliceTests(DatabaseFixture fixture)
     public async Task Full_flow_persists_assets_documents_revisions_audit_and_outbox()
     {
         using var alice = await Login("alice");
-        var orgs = await alice.GetFromJsonAsync<OrganizationDto[]>("/api/v1/organizations");
-        Assert.Equal(2, orgs!.Length);
+        var orgs = await alice.GetFromJsonAsync<CursorPage<OrganizationDto>>("/api/v1/organizations");
+        Assert.Equal(2, orgs!.Items.Count);
         var name = "Edge firewall " + Guid.NewGuid().ToString("N");
         var created = await Mutate(alice, HttpMethod.Post, Org(A) + "/assets", new { name, kind = "Network" });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -98,8 +98,8 @@ public sealed class VerticalSliceTests(DatabaseFixture fixture)
         using var alice = await Login("alice");
         var doc = await CreateDocument(alice);
         using var viewer = await Login("viewer");
-        var orgs = await viewer.GetFromJsonAsync<OrganizationDto[]>("/api/v1/organizations");
-        Assert.Single(orgs!); Assert.Equal("Viewer", orgs![0].Role);
+        var orgs = await viewer.GetFromJsonAsync<CursorPage<OrganizationDto>>("/api/v1/organizations");
+        Assert.Single(orgs!.Items); Assert.Equal("Viewer", orgs!.Items[0].Role);
         Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync(Org(A) + "/assets")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync(Org(A) + $"/documents/{doc.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync(Org(A) + $"/documents/{doc.Id}/revisions")).StatusCode);
@@ -150,7 +150,7 @@ public sealed class VerticalSliceTests(DatabaseFixture fixture)
         {
             await fixture.Execute($"DELETE FROM \"OrganizationGrants\" WHERE \"MembershipId\"='{membership}' AND \"OrganizationId\"='{A2}'");
             Assert.Equal(HttpStatusCode.NotFound, (await alice.GetAsync(Org(A2) + "/assets")).StatusCode);
-            Assert.DoesNotContain((await alice.GetFromJsonAsync<OrganizationDto[]>("/api/v1/organizations"))!, x => x.Id == A2);
+            Assert.DoesNotContain((await alice.GetFromJsonAsync<CursorPage<OrganizationDto>>("/api/v1/organizations"))!.Items, x => x.Id == A2);
             await fixture.Execute($"UPDATE \"Memberships\" SET \"Active\"=false WHERE \"Id\"='{membership}'");
             Assert.Equal(HttpStatusCode.Unauthorized, (await alice.GetAsync(Org(A) + "/assets")).StatusCode);
         }
@@ -278,8 +278,8 @@ public sealed class VerticalSliceTests(DatabaseFixture fixture)
     public async Task Cursor_pagination_is_bounded_and_scoped()
     {
         using var alice = await Login("alice");
-        var orgs = await alice.GetFromJsonAsync<OrganizationDto[]>("/api/v1/organizations");
-        Assert.All(orgs!, x => Assert.NotEqual(B, x.Id));
+        var orgs = await alice.GetFromJsonAsync<CursorPage<OrganizationDto>>("/api/v1/organizations");
+        Assert.All(orgs!.Items, x => Assert.NotEqual(B, x.Id));
         for (var i = 0; i < 52; i++)
             await fixture.Execute($"INSERT INTO \"Assets\" (\"Id\",\"TenantId\",\"OrganizationId\",\"Name\",\"Kind\",\"CreatedAt\") VALUES (gen_random_uuid(),'{DevelopmentSeed.TenantA}','{A2}','Page asset {i}','Network',now())");
         var first = (await alice.GetFromJsonAsync<CursorPage<AssetDto>>(Org(A2) + "/assets"))!;

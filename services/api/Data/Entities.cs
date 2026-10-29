@@ -9,6 +9,7 @@ public sealed class Membership : ITenantOwned
     public string Subject { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public bool Active { get; set; } = true;
+    public bool CanManageOrganizations { get; set; }
     public string? ExternalIssuer { get; set; }
     public string? ExternalSubject { get; set; }
 }
@@ -17,6 +18,8 @@ public sealed class Organization : ITenantOwned
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
     public string Name { get; set; } = "";
+    public int Version { get; set; } = 1;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 public sealed class OrganizationGrant : ITenantOwned
 {

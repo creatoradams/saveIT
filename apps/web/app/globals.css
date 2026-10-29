@@ -308,6 +308,7 @@ small {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 34px;
 }
 .context-bar > div {
@@ -326,6 +327,7 @@ small {
   gap: 2px;
 }
 .context-bar select {
+  min-height: 32px;
   border: 0;
   background: transparent;
   padding: 2px 26px 2px 0;
@@ -913,11 +915,13 @@ td strong {
   }
   .sidebar nav {
     display: flex;
+    flex-wrap: wrap;
     grid-row: 2;
     grid-column: 1/-1;
   }
   .nav-item {
     width: auto;
+    flex: 0 0 auto;
     padding: 9px 12px;
   }
   .sidebar-bottom {
@@ -964,6 +968,7 @@ td strong {
   .context-bar {
     padding: 14px;
     margin-bottom: 28px;
+    flex-wrap: wrap;
   }
   .context-bar select {
     max-width: 220px;
@@ -1177,6 +1182,14 @@ td strong {
 .directory-panel {
   padding-bottom: 24px;
 }
+.organization-panel > .subtle,
+.organization-panel > .message {
+  margin-inline: 24px;
+}
+.organization-panel .actions {
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
 .directory-controls {
   display: flex;
   flex-wrap: wrap;
@@ -1245,6 +1258,10 @@ td strong {
   margin-inline: 0;
 }
 @media (max-width: 760px) {
+  .organization-panel .directory-list li {
+    flex-direction: column;
+    gap: 10px;
+  }
   .directory-form {
     margin-inline: 14px;
     padding: 14px;

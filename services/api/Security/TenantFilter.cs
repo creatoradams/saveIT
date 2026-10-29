@@ -16,8 +16,12 @@ public sealed class TenantFilter(SaveItDb db, TenantScope scope) : IEndpointFilt
         scope.Subject = user.FindFirstValue("subject") ?? "";
         await using var transaction = await db.Database.BeginTransactionAsync(context.HttpContext.RequestAborted);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.tenant_id', {tenant.ToString()}, true)");
-        if (!await db.Memberships.AnyAsync(x => x.Id == membership && x.Subject == scope.Subject && x.Active))
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.membership_id', {membership.ToString()}, true)");
+        var current = await db.Memberships.AsNoTracking().Where(x => x.Id == membership && x.Subject == scope.Subject && x.Active)
+            .Select(x => new { x.CanManageOrganizations }).SingleOrDefaultAsync(context.HttpContext.RequestAborted);
+        if (current is null)
             return Results.Unauthorized();
+        scope.CanManageOrganizations = current.CanManageOrganizations;
         var result = await next(context);
         if (result is not IStatusCodeHttpResult status || status.StatusCode is null or < 400)
             await transaction.CommitAsync(context.HttpContext.RequestAborted);

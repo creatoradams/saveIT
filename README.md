@@ -2,7 +2,7 @@
 
 An IT documentation and operations platform. This repository implements a persistent **local foundation slice** and preserves the full enterprise scope in [the backlog](docs/backlog.md). It is not enterprise-ready or verified IT Glue parity.
 
-Working flow: choose a synthetic development identity → select an authorized organization → manage locations/contacts → create assets, assign locations and link dependencies → create a linked plain-text document → revise, inspect history and restore earlier metadata/content with an audited reason → find assets/documents with permission-aware search. PostgreSQL retains data across restarts. A separately configured Okta OIDC adapter is implemented; no live provider is connected.
+Working flow: choose a synthetic development identity → select an authorized organization through bounded pages → create/rename organizations with the separately provisioned administrator capability → manage locations/contacts → create assets, assign locations and link dependencies → create a linked plain-text document → revise, inspect history and restore earlier metadata/content with an audited reason → find assets/documents with permission-aware search. PostgreSQL retains data across restarts. A separately configured Okta OIDC adapter is implemented; no live provider is connected.
 
 ## Run locally
 
@@ -18,9 +18,9 @@ Open **http://127.0.0.1:3000**. The script starts real PostgreSQL 18 on loopback
 
 | Synthetic profile | Tenant | Access |
 | --- | --- | --- |
-| Alice Chen | Northstar IT | Editor: Acme Manufacturing and Harbor Clinic |
+| Alice Chen | Northstar IT | Organization administrator; Editor: Acme Manufacturing and Harbor Clinic |
 | Sam Rivera | Northstar IT | Viewer: Acme Manufacturing only; no audit administration |
-| Bob Morgan | Southbank IT | Editor: a separate Acme Manufacturing |
+| Bob Morgan | Southbank IT | Organization administrator; Editor: a separate Acme Manufacturing |
 
 Both tenants deliberately contain a Core switch. The script explicitly opts into development identity; default configuration disables it. Enabling it outside Development throws. Nondevelopment startup requires explicit Okta configuration and a certificate-protected persisted session key ring. See [Okta setup and remaining release gates](docs/adr/010-okta-identity.md); live provider/MFA and secure hosting remain unverified. Use synthetic data only locally.
 
@@ -73,7 +73,7 @@ Review migrations, tenant constraints and RLS before applying. Local `--migrate`
 
 ## Repository and remaining scope
 
-`apps/web` contains Next.js/TypeScript; `services/api` owns EF migrations, core records, policy, audit/outbox and Okta mapping; `services/search` implements derived full-text projections/querying; `services/workers` runs the actual search consumer. `infra/terraform` remains a non-provisioning scaffold. `contracts`, `tests` and `docs` hold shared schemas, PostgreSQL/Playwright checks, original brief, architecture, threats, eleven ADRs, parity inventory, roadmap and progress.
+`apps/web` contains Next.js/TypeScript; `services/api` owns EF migrations, core records, policy, audit/outbox and Okta mapping; `services/search` implements derived full-text projections/querying; `services/workers` runs the actual search consumer. `infra/terraform` remains a non-provisioning scaffold. `contracts`, `tests` and `docs` hold shared schemas, PostgreSQL/Playwright checks, original brief, architecture, threats, twelve ADRs, parity inventory, roadmap and progress.
 
 Tenant authority comes from a protected session and live membership. Server policies, tenant-qualified relationships and forced PostgreSQL RLS cover all 15 tenant tables. Startup rejects reachable owner/privileged roles and worker core-write privileges. Successful writes, snapshots, audit/outbox and pending search receipts commit atomically; revisions are append-only to the application role. Search consumes due receipts through a partial queue index with bounded retries, dead letters and replay. Generic external event delivery is not implemented.
 
@@ -85,6 +85,8 @@ Asset details include **Relationships**. Editors can link a different asset in t
 
 **Locations & contacts** provides organization-scoped create/edit/archive/reactivate flows with version conflicts and audited reads. **Edit asset details** changes name/type/location, while **View asset history** lets readers inspect snapshots and editors restore an earlier version with a reason. Archived locations retain existing placements; assigning or restoring an archived placement is rejected. Documents and relationships remain attached during an asset restore. See [ADR 009](docs/adr/009-directory-and-asset-history.md).
 
+**Manage organizations** is available to a separately provisioned administrator. Creation grants only the creator Editor access to the new empty organization; renaming additionally requires current Editor access. Checked database functions enforce these rules without direct API writes to organizations/grants. Names use expected-version conflicts and atomic audit/outbox. Organization selection loads 50-item pages, and search can open authorized organizations outside the loaded page. No archive/delete or general permission administration is exposed. Explicit local seeding restores Alice/Bob's synthetic administrator capability; real provisioning stays outside the API. See [ADR 012](docs/adr/012-organization-administration.md).
+
 With the local database running and worker project built:
 
 ```sh
@@ -95,4 +97,4 @@ node scripts/search-worker.mjs --replay-event <event-uuid> --once
 
 These commands use a separate synthetic `saveit_search_worker` account and the two configured development tenants. Rebuild does not modify core records. The background worker polls every second; writes may take a moment to appear. See [ADR 006](docs/adr/006-search-and-delivery.md) for ordering, retry/dead-letter semantics, tenant boundaries and recovery instructions. `SearchDeliveries` tracks this consumer; global `OutboxEvents.DeliveredAt` is intentionally untouched. Production needs externally managed worker credentials, explicit tenant scheduling and operator controls.
 
-**Remaining work:** live Okta/MFA verification and identity lifecycle/SCIM/SAML, advanced grants, organization management, richer asset schemas/relationships/comparison and deletion recovery, private attachments/rich editing, OpenSearch, external event delivery, integrations/workflows, vault/OTP/rotation, portals/discovery/mobile/extensions/offline, Office editing, AI, cloud operations and independent enterprise assurance. The user selected Okta and has no AWS/integration account yet. No public deployment exists. [Completion register](docs/completion-register.md), [review findings](docs/reviews/2026-10-29-code-review.md) and the full [backlog](docs/backlog.md) distinguish completed code, missing implementation and external prerequisites.
+**Remaining work:** versioned typed asset schemas/templates, broader organization lifecycle, live Okta/MFA verification and identity lifecycle/SCIM/SAML, advanced grants, richer relationships/comparison and deletion recovery, private attachments/rich editing, OpenSearch, external event delivery, integrations/workflows, vault/OTP/rotation, portals/discovery/mobile/extensions/offline, Office editing, AI, cloud operations and independent enterprise assurance. The user selected Okta and has no AWS/integration account yet. No public deployment exists. [Completion register](docs/completion-register.md), [review findings](docs/reviews/2026-10-29-code-review.md) and the full [backlog](docs/backlog.md) distinguish completed code, missing implementation and external prerequisites.

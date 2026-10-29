@@ -6,6 +6,7 @@ import RevisionRecovery from "./revision-recovery";
 import AssetRelationships from "./asset-relationships";
 import DirectoryPanel from "./directory-panel";
 import AssetMetadata from "./asset-metadata";
+import OrganizationPanel from "./organization-panel";
 import {
   api,
   ApiError,
@@ -38,6 +39,9 @@ export default function Workspace() {
     okta: false,
   });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organizationCursor, setOrganizationCursor] = useState<string | null>(
+    null,
+  );
   const [organizationId, setOrganizationId] = useState("");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetCursor, setAssetCursor] = useState<string | null>(null);
@@ -54,7 +58,7 @@ export default function Workspace() {
   const [events, setEvents] = useState<Audit[]>([]);
   const [auditCursor, setAuditCursor] = useState<string | null>(null);
   const [view, setView] = useState<
-    "workspace" | "audit" | "search" | "directory"
+    "workspace" | "audit" | "search" | "directory" | "organizations"
   >("workspace");
   const searchSelection = useRef<SearchHit | null>(null);
   const [navigationVersion, setNavigationVersion] = useState(0);
@@ -80,10 +84,11 @@ export default function Workspace() {
 
   async function loadSession() {
     const current = await api<Session>("/session");
-    const orgs = await api<Organization[]>("/organizations");
+    const orgs = await api<Page<Organization>>("/organizations");
     setSession(current);
-    setOrganizations(orgs);
-    setOrganizationId(orgs[0]?.id || "");
+    setOrganizations(orgs.items);
+    setOrganizationCursor(orgs.nextCursor);
+    setOrganizationId(orgs.items[0]?.id || "");
   }
 
   useEffect(() => {
@@ -201,6 +206,7 @@ export default function Workspace() {
   }, [organizationId, canEdit, refresh, view]);
 
   async function perform(action: () => Promise<void>) {
+    if (busy) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -212,6 +218,65 @@ export default function Workspace() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function loadMoreOrganizations() {
+    if (!organizationCursor) return;
+    await perform(async () => {
+      const page = await api<Page<Organization>>(
+        `/organizations?after=${encodeURIComponent(organizationCursor)}`,
+      );
+      setOrganizations((previous) => [
+        ...new Map(
+          [...previous, ...page.items].map((row) => [row.id, row]),
+        ).values(),
+      ]);
+      setOrganizationCursor(page.nextCursor);
+    });
+  }
+  async function reloadOrganizations() {
+    let loaded = false;
+    await perform(async () => {
+      const current = await api<Session>("/session");
+      const page = await api<Page<Organization>>("/organizations");
+      let selected = page.items.find((row) => row.id === organizationId);
+      if (!selected && organizationId) {
+        try {
+          selected = await api<Organization>(
+            `/organizations/${organizationId}`,
+          );
+        } catch (err) {
+          if (!(err instanceof ApiError && err.status === 404)) throw err;
+        }
+      }
+      setSession(current);
+      setOrganizations(
+        selected && !page.items.some((row) => row.id === selected!.id)
+          ? [...page.items, selected]
+          : page.items,
+      );
+      setOrganizationCursor(page.nextCursor);
+      setOrganizationId(selected?.id || page.items[0]?.id || "");
+      if (!current.canManageOrganizations && view === "organizations")
+        setView("workspace");
+      loaded = true;
+    });
+    return loaded;
+  }
+  async function openSearchResult(hit: SearchHit) {
+    await perform(async () => {
+      const current = await api<Organization>(
+        `/organizations/${hit.organizationId}`,
+      );
+      setOrganizations((previous) => [
+        ...previous.filter((row) => row.id !== current.id),
+        current,
+      ]);
+      searchSelection.current = hit;
+      setOrganizationId(current.id);
+      setNavigationVersion((value) => value + 1);
+      setView("workspace");
+    });
   }
 
   async function login(profile: string) {
@@ -228,6 +293,7 @@ export default function Workspace() {
       await api("/logout", { method: "POST" });
       setSession(null);
       setOrganizations([]);
+      setOrganizationCursor(null);
       setOrganizationId("");
       setAssets([]);
       setDocuments([]);
@@ -458,6 +524,17 @@ export default function Workspace() {
           >
             Locations & contacts
           </button>
+          {session.canManageOrganizations && (
+            <button
+              className={
+                view === "organizations" ? "nav-item active" : "nav-item"
+              }
+              disabled={busy}
+              onClick={() => setView("organizations")}
+            >
+              Manage organizations
+            </button>
+          )}
         </nav>
         <span className="nav-label roadmap-label">ON THE ROADMAP</span>
         <div className="planned">
@@ -495,7 +572,9 @@ export default function Workspace() {
                   ? "Search"
                   : view === "directory"
                     ? "Locations & contacts"
-                    : "Audit history"}
+                    : view === "organizations"
+                      ? "Manage organizations"
+                      : "Audit history"}
             </strong>
           </div>
           <span className="development">
@@ -518,7 +597,9 @@ export default function Workspace() {
                     ? "Find the detail that matters."
                     : view === "directory"
                       ? "People and places, connected."
-                      : "Every change leaves a trail."}
+                      : view === "organizations"
+                        ? "Make room for what comes next."
+                        : "Every change leaves a trail."}
               </h1>
               <p>
                 {view === "workspace"
@@ -527,7 +608,9 @@ export default function Workspace() {
                     ? "Search your assets and documentation across the organizations you can access."
                     : view === "directory"
                       ? "Keep location and contact records inside their organization."
-                      : "Follow the people and changes behind your documentation."}
+                      : view === "organizations"
+                        ? "Create and name the organizations your team documents."
+                        : "Follow the people and changes behind your documentation."}
               </p>
             </div>
           </div>
@@ -564,6 +647,15 @@ export default function Workspace() {
             <span className="role-badge">
               {canEdit ? "Editor access" : "Read only"}
             </span>
+            {organizationCursor && (
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={loadMoreOrganizations}
+              >
+                Load more organization choices
+              </button>
+            )}
           </div>
           {error && (
             <div className="message error" role="alert">
@@ -583,7 +675,7 @@ export default function Workspace() {
               {notice}
             </div>
           )}
-          {!organizations.length && (
+          {!organizations.length && view !== "organizations" && (
             <div className="empty">
               <h2>No organizations assigned</h2>
               <p>
@@ -1066,14 +1158,7 @@ export default function Workspace() {
             <SearchPanel
               organizationId={organizationId}
               organizations={organizations}
-              onOpen={(hit) => {
-                searchSelection.current = hit;
-                setOrganizationId(hit.organizationId);
-                setNavigationVersion((value) => value + 1);
-                setError("");
-                setNotice("");
-                setView("workspace");
-              }}
+              onOpen={openSearchResult}
             />
           )}
           {organizationId && view === "directory" && (
@@ -1082,6 +1167,28 @@ export default function Workspace() {
               organizationId={organizationId}
               canEdit={canEdit}
               onBusyChange={setBusy}
+            />
+          )}
+          {session.canManageOrganizations && view === "organizations" && (
+            <OrganizationPanel
+              organizations={organizations}
+              hasMore={Boolean(organizationCursor)}
+              disabled={busy}
+              onBusyChange={setBusy}
+              onSaved={(row, created) => {
+                setOrganizations((previous) => [
+                  ...previous.filter((item) => item.id !== row.id),
+                  row,
+                ]);
+                if (created) setOrganizationId(row.id);
+              }}
+              onLoadMore={loadMoreOrganizations}
+              onReload={reloadOrganizations}
+              onOpen={(row) => {
+                searchSelection.current = null;
+                setOrganizationId(row.id);
+                setView("workspace");
+              }}
             />
           )}
           {organizationId && view === "audit" && (

@@ -1,6 +1,6 @@
 # ADR 006: rebuildable local full-text search and a restricted outbox consumer
 
-Accepted for the second local slice, 2026-10-28; queue discovery updated 2026-10-29 under [ADR 011](011-transactional-search-queue.md). OpenSearch remains the enterprise target; it is not implemented by this decision.
+Accepted for the second local slice, 2026-10-28; queue discovery updated 2026-10-29 under [ADR 011](011-transactional-search-queue.md). Schema-v1 Organization.Created/Revised are also explicit metadata-only acknowledgments under ADR 012; current organization labels are read from core authority and worker EXECUTE on administration functions is forbidden. OpenSearch remains the enterprise target; it is not implemented by this decision.
 
 ## Choice and tradeoffs
 

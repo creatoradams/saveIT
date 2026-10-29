@@ -1,13 +1,13 @@
 # SaveIT completion register
 
-Updated 2026-10-29. The original brief and all 145 capability entries remain in scope. This register distinguishes working code from missing implementation and real-account prerequisites. It does not mark the enterprise program complete.
+Updated 2026-10-29. The original brief and all 145 prior capability entries remain in scope, with a separate organization-administration row bringing the inventory to 146. This register distinguishes working code from missing implementation and real-account prerequisites. It does not mark the enterprise program complete.
 
 | Area | Completed and locally tested | Still required |
 | --- | --- | --- |
 | Foundation / repository | SaveIT branding, ASP.NET/Next/TypeScript/PostgreSQL monorepo, dependency locks, migrations, generated schemas, ignore rules, CI | Release artifacts, patch/runtime servicing, SBOM/signing, production configuration and operational pipeline |
 | Tenant boundary | Protected server-selected tenant, live membership/org roles, composite FKs, all 15 tenant tables forced RLS, non-owner roles and reachable-privilege guards | Advanced groups/deny inheritance, permission administration and in-flight revocation barrier, cross-account authority |
 | Identity | Development adapter and separate Okta code/PKCE adapter, exact subject mapping, signed synthetic success/denial tests, secure cookie/key guards | Real Okta app/issuer, assignment and MFA/assurance verification, lifecycle/SCIM/SAML, multiple connections, break-glass and key recovery operations |
-| Core records | Authorized organization selection, persistent assets/documents/relationships, scoped locations/contacts, archival/reactivation, asset placement and versions | Organization administration/pagination, richer person/location/configuration schemas, flexible assets/templates, bulk operations/graphs |
+| Core records | Audited paged organization selection and limited create/rename administration, persistent assets/documents/relationships, scoped locations/contacts, archival/reactivation, asset placement and versions | Broader organization lifecycle/permission administration, richer person/location/configuration schemas, flexible assets/templates, bulk operations/graphs |
 | History | Immutable document and asset snapshots, audited history, plain-text document comparison, confirmed restore as a new version, races/conflicts/atomic rollback | Asset comparison, rich content, directory history, deletion recovery, retention and actual backup restore |
 | Search / events | Real PostgreSQL full-text projection, current-source/grant checks, ranked bounded pages, restricted worker, atomic pending queue, retries/dead letters/replay/rebuild | OpenSearch, relevance/load evidence, files/facets/autocomplete, generic dispatch/Temporal/connectors and production operator controls |
 | Browser | Responsive accessible native controls, request cancellation/retry, edit/restore conflict UX, role controls, real browser/axe checks | Expert WCAG/screen-reader assessment, representative user research, command palette, saved views and virtualization |
@@ -23,7 +23,7 @@ Updated 2026-10-29. The original brief and all 145 capability entries remain in 
 
 ## Next implementation sequence
 
-1. Add trusted organization administration and a paginated organization picker, preserving denial/revocation/atomicity tests. Then add versioned typed asset schemas and templates with explicit JSONB validation/migration rules.
+1. Add versioned typed asset schemas and templates with explicit JSONB validation/migration rules. Preserve the limited organization administration/picker's current capability/grant checks, checked functions, denial/revocation/atomicity and cross-page navigation tests.
 2. Expand identity administration/lifecycle and audited action-level grants, while configuring and testing actual Okta in an isolated authorized environment. Define an in-flight revocation protocol before permission administration is exposed.
 3. Add rich documentation/private attachments with quarantine, isolated parsers, authorized delivery and retention; add deletion recovery with tested access semantics.
 4. Establish an AWS nonproduction environment and operational controls before connecting external systems. Implement one selected connector with real credentials, checkpoint/reconciliation and uncertain-outcome recovery; then expand workflows and each inventory item independently.

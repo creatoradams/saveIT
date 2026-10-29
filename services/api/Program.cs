@@ -130,6 +130,7 @@ app.MapSearchEndpoints();
 app.MapDocumentHistoryEndpoints();
 app.MapAssetRelationshipEndpoints();
 app.MapDirectoryEndpoints();
+app.MapOrganizationEndpoints();
 app.MapAssetHistoryEndpoints();
 await app.RunAsync();
 

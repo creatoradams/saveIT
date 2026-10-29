@@ -11,8 +11,11 @@ Source of truth: [OpenAPI](../contracts/openapi.json); generated TypeScript: `ap
 | GET /dev/profiles | Explicit development identity opt-in | Synthetic profile metadata |
 | POST /dev/login | Same opt-in + CSRF | Valid persisted membership → HttpOnly cookie |
 | POST /logout | Signed-in + CSRF | Clear cookie |
-| GET /session | Active membership | Actor and tenant metadata |
-| GET /organizations | Active membership | Currently granted organizations and roles; max 100 |
+| GET /session | Active membership | Actor, tenant and current canManageOrganizations metadata |
+| GET /organizations?after={protected cursor} | Active membership | Audited currently granted organization page, max 50; names/roles/version/time |
+| GET /organizations/{org} | Current Viewer/Editor | Audited organization metadata lookup, including outside the loaded page |
+| POST /organizations | Current administrator capability + CSRF | New organization and creator-only Editor grant, audit/outbox; 201 |
+| PUT /organizations/{org} | Current administrator capability + Editor + CSRF | Expected-version rename, audit/outbox; 409 on conflict |
 | GET /organizations/{org}/assets?after={uuid} | Viewer/Editor | Scoped asset page |
 | POST /organizations/{org}/assets | Editor + CSRF | Persist asset, audit/outbox; 201 |
 | GET /organizations/{org}/assets/{asset} | Viewer/Editor | Scoped asset metadata |
@@ -41,6 +44,10 @@ GET `/health` is process liveness, not dependency readiness. `/openapi/v1.json` 
 Mutations send JSON and `X-CSRF-TOKEN` from GET `/csrf`. Obtain a new token after identity changes. Cookies are HttpOnly; no browser localStorage tokens. API responses use `Cache-Control: no-store`. Validation/conflict/internal errors use Problem Details; bare 401/403/404 may have no body. Internal failures include correlation IDs, not SQL or documentation.
 
 Create asset: `{ "name": "Edge firewall", "kind": "Network" }`. Create document: `{ "assetId": "<scoped UUID>", "title": "Failover", "content": "Synthetic plain text" }`. Revise: `{ "title": "Failover", "content": "Revised text", "expectedVersion": 1 }`.
+
+Organization create: `{ "name": "Synthetic branch" }`; rename: `{ "name": "Renamed branch", "expectedVersion": 1 }`. Names are bounded plain text, 1–160 characters after trimming. Creation uses a server-generated UUID and gives only its creator Editor access to the new organization. No tenant/membership/capability request fields grant authority. Rename requires both current capability and existing Editor grant; inaccessible scopes remain 404, readable but unauthorized actions 403. Version/name/time and initial grant/audit/outbox roll back together on failure. The runtime uses narrowly checked functions, with no direct organization or grant writes. No organization archive/delete or general permission administration is exposed.
+
+GET /organizations changes the local v1 contract from a capped array to `{ items, nextCursor }`, migrated in all repository callers. Ordering is name/UUID; the opaque cursor is protected and bound to current tenant/membership. Pass it unchanged with URL encoding; another principal, tampered or oversized cursor returns 400 without names. Every page rechecks live grants and must commit read audit before serialization. Concurrent renames/grant changes may reorder pages; restart for a fresh listing. GET by authorized ID supports search navigation beyond loaded choices. See ADR 012 for scope and migration compatibility.
 
 Directory create: `{ "name": "Branch", "details": "Synthetic address or contact role", "email": "", "phone": "", "notes": "Synthetic notes", "isArchived": false, "expectedVersion": 0 }`. Update requires the observed positive expectedVersion. Email/phone must be empty for locations; contact email must be a plain valid address, not a display-name expression. Limits: name 160, details 500, notes 4,000, email 320, phone 80; unsupported control characters are rejected. Updates return a new version, archival remains readable by ID/includeArchived, and physical deletion is unavailable. Read audit failure withholds rows/cursors.
 

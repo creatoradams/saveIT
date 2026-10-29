@@ -17,7 +17,18 @@ public static class DevelopmentSeed
 
     public static async Task SeedAsync(SaveItDb db, TenantScope scope)
     {
-        if (await db.Tenants.AnyAsync()) return;
+        if (await db.Tenants.AnyAsync())
+        {
+            // Explicit synthetic bootstrap only; ordinary API requests cannot provision this capability.
+            foreach (var profile in Profiles.Where(x => x.Id is "alice" or "bob"))
+            {
+                scope.TenantId = profile.TenantId;
+                var member = await db.Memberships.SingleOrDefaultAsync(x => x.Id == profile.MembershipId && x.Subject == profile.Id);
+                if (member is not null) member.CanManageOrganizations = true;
+                await db.SaveChangesAsync(); db.ChangeTracker.Clear();
+            }
+            return;
+        }
         db.Tenants.AddRange(new Tenant { Id = TenantA, Name = "Northstar IT" }, new Tenant { Id = TenantB, Name = "Southbank IT" });
         await db.SaveChangesAsync();
         foreach (var tenant in new[] { TenantA, TenantB })
@@ -28,7 +39,7 @@ public static class DevelopmentSeed
             if (tenant == TenantA) db.Organizations.Add(new Organization { Id = OrgA2, TenantId = tenant, Name = "Harbor Clinic" });
             foreach (var profile in Profiles.Where(x => x.TenantId == tenant))
             {
-                db.Memberships.Add(new Membership { Id = profile.MembershipId, TenantId = tenant, Subject = profile.Id, DisplayName = profile.Name });
+                db.Memberships.Add(new Membership { Id = profile.MembershipId, TenantId = tenant, Subject = profile.Id, DisplayName = profile.Name, CanManageOrganizations = profile.Id is "alice" or "bob" });
                 db.OrganizationGrants.Add(new OrganizationGrant { TenantId = tenant, MembershipId = profile.MembershipId, OrganizationId = org, Role = profile.Id == "viewer" ? "Viewer" : "Editor" });
                 if (profile.Id == "alice") db.OrganizationGrants.Add(new OrganizationGrant { TenantId = tenant, MembershipId = profile.MembershipId, OrganizationId = OrgA2, Role = "Editor" });
             }

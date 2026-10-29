@@ -444,6 +444,9 @@ namespace SaveIT.Api.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("CanManageOrganizations")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -491,9 +494,25 @@ namespace SaveIT.Api.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.HasKey("Id");
 
-                    b.ToTable("Organizations", (string)null);
+                    b.HasIndex("TenantId", "Name", "Id");
+
+                    b.ToTable("Organizations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Organization_Version", "\"Version\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("SaveIT.Api.Data.OrganizationGrant", b =>

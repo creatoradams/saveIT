@@ -37,6 +37,10 @@ public static class DatabaseRoleGuard
                 WHERE pg_has_role(current_user,r.oid,'MEMBER')
                   AND (has_table_privilege(r.oid,format('%I',t),'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
                   OR has_any_column_privilege(r.oid,format('%I',t),'INSERT,UPDATE')))
+              AND NOT EXISTS (
+                SELECT 1 FROM pg_roles r JOIN pg_proc p
+                  ON p.oid IN (to_regprocedure('public.create_organization(uuid,text,uuid)'),to_regprocedure('public.rename_organization(uuid,text,uuid,integer)'))
+                WHERE pg_has_role(current_user,r.oid,'MEMBER') AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
             """, connection);
         command.Parameters.AddWithValue("core", CoreTables);
         if (await command.ExecuteScalarAsync(cancellationToken) is not true)

@@ -2,8 +2,10 @@ namespace SaveIT.Api;
 
 public sealed record LoginRequest(string Profile);
 public sealed record ProfileDto(string Id, string Name, string Tenant);
-public sealed record SessionDto(string Name, Guid TenantId, string TenantName);
-public sealed record OrganizationDto(Guid Id, string Name, string Role);
+public sealed record SessionDto(string Name, Guid TenantId, string TenantName, bool CanManageOrganizations = false);
+public sealed record OrganizationDto(Guid Id, string Name, string Role, int Version, DateTimeOffset UpdatedAt);
+public sealed record CreateOrganizationRequest(string Name);
+public sealed record ReviseOrganizationRequest(string Name, int ExpectedVersion);
 public sealed record CreateAssetRequest(string Name, string Kind);
 public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string Kind, DateTimeOffset CreatedAt, int Version = 1, Guid? LocationId = null);
 public sealed record ReviseAssetRequest(string Name, string Kind, Guid? LocationId, int ExpectedVersion);

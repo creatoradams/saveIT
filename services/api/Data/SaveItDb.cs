@@ -8,6 +8,7 @@ public sealed class TenantScope
     public Guid TenantId { get; set; }
     public Guid MembershipId { get; set; }
     public string Subject { get; set; } = "";
+    public bool CanManageOrganizations { get; set; }
 }
 
 public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope scope) : DbContext(options)
@@ -45,6 +46,10 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<Organization>().HasKey(x => x.Id);
         m.Entity<Organization>().HasAlternateKey(x => new { x.TenantId, x.Id });
         m.Entity<Organization>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<Organization>().Property(x => x.Version).HasDefaultValue(1).IsConcurrencyToken();
+        m.Entity<Organization>().Property(x => x.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        m.Entity<Organization>().HasIndex(x => new { x.TenantId, x.Name, x.Id });
+        m.Entity<Organization>().ToTable(t => t.HasCheckConstraint("CK_Organization_Version", "\"Version\" > 0"));
         TenantEntity<OrganizationGrant>(m, "OrganizationGrants");
         m.Entity<OrganizationGrant>().HasKey(x => new { x.TenantId, x.MembershipId, x.OrganizationId });
         m.Entity<OrganizationGrant>().HasOne<Membership>().WithMany().HasForeignKey(x => new { x.TenantId, x.MembershipId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
