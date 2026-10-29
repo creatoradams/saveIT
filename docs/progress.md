@@ -37,7 +37,9 @@ The continuation implements search with a **real PostgreSQL full-text projection
 - Full .NET solution build passed with zero warnings/errors; locked NuGet restore, TypeScript, optimized Next.js build, generated contracts, ignore policy and npm/NuGet vulnerability audits passed. Manual screenshot inspection confirmed the search layout. The documented launcher rebuilt existing local records and started API/web/worker together; scoped rebuild/one-shot commands also ran successfully.
 - The final worker startup guard verifies both projection/receipt write privileges and absence of core write privileges, rejecting API credentials as well as owner/BYPASSRLS credentials. All 30 integration tests and both focused search browser flows passed again with that guard and the restarted complete stack.
 
-No load/SLO, distributed search, cloud deployment, production identity, immutable operational audit or verified vendor parity result is claimed. Complete-word matching, first-240-character previews, asynchronous indexing, bounded local rebuilds, and the in-flight revocation limits in ADR 002 remain deliberate constraints. Remote CI evidence is recorded with delivery below.
+Implementation commit **a14682395b4359f75ae8371489ecde147e242362** was pushed to `main`. [GitHub Actions run 40796061840](https://github.com/creatoradams/saveIT/actions/runs/40796061840) **completed successfully** on Ubuntu 24.04, including locked restore, complete solution build, all 30 PostgreSQL tests, generated-contract drift check, TypeScript/optimized web build, ignore policy, npm/NuGet audits, Terraform validation, all seven Chromium browser checks and evidence artifacts. This documentation-only follow-up records that verified result without changing application or test code.
+
+No load/SLO, distributed search, cloud deployment, production identity, immutable operational audit or verified vendor parity result is claimed. Complete-word matching, first-240-character previews, asynchronous indexing, bounded local rebuilds, and the in-flight revocation limits in ADR 002 remain deliberate constraints.
 
 ## Remaining gaps and release risks
 
