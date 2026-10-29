@@ -8,6 +8,7 @@ using SaveIT.Api;
 using SaveIT.Api.Data;
 using SaveIT.Api.Security;
 using SaveIT.Api.Documentation;
+using SaveIT.Api.Assets;
 
 var builder = WebApplication.CreateBuilder(args);
 var devIdentity = builder.Configuration.GetValue<bool>("DevelopmentIdentity:Enabled");
@@ -119,6 +120,7 @@ app.MapPost("/api/v1/logout", async (HttpContext c) => { await c.SignOutAsync();
 app.MapSaveItEndpoints();
 app.MapSearchEndpoints();
 app.MapDocumentHistoryEndpoints();
+app.MapAssetRelationshipEndpoints();
 await app.RunAsync();
 
 public partial class Program;

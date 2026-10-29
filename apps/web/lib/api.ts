@@ -1,5 +1,6 @@
 import type { components } from "./api.generated";
 export type Asset = components["schemas"]["AssetDto"];
+export type AssetRelationship = components["schemas"]["AssetRelationshipDto"];
 export type Doc = components["schemas"]["DocumentDto"];
 export type Organization = components["schemas"]["OrganizationDto"];
 export type Session = components["schemas"]["SessionDto"];

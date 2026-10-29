@@ -749,6 +749,149 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/organizations/{organizationId}/assets/{assetId}/relationships": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          after?: string;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+          assetId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CursorPageOfAssetRelationshipDto"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          assetId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["CreateRelationshipRequest"];
+        };
+      };
+      responses: {
+        /** @description Created */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AssetRelationshipDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/assets/{assetId}/relationships/{relationshipId}/remove": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          assetId: string;
+          relationshipId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["RemoveRelationshipRequest"];
+        };
+      };
+      responses: {
+        /** @description No Content */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -760,6 +903,20 @@ export interface components {
       organizationId: string;
       name: string;
       kind: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    AssetRelationshipDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      organizationId: string;
+      source: components["schemas"]["AssetDto"];
+      target: components["schemas"]["AssetDto"];
+      kind: string;
+      /** Format: int32 */
+      version: number | string;
+      createdBy: string;
       /** Format: date-time */
       createdAt: string;
     };
@@ -789,8 +946,17 @@ export interface components {
       title: string;
       content: string;
     };
+    CreateRelationshipRequest: {
+      /** Format: uuid */
+      targetAssetId: string;
+      kind: string;
+    };
     CursorPageOfAssetDto: {
       items: components["schemas"]["AssetDto"][];
+      nextCursor: null | string;
+    };
+    CursorPageOfAssetRelationshipDto: {
+      items: components["schemas"]["AssetRelationshipDto"][];
       nextCursor: null | string;
     };
     CursorPageOfAuditDto: {
@@ -871,6 +1037,10 @@ export interface components {
       id: string;
       name: string;
       tenant: string;
+    };
+    RemoveRelationshipRequest: {
+      /** Format: int32 */
+      expectedVersion: number | string;
     };
     RestoreDocumentRequest: {
       /** Format: int32 */

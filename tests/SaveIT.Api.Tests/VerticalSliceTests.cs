@@ -188,7 +188,7 @@ public sealed class VerticalSliceTests(DatabaseFixture fixture)
     {
         await using var connection = new NpgsqlConnection(fixture.AppConnection);
         await connection.OpenAsync();
-        foreach (var table in new[] { "Tenants", "Memberships", "Organizations", "OrganizationGrants", "Assets", "Documents", "DocumentRevisions", "AuditEvents", "OutboxEvents" })
+        foreach (var table in new[] { "Tenants", "Memberships", "Organizations", "OrganizationGrants", "Assets", "AssetRelationships", "Documents", "DocumentRevisions", "AuditEvents", "OutboxEvents" })
         {
             await using var count = new NpgsqlCommand($"SELECT count(*) FROM \"{table}\"", connection);
             Assert.Equal(0L, await count.ExecuteScalarAsync());

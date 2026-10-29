@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import SearchPanel from "./search-panel";
 import RevisionRecovery from "./revision-recovery";
+import AssetRelationships from "./asset-relationships";
 import {
   api,
   ApiError,
@@ -254,6 +255,19 @@ export default function Workspace() {
       setEditing(false);
       setRevisions([]);
       setConflict(false);
+    });
+  }
+  async function openLinkedAsset(id: string) {
+    await perform(async () => {
+      const linked = await api<Asset>(`${base}/assets/${id}`);
+      searchSelection.current = null;
+      setAssets((previous) =>
+        previous.some((item) => item.id === linked.id)
+          ? previous
+          : [...previous, linked],
+      );
+      setAssetId(linked.id);
+      setNotice(`Opened linked asset: ${linked.name}.`);
     });
   }
   async function saveDocument(event: FormEvent<HTMLFormElement>) {
@@ -672,6 +686,15 @@ export default function Workspace() {
                           Linked to this organization
                         </span>
                       </div>
+                      <AssetRelationships
+                        key={`${organizationId}:${assetId}`}
+                        organizationId={organizationId}
+                        assetId={assetId}
+                        canEdit={canEdit}
+                        disabled={busy || editing}
+                        onBusyChange={setBusy}
+                        onNavigate={openLinkedAsset}
+                      />
                       <div className="documents-heading">
                         <h3>
                           Documentation{" "}

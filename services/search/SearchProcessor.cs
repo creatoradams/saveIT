@@ -46,12 +46,15 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
             {
                 var isDeadLetter = false;
                 var type = current.Type switch { "Asset.Created" => "asset", "Document.Created" or "Document.Revised" or "Document.Restored" => "document", _ => null };
-                if (current.SchemaVersion != 1 || type is null)
+                // Explicitly acknowledge core relationship events; they have no searchable text and
+                // must not delete or create asset/document projections. Other schemas/types still fail.
+                var metadataOnly = current.Type is "AssetRelationship.Created" or "AssetRelationship.Removed";
+                if (current.SchemaVersion != 1 || (type is null && !metadataOnly))
                 {
                     await WriteFailureAsync(connection, transaction, tenantId, current.Id, "unsupported_event", true, cancellationToken);
                     isDeadLetter = true;
                 }
-                else
+                else if (type is not null)
                 {
                     var source = await ReadSourceAsync(connection, transaction, tenantId, current.TargetId, type, cancellationToken);
                     if (source is not null && source.OrganizationId != current.OrganizationId)
@@ -62,17 +65,20 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
                     else
                     {
                         await ProjectAsync(connection, transaction, tenantId, current.TargetId, type, source, cancellationToken);
-                        await using var receipt = new NpgsqlCommand("""
-                            INSERT INTO "SearchDeliveries" ("TenantId","EventId","Attempts","NextAttemptAt","CompletedAt")
-                            VALUES (@tenant,@event,1,@now,@now)
-                            ON CONFLICT ("TenantId","EventId") DO UPDATE SET "Attempts"="SearchDeliveries"."Attempts"+1,
-                              "CompletedAt"=@now,"DeadLetteredAt"=NULL,"ErrorCode"=NULL
-                            """, connection, transaction);
-                        receipt.Parameters.AddWithValue("tenant", tenantId);
-                        receipt.Parameters.AddWithValue("event", current.Id);
-                        receipt.Parameters.AddWithValue("now", clock.GetUtcNow());
-                        await receipt.ExecuteNonQueryAsync(cancellationToken);
                     }
+                }
+                if (!isDeadLetter)
+                {
+                    await using var receipt = new NpgsqlCommand("""
+                        INSERT INTO "SearchDeliveries" ("TenantId","EventId","Attempts","NextAttemptAt","CompletedAt")
+                        VALUES (@tenant,@event,1,@now,@now)
+                        ON CONFLICT ("TenantId","EventId") DO UPDATE SET "Attempts"="SearchDeliveries"."Attempts"+1,
+                          "CompletedAt"=@now,"DeadLetteredAt"=NULL,"ErrorCode"=NULL
+                        """, connection, transaction);
+                    receipt.Parameters.AddWithValue("tenant", tenantId);
+                    receipt.Parameters.AddWithValue("event", current.Id);
+                    receipt.Parameters.AddWithValue("now", clock.GetUtcNow());
+                    await receipt.ExecuteNonQueryAsync(cancellationToken);
                 }
                 await transaction.CommitAsync(cancellationToken);
                 if (isDeadLetter) dead++; else completed++;

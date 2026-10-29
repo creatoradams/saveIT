@@ -1122,6 +1122,58 @@ td strong {
 .revision-recovery {
   padding-bottom: 18px;
 }
+.asset-relationships {
+  border-block: 1px solid var(--border);
+  padding: 16px 0;
+  margin-bottom: 20px;
+}
+.relationship-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.relationship-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.relationship-list li > div {
+  min-width: 0;
+}
+.relationship-list .text-button {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.relationship-list small,
+.relationship-label {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.relationship-label {
+  margin-bottom: 3px;
+}
+.relationship-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.relationship-form select {
+  width: 100%;
+  min-width: 0;
+}
+.relationship-form .actions {
+  flex-wrap: wrap;
+}
+.relationship-form .subtle {
+  margin-bottom: 0;
+}
 .comparison-form {
   display: flex;
   align-items: flex-end;

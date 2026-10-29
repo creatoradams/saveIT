@@ -6,6 +6,10 @@ public sealed record SessionDto(string Name, Guid TenantId, string TenantName);
 public sealed record OrganizationDto(Guid Id, string Name, string Role);
 public sealed record CreateAssetRequest(string Name, string Kind);
 public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string Kind, DateTimeOffset CreatedAt);
+public sealed record CreateRelationshipRequest(Guid TargetAssetId, string Kind);
+public sealed record RemoveRelationshipRequest(int ExpectedVersion);
+public sealed record AssetRelationshipDto(Guid Id, Guid OrganizationId, AssetDto Source, AssetDto Target,
+    string Kind, int Version, string CreatedBy, DateTimeOffset CreatedAt);
 public sealed record CreateDocumentRequest(Guid AssetId, string Title, string Content);
 public sealed record ReviseDocumentRequest(string Title, string Content, int ExpectedVersion);
 public sealed record DocumentDto(Guid Id, Guid OrganizationId, Guid AssetId, string Title, string Content, int Version, DateTimeOffset UpdatedAt);

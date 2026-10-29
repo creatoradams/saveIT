@@ -1,6 +1,6 @@
 # SaveIT implementation progress
 
-Date: 2026-10-28. Foundation, permission-aware search and document recovery slices. Original repository: `de89d01` (README + Visual Studio ignore rules). No application or instruction files existed before implementation.
+Date: 2026-10-28. Foundation, permission-aware search, document recovery and asset relationship slices. Original repository: `de89d01` (README + Visual Studio ignore rules). No application or instruction files existed before implementation.
 
 ## Completed functionality
 
@@ -10,10 +10,11 @@ Date: 2026-10-28. Foundation, permission-aware search and document recovery slic
 - Persistent organization selection/create/list assets, linked plain-text documentation, versioned updates, immutable revision inspection, conflict recovery preserving unsaved text, organization audit history and bounded cursor pages.
 - Business changes, revision snapshots, audit events and schema-v1 outbox metadata commit atomically. Document body/history and returned search results require durable read audit. Immutable events are consumed by the real search worker using separate consumer receipts; generic external dispatch is not implemented.
 - Root ignore rules extended for ASP.NET outputs, Next/Node caches/dependencies, secret env files, test artifacts, Terraform state/plans/local vars and IDE files. Lockfiles, EF migrations and sanitized examples stay trackable; automated ignore-policy assertions pass.
-- Full original brief retained, architecture/threat model/release risks, seven ADRs, phased enterprise backlog and capability/integration inventory. Vendor parity/entitlements remain explicitly unverified.
+- Full original brief retained, architecture/threat model/release risks, eight ADRs, phased enterprise backlog and capability/integration inventory. Vendor parity/entitlements remain explicitly unverified.
 - Complete-word asset/document search with organization/type filters, ranked 25-item cursor pages, plain-text previews, live source/grant/version checks, stale-result exclusion, atomic read audit and current-record navigation. UI clears results on scope changes/outages and supports retry/empty/loading states.
 - Actual non-owner tenant-configured search worker, RLS-protected derived PostgreSQL projection, core-owned security-invoker read contract, idempotent latest-state rehydration, per-tenant concurrency lock, transactional completion receipts, bounded retries/backoff/jitter/dead letters and tenant-scoped rebuild/replay commands. OpenSearch remains deliberately unimplemented under ADR 006.
 - Audited plain-text revision comparison with line numbers/change labels and 200-row pages. Editor-confirmed restoration creates a new revision with exact historical title/content, source/reason provenance, preserved history, current permissions, expected-version conflicts, atomic audit/outbox and real search catch-up (ADR 007).
+- Directed DependsOn/Contains asset relationships, incoming/outgoing labels and authorized navigation, paginated target selection, current Viewer/Editor actions, audited 50-row lists and atomic create/remove audit/outbox. Removal retains the row, assets/documents and lifecycle metadata; duplicate/remove races are conflict-safe. Both endpoint FKs and the twelfth forced-RLS table enforce tenant/organization boundaries (ADR 008).
 
 ## First-slice evidence
 
@@ -54,6 +55,16 @@ Implementation commit **980037af2c5f3b047478737539de22cf92895a37** was pushed to
 
 No production identity, load/SLO, backup/deletion recovery or enterprise parity claim is made by this slice.
 
+## Fourth-slice evidence: explicit asset relationships
+
+This continuation implements a real `AssetRelationship` model and browser flow. Two scoped asset FKs, active directed uniqueness, type/self-link/lifecycle checks and forced RLS enforce the database boundary. The application can update only removal/version columns and cannot physically delete links. Removal preserves both endpoints/documents; recreating a link produces a new ID. Current organization roles are checked for every read/write; an edge never grants access. Relationship read audit must commit before labels/cursors are serialized.
+
+- All **61 backend tests** passed: **55 real-PostgreSQL integration cases** and six diff algorithm cases. The 13 added cases cover direction/persistence, Viewer/tenant/org denial, both endpoint FKs/RLS and column rights, duplicate creation and simultaneous removal, four injected audit/outbox rollback boundaries, current-cookie revocation, 50-row disjoint pages, fail-closed list auditing, validation/CSRF, worker no-op/replay/schema handling and forbidden column-level core grants. An invalid GUID query initially surfaced as 500; malformed request binding now returns 400. Timestamp assertions account for PostgreSQL microsecond storage.
+- All **15 Chromium checks** passed, including the four new relationship flows: create/navigation/persistence/audit and asset/document preservation; Viewer incoming containment; duplicate and concurrent-removal conflict/reload; outage/retry presentation, literal HTML, mobile and axe. Test selectors were corrected to wait for loaded inventory; a native dialog focus-return defect found by Escape testing was corrected before the passing focused and full-suite runs. Desktop/mobile viewport screenshots were inspected.
+- The documented launcher applied the migration to retained local data and started PostgreSQL/API/web/search worker. Zero-warning solution build, generated OpenAPI/TypeScript/live-contract check, TypeScript, optimized Next.js build, root ignore-policy test, locked NuGet restore and npm/NuGet audits passed. EF confirmed no pending model changes. No dependency was added. Search-v1 explicitly completes schema-v1 link events without indexing them; unknown/schema-mismatched events still dead-letter. The worker startup guard now also rejects column-level core write privileges. All 147 capability inventory entries were retained.
+
+Push and clean CI evidence will be recorded after verification. This is a local core slice; cross-organization/custom graph behavior, production identity and enterprise assurance remain unimplemented.
+
 ## Remaining gaps and release risks
 
 This is a local foundation preview. Production startup deliberately refuses unconfigured enterprise identity. Real OIDC/SAML/MFA/SCIM, groups/relationship denies, permission administration/concurrent revocation barrier, HTTPS/session-key operations, full denied/admin/authentication audit, immutable archives and quotas remain absent. Subsequent requests observe revoked membership/grants; already-authorized in-flight requests are not synchronously revoked.
@@ -64,6 +75,6 @@ No production cloud resources/public application deployment, load/SLO measuremen
 
 ## Next concrete task
 
-Implement explicit asset relationships with tenant/organization-qualified endpoints and foreign keys, Viewer/Editor actions, bounded linked-record navigation, atomic audit/outbox and denial/concurrency/recovery tests. Preserve document recovery and search authority tests. Production identity selection remains a separate release prerequisite; the full enterprise roadmap remains unchanged.
+Implement organization-scoped locations linked to assets, with current roles, tenant-qualified links, expected-version conflicts, atomic audit/outbox and denial/recovery tests. Preserve relationship, document recovery and search authority tests. Production identity selection remains a separate release prerequisite; the full enterprise roadmap remains unchanged.
 
 Startup and test commands are in the [README](../README.md). Preserve all enterprise roadmap scope during later slices.

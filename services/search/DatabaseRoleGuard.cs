@@ -27,8 +27,9 @@ public static class DatabaseRoleGuard
                CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE')) AS privileges(p))
               AND NOT EXISTS (
                 SELECT 1 FROM (VALUES ('"Assets"'),('"Documents"'),('"OutboxEvents"'),('"AuditEvents"'),
-                  ('"Memberships"'),('"OrganizationGrants"'),('"Organizations"'),('"Tenants"')) AS core(t)
-                WHERE has_table_privilege(current_user,t,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER'))
+                  ('"Memberships"'),('"OrganizationGrants"'),('"Organizations"'),('"Tenants"'),('"AssetRelationships"')) AS core(t)
+                WHERE has_table_privilege(current_user,t,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
+                  OR has_any_column_privilege(current_user,t,'INSERT,UPDATE'))
             """, connection);
         if (await command.ExecuteScalarAsync(cancellationToken) is not true)
             throw new InvalidOperationException("Search requires its restricted worker role: projection/receipt writes and no core writes.");

@@ -43,6 +43,20 @@ public sealed class Document : ITenantOwned
     public int Version { get; set; } = 1;
     public DateTimeOffset UpdatedAt { get; set; }
 }
+public sealed class AssetRelationship : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid SourceAssetId { get; set; }
+    public Guid TargetAssetId { get; set; }
+    public string Kind { get; set; } = "";
+    public int Version { get; set; } = 1;
+    public DateTimeOffset CreatedAt { get; set; }
+    public string CreatedBy { get; set; } = "";
+    public DateTimeOffset? RemovedAt { get; set; }
+    public string? RemovedBy { get; set; }
+}
 public sealed class DocumentRevision : ITenantOwned
 {
     public Guid TenantId { get; set; }

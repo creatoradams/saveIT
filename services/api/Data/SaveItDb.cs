@@ -18,6 +18,7 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<OrganizationGrant> OrganizationGrants => Set<OrganizationGrant>();
     public DbSet<Asset> Assets => Set<Asset>();
+    public DbSet<AssetRelationship> AssetRelationships => Set<AssetRelationship>();
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentRevision> DocumentRevisions => Set<DocumentRevision>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
@@ -49,6 +50,27 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<Asset>().Property(x => x.Name).HasMaxLength(160);
         m.Entity<Asset>().Property(x => x.Kind).HasMaxLength(80);
         m.Entity<Asset>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.Id });
+        TenantEntity<AssetRelationship>(m, "AssetRelationships");
+        m.Entity<AssetRelationship>().HasKey(x => x.Id);
+        m.Entity<AssetRelationship>().HasOne<Asset>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.SourceAssetId })
+            .HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<AssetRelationship>().HasOne<Asset>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.TargetAssetId })
+            .HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<AssetRelationship>().Property(x => x.Kind).HasMaxLength(24);
+        m.Entity<AssetRelationship>().Property(x => x.CreatedBy).HasMaxLength(160);
+        m.Entity<AssetRelationship>().Property(x => x.RemovedBy).HasMaxLength(160);
+        m.Entity<AssetRelationship>().Property(x => x.Version).IsConcurrencyToken();
+        m.Entity<AssetRelationship>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.SourceAssetId, x.TargetAssetId, x.Kind })
+            .IsUnique().HasFilter("\"RemovedAt\" IS NULL");
+        m.Entity<AssetRelationship>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.SourceAssetId, x.Id });
+        m.Entity<AssetRelationship>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.TargetAssetId, x.Id });
+        m.Entity<AssetRelationship>().ToTable(t => {
+            t.HasCheckConstraint("CK_Relationship_Endpoints", "\"SourceAssetId\" <> \"TargetAssetId\"");
+            t.HasCheckConstraint("CK_Relationship_Kind", "\"Kind\" IN ('DependsOn','Contains')");
+            t.HasCheckConstraint("CK_Relationship_Lifecycle", "COALESCE((\"Version\"=1 AND \"RemovedAt\" IS NULL AND \"RemovedBy\" IS NULL) OR (\"Version\"=2 AND \"RemovedAt\" IS NOT NULL AND length(btrim(\"RemovedBy\")) > 0),false)");
+        });
         TenantEntity<Document>(m, "Documents");
         m.Entity<Document>().HasKey(x => x.Id);
         m.Entity<Document>().HasAlternateKey(x => new { x.TenantId, x.OrganizationId, x.Id });

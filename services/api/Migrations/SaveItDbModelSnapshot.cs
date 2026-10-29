@@ -55,6 +55,68 @@ namespace SaveIT.Api.Migrations
                     b.ToTable("Assets", (string)null);
                 });
 
+            modelBuilder.Entity("SaveIT.Api.Data.AssetRelationship", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RemovedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("SourceAssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetAssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "OrganizationId", "SourceAssetId", "Id");
+
+                    b.HasIndex("TenantId", "OrganizationId", "TargetAssetId", "Id");
+
+                    b.HasIndex("TenantId", "OrganizationId", "SourceAssetId", "TargetAssetId", "Kind")
+                        .IsUnique()
+                        .HasFilter("\"RemovedAt\" IS NULL");
+
+                    b.ToTable("AssetRelationships", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Relationship_Endpoints", "\"SourceAssetId\" <> \"TargetAssetId\"");
+
+                            t.HasCheckConstraint("CK_Relationship_Kind", "\"Kind\" IN ('DependsOn','Contains')");
+
+                            t.HasCheckConstraint("CK_Relationship_Lifecycle", "COALESCE((\"Version\"=1 AND \"RemovedAt\" IS NULL AND \"RemovedBy\" IS NULL) OR (\"Version\"=2 AND \"RemovedAt\" IS NOT NULL AND length(btrim(\"RemovedBy\")) > 0),false)");
+                        });
+                });
+
             modelBuilder.Entity("SaveIT.Api.Data.AuditEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -419,6 +481,29 @@ namespace SaveIT.Api.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId", "OrganizationId")
                         .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AssetRelationship", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "SourceAssetId")
+                        .HasPrincipalKey("TenantId", "OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "TargetAssetId")
+                        .HasPrincipalKey("TenantId", "OrganizationId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
