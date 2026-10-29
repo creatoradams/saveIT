@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import SearchPanel from "./search-panel";
+import RevisionRecovery from "./revision-recovery";
 import {
   api,
   ApiError,
@@ -39,6 +40,10 @@ export default function Workspace() {
   const [document, setDocument] = useState<Doc | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [revisionCursor, setRevisionCursor] = useState<string | null>(null);
+  const [revisionSelection, setRevisionSelection] = useState<{
+    version: number;
+    nonce: number;
+  } | null>(null);
   const [events, setEvents] = useState<Audit[]>([]);
   const [auditCursor, setAuditCursor] = useState<string | null>(null);
   const [view, setView] = useState<"workspace" | "audit" | "search">(
@@ -61,6 +66,10 @@ export default function Workspace() {
   const selectedAsset = assets.find((x) => x.id === assetId);
   const canEdit = organization?.role === "Editor";
   const base = `/organizations/${organizationId}`;
+
+  useEffect(() => {
+    setRevisionSelection(null);
+  }, [document?.id, document?.version]);
 
   async function loadSession() {
     const current = await api<Session>("/session");
@@ -359,6 +368,7 @@ export default function Workspace() {
         <nav aria-label="Workspace">
           <button
             className={view === "workspace" ? "nav-item active" : "nav-item"}
+            disabled={busy}
             onClick={() => setView("workspace")}
           >
             <span aria-hidden="true">▦</span> Assets & docs
@@ -372,6 +382,7 @@ export default function Workspace() {
           </button>
           <button
             className={view === "audit" ? "nav-item active" : "nav-item"}
+            disabled={busy}
             onClick={() => setView("audit")}
           >
             <span aria-hidden="true">◷</span> Audit history
@@ -842,6 +853,37 @@ export default function Workspace() {
                           aria-label="Document revisions"
                         >
                           <h3>Revision history</h3>
+                          {document && (
+                            <RevisionRecovery
+                              key={`${document.id}:${document.version}`}
+                              document={document}
+                              organizationId={organizationId}
+                              canEdit={canEdit}
+                              selection={revisionSelection}
+                              onBusyChange={setBusy}
+                              onReload={() => openDocument(document.id)}
+                              onRestored={(restored, sourceVersion) => {
+                                setDocument(restored);
+                                setTitle(restored.title);
+                                setContent(restored.content);
+                                setDocuments((previous) =>
+                                  previous.map((item) =>
+                                    item.id === restored.id
+                                      ? { ...restored, content: "" }
+                                      : item,
+                                  ),
+                                );
+                                setRevisions([]);
+                                setRevisionCursor(null);
+                                setRevisionSelection(null);
+                                setEditing(false);
+                                setConflict(false);
+                                setNotice(
+                                  `Revision ${restored.version} created from revision ${sourceVersion}. Earlier history is preserved.`,
+                                );
+                              }}
+                            />
+                          )}
                           {revisions.map((rev) => (
                             <details key={rev.version}>
                               <summary>
@@ -849,7 +891,26 @@ export default function Workspace() {
                                 {rev.actor} <small>{time(rev.createdAt)}</small>
                               </summary>
                               <h4>{rev.title}</h4>
+                              {rev.restoredFromVersion && (
+                                <p className="subtle">
+                                  Restored from revision{" "}
+                                  {rev.restoredFromVersion} ·{" "}
+                                  {rev.restoreReason}
+                                </p>
+                              )}
                               <p className="document-text">{rev.content}</p>
+                              <button
+                                className="secondary"
+                                disabled={busy}
+                                onClick={() =>
+                                  setRevisionSelection({
+                                    version: Number(rev.version),
+                                    nonce: Date.now(),
+                                  })
+                                }
+                              >
+                                Compare revision {rev.version} to current
+                              </button>
                             </details>
                           ))}
                           {revisionCursor && document && (
@@ -944,6 +1005,12 @@ export default function Workspace() {
                         <tr key={event.id}>
                           <td>
                             <strong>{event.action}</strong>
+                            {event.sourceVersion && event.targetVersion && (
+                              <small className="target">
+                                Revision {event.sourceVersion} →{" "}
+                                {event.targetVersion}
+                              </small>
+                            )}
                             <small className="target">
                               Target {event.targetId}
                             </small>

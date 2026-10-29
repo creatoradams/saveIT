@@ -98,7 +98,7 @@ public static class Endpoints
         {
             if (await Permissions.RoleAsync(db, s, organizationId) is null || !await db.Documents.AnyAsync(x => x.Id == documentId && x.OrganizationId == organizationId)) return Permissions.Hidden();
             var revisions = await db.DocumentRevisions.Where(x => x.DocumentId == documentId && x.OrganizationId == organizationId && (before == null || x.Version < before))
-                .OrderByDescending(x => x.Version).Take(PageSize + 1).Select(x => new RevisionDto(x.Version, x.Title, x.Content, x.Actor, x.CreatedAt)).ToListAsync();
+                .OrderByDescending(x => x.Version).Take(PageSize + 1).Select(x => new RevisionDto(x.Version, x.Title, x.Content, x.Actor, x.CreatedAt, x.RestoredFromVersion, x.RestoreReason)).ToListAsync();
             Record(db, s, c, organizationId, documentId, "Document.RevisionsRead", false);
             await db.SaveChangesAsync();
             return Results.Ok(new CursorPage<RevisionDto>(revisions.Take(PageSize).ToList(), revisions.Count > PageSize ? revisions[PageSize - 1].Version.ToString() : null));
@@ -110,7 +110,7 @@ public static class Endpoints
             if (role is null) return Permissions.Hidden();
             if (role != "Editor") return Permissions.ReadOnly();
             var items = await db.AuditEvents.Where(x => x.OrganizationId == organizationId && (before == null || x.Id < before))
-                .OrderByDescending(x => x.Id).Take(PageSize + 1).Select(x => new AuditDto(x.Id, x.Actor, x.TargetId, x.Action, x.Outcome, x.CorrelationId, x.CreatedAt)).ToListAsync();
+                .OrderByDescending(x => x.Id).Take(PageSize + 1).Select(x => new AuditDto(x.Id, x.Actor, x.TargetId, x.Action, x.Outcome, x.CorrelationId, x.CreatedAt, x.SourceVersion, x.TargetVersion)).ToListAsync();
             return Results.Ok(new CursorPage<AuditDto>(items.Take(PageSize).ToList(), items.Count > PageSize ? items[PageSize - 1].Id.ToString() : null));
         }).Produces<CursorPage<AuditDto>>();
     }

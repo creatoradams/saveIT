@@ -53,6 +53,8 @@ public sealed class DocumentRevision : ITenantOwned
     public string Content { get; set; } = "";
     public string Actor { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
+    public int? RestoredFromVersion { get; set; }
+    public string? RestoreReason { get; set; }
 }
 public sealed class AuditEvent : ITenantOwned
 {
@@ -65,6 +67,8 @@ public sealed class AuditEvent : ITenantOwned
     public string Outcome { get; set; } = "success";
     public string CorrelationId { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
+    public int? SourceVersion { get; set; }
+    public int? TargetVersion { get; set; }
 }
 public sealed class OutboxEvent : ITenantOwned
 {

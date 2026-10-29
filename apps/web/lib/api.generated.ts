@@ -638,6 +638,117 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/organizations/{organizationId}/documents/{documentId}/compare": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query: {
+          fromVersion: number | string;
+          toVersion: number | string;
+          offset?: number | string;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+          documentId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentComparisonDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/documents/{documentId}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          documentId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["RestoreDocumentRequest"];
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -663,6 +774,10 @@ export interface components {
       correlationId: string;
       /** Format: date-time */
       createdAt: string;
+      /** Format: int32 */
+      sourceVersion?: null | number | string;
+      /** Format: int32 */
+      targetVersion?: null | number | string;
     };
     CreateAssetRequest: {
       name: string;
@@ -689,6 +804,37 @@ export interface components {
     CursorPageOfRevisionDto: {
       items: components["schemas"]["RevisionDto"][];
       nextCursor: null | string;
+    };
+    DiffLineDto: {
+      kind: string;
+      /** Format: int32 */
+      oldLine: null | number | string;
+      /** Format: int32 */
+      newLine: null | number | string;
+      text: string;
+    };
+    DocumentComparisonDto: {
+      /** Format: uuid */
+      documentId: string;
+      from: components["schemas"]["RevisionSummaryDto"];
+      to: components["schemas"]["RevisionSummaryDto"];
+      /** Format: int32 */
+      currentVersion: number | string;
+      titleChanged: boolean;
+      contentChanged: boolean;
+      lineEndingsOnly: boolean;
+      simplified: boolean;
+      /** Format: int32 */
+      addedLines: number | string;
+      /** Format: int32 */
+      removedLines: number | string;
+      /** Format: int32 */
+      totalRows: number | string;
+      /** Format: int32 */
+      offset: number | string;
+      lines: components["schemas"]["DiffLineDto"][];
+      /** Format: int32 */
+      nextOffset: null | number | string;
     };
     DocumentDto: {
       /** Format: uuid */
@@ -726,6 +872,13 @@ export interface components {
       name: string;
       tenant: string;
     };
+    RestoreDocumentRequest: {
+      /** Format: int32 */
+      sourceVersion: number | string;
+      /** Format: int32 */
+      expectedVersion: number | string;
+      reason: string;
+    };
     ReviseDocumentRequest: {
       title: string;
       content: string;
@@ -740,6 +893,19 @@ export interface components {
       actor: string;
       /** Format: date-time */
       createdAt: string;
+      /** Format: int32 */
+      restoredFromVersion?: null | number | string;
+      restoreReason?: null | string;
+    };
+    RevisionSummaryDto: {
+      /** Format: int32 */
+      version: number | string;
+      title: string;
+      actor: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: int32 */
+      restoredFromVersion: null | number | string;
     };
     SearchHit: {
       /** Format: uuid */

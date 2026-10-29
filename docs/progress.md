@@ -1,6 +1,6 @@
 # SaveIT implementation progress
 
-Date: 2026-10-28. Foundation and permission-aware search slices. Original repository: `de89d01` (README + Visual Studio ignore rules). No application or instruction files existed before implementation.
+Date: 2026-10-28. Foundation, permission-aware search and document recovery slices. Original repository: `de89d01` (README + Visual Studio ignore rules). No application or instruction files existed before implementation.
 
 ## Completed functionality
 
@@ -10,9 +10,10 @@ Date: 2026-10-28. Foundation and permission-aware search slices. Original reposi
 - Persistent organization selection/create/list assets, linked plain-text documentation, versioned updates, immutable revision inspection, conflict recovery preserving unsaved text, organization audit history and bounded cursor pages.
 - Business changes, revision snapshots, audit events and schema-v1 outbox metadata commit atomically. Document body/history and returned search results require durable read audit. Immutable events are consumed by the real search worker using separate consumer receipts; generic external dispatch is not implemented.
 - Root ignore rules extended for ASP.NET outputs, Next/Node caches/dependencies, secret env files, test artifacts, Terraform state/plans/local vars and IDE files. Lockfiles, EF migrations and sanitized examples stay trackable; automated ignore-policy assertions pass.
-- Full original brief retained, architecture/threat model/release risks, six ADRs, phased enterprise backlog and capability/integration inventory. Vendor parity/entitlements remain explicitly unverified.
+- Full original brief retained, architecture/threat model/release risks, seven ADRs, phased enterprise backlog and capability/integration inventory. Vendor parity/entitlements remain explicitly unverified.
 - Complete-word asset/document search with organization/type filters, ranked 25-item cursor pages, plain-text previews, live source/grant/version checks, stale-result exclusion, atomic read audit and current-record navigation. UI clears results on scope changes/outages and supports retry/empty/loading states.
 - Actual non-owner tenant-configured search worker, RLS-protected derived PostgreSQL projection, core-owned security-invoker read contract, idempotent latest-state rehydration, per-tenant concurrency lock, transactional completion receipts, bounded retries/backoff/jitter/dead letters and tenant-scoped rebuild/replay commands. OpenSearch remains deliberately unimplemented under ADR 006.
+- Audited plain-text revision comparison with line numbers/change labels and 200-row pages. Editor-confirmed restoration creates a new revision with exact historical title/content, source/reason provenance, preserved history, current permissions, expected-version conflicts, atomic audit/outbox and real search catch-up (ADR 007).
 
 ## First-slice evidence
 
@@ -41,16 +42,26 @@ Implementation commit **a14682395b4359f75ae8371489ecde147e242362** was pushed to
 
 No load/SLO, distributed search, cloud deployment, production identity, immutable operational audit or verified vendor parity result is claimed. Complete-word matching, first-240-character previews, asynchronous indexing, bounded local rebuilds, and the in-flight revocation limits in ADR 002 remain deliberate constraints.
 
+## Third-slice evidence: document comparison and restoration
+
+The continuation implements document recovery end to end. The migration adds nullable provenance to existing revisions and numeric version identifiers to audit, with a tenant/document/version self-reference and a NULL-safe provenance check. Existing data migrated successfully. Comparison normalizes line endings for display, bounds LCS work at 250,000 cells and uses faithful block replacement for larger changes; snapshots retain exact original text. Responses contain at most 200 diff rows. Restoring requires a current Editor, CSRF, an earlier source revision, an expected current version and a 3–500-character reason. It creates a new revision without rewriting history.
+
+- All **48 backend tests** passed: **42 real-PostgreSQL integration cases** (30 existing + 12 recovery) and **six diff algorithm cases**. New cases cover exact content/provenance/history, comparison audit metadata, Viewer/tenant/org/version denial, grant/membership revocation between comparison and restore, restore/restore and restore/edit races, comparison audit failure, audit/outbox rollback, validation/CSRF, provenance NULL/FK rejection, bounded pages and search catch-up/duplicate processing. Diff cases reconstruct both normalized inputs, including repeated/empty lines and a 50,000-character worst case.
+- All **11 Chromium browser checks** passed. Four added flows cover comparison/title changes, modal reason/keyboard cancel/focus, persisted restore/audit/history, real worker search catch-up, Viewer comparison without restore controls, concurrent edit conflict/review/retry, literal HTML, 200-row pagination, mobile layout and automated axe. The first run found low-contrast diff headings; corrected styles passed the focused suite and then the full 11-test suite.
+- Full solution build passed with zero warnings/errors. Locked NuGet restore, generated OpenAPI/TypeScript/live-contract check, TypeScript, optimized Next.js build, root ignore-policy test and npm/NuGet vulnerability audits passed. No dependency was added. The updated documented launcher migrated the retained database and started PostgreSQL/API/web/search worker successfully. Viewport screenshots of the comparison and mobile confirmation were inspected; the focused large-comparison flow and optimized build passed again after improving screenshot capture.
+
+Push and clean-run CI results will be recorded after verification. No production identity, load/SLO, backup/deletion recovery or enterprise parity claim is made by this slice.
+
 ## Remaining gaps and release risks
 
 This is a local foundation preview. Production startup deliberately refuses unconfigured enterprise identity. Real OIDC/SAML/MFA/SCIM, groups/relationship denies, permission administration/concurrent revocation barrier, HTTPS/session-key operations, full denied/admin/authentication audit, immutable archives and quotas remain absent. Subsequent requests observe revoked membership/grants; already-authorized in-flight requests are not synchronously revoked.
 
-Generic external outbox dispatch, Temporal, actual connectors/import/export, distributed OpenSearch, advanced search/autocomplete/facets/files, attachments/rich editing/restore, credential/OTP/rotation/offline/key recovery, portals/cross-account collaboration, discovery, mobile/extensions, Office editing and AI remain unimplemented. The search worker is implemented; Terraform remains a scaffold. AI has no configured provider. The UI uses native controls/custom CSS; Tailwind/component extraction is deferred. Large-tenant chunked search rebuilds, production job scheduling and immutable operator replay/rebuild audit remain gaps.
+Generic external outbox dispatch, Temporal, actual connectors/import/export, distributed OpenSearch, advanced search/autocomplete/facets/files, attachments/rich editing, asset/deletion recovery and retention, credential/OTP/rotation/offline/key recovery, portals/cross-account collaboration, discovery, mobile/extensions, Office editing and AI remain unimplemented. Plain-text document comparison/restoration and the search worker are implemented; Terraform remains a scaffold. AI has no configured provider. The UI uses native controls/custom CSS; Tailwind/component extraction is deferred. Large-tenant chunked search rebuilds, production job scheduling and immutable operator replay/rebuild audit remain gaps.
 
 No production cloud resources/public application deployment, load/SLO measurements, backup restore/recovery drills, independent pentest/vault review, SBOM/signed artifacts or certification is claimed. Local runtime servicing updates are required before release. Organization selection currently caps at 100 grants. See the complete [backlog](backlog.md) and [threat/risk register](threat-model.md).
 
 ## Next concrete task
 
-Implement document comparison and audited restoration as a new revision, with expected-version conflict handling and permission/tenant denial cases. Restoring must preserve existing history and atomically create a new revision, audit and outbox invalidation so search catches up safely. Production identity selection remains a separate release prerequisite; the full enterprise roadmap remains unchanged.
+Implement explicit asset relationships with tenant/organization-qualified endpoints and foreign keys, Viewer/Editor actions, bounded linked-record navigation, atomic audit/outbox and denial/concurrency/recovery tests. Preserve document recovery and search authority tests. Production identity selection remains a separate release prerequisite; the full enterprise roadmap remains unchanged.
 
 Startup and test commands are in the [README](../README.md). Preserve all enterprise roadmap scope during later slices.

@@ -7,6 +7,7 @@ using Npgsql;
 using SaveIT.Api;
 using SaveIT.Api.Data;
 using SaveIT.Api.Security;
+using SaveIT.Api.Documentation;
 
 var builder = WebApplication.CreateBuilder(args);
 var devIdentity = builder.Configuration.GetValue<bool>("DevelopmentIdentity:Enabled");
@@ -117,6 +118,7 @@ if (devIdentity)
 app.MapPost("/api/v1/logout", async (HttpContext c) => { await c.SignOutAsync(); return Results.NoContent(); }).RequireAuthorization();
 app.MapSaveItEndpoints();
 app.MapSearchEndpoints();
+app.MapDocumentHistoryEndpoints();
 await app.RunAsync();
 
 public partial class Program;

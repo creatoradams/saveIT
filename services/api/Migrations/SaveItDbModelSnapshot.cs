@@ -85,8 +85,14 @@ namespace SaveIT.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("SourceVersion")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("TargetId")
                         .HasColumnType("uuid");
+
+                    b.Property<int?>("TargetVersion")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -163,6 +169,13 @@ namespace SaveIT.Api.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RestoreReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("RestoredFromVersion")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -170,9 +183,14 @@ namespace SaveIT.Api.Migrations
 
                     b.HasKey("TenantId", "DocumentId", "Version");
 
+                    b.HasIndex("TenantId", "DocumentId", "RestoredFromVersion");
+
                     b.HasIndex("TenantId", "OrganizationId", "DocumentId");
 
-                    b.ToTable("DocumentRevisions", (string)null);
+                    b.ToTable("DocumentRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Revision_RestoreProvenance", "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)");
+                        });
                 });
 
             modelBuilder.Entity("SaveIT.Api.Data.Membership", b =>
@@ -444,6 +462,11 @@ namespace SaveIT.Api.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.DocumentRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "DocumentId", "RestoredFromVersion")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("SaveIT.Api.Data.Document", null)
                         .WithMany()

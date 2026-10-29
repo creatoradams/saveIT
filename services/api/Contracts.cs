@@ -9,6 +9,12 @@ public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string 
 public sealed record CreateDocumentRequest(Guid AssetId, string Title, string Content);
 public sealed record ReviseDocumentRequest(string Title, string Content, int ExpectedVersion);
 public sealed record DocumentDto(Guid Id, Guid OrganizationId, Guid AssetId, string Title, string Content, int Version, DateTimeOffset UpdatedAt);
-public sealed record RevisionDto(int Version, string Title, string Content, string Actor, DateTimeOffset CreatedAt);
-public sealed record AuditDto(long Id, string Actor, Guid TargetId, string Action, string Outcome, string CorrelationId, DateTimeOffset CreatedAt);
+public sealed record RevisionDto(int Version, string Title, string Content, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion = null, string? RestoreReason = null);
+public sealed record AuditDto(long Id, string Actor, Guid TargetId, string Action, string Outcome, string CorrelationId, DateTimeOffset CreatedAt, int? SourceVersion = null, int? TargetVersion = null);
 public sealed record CursorPage<T>(IReadOnlyList<T> Items, string? NextCursor);
+public sealed record RestoreDocumentRequest(int SourceVersion, int ExpectedVersion, string Reason);
+public sealed record RevisionSummaryDto(int Version, string Title, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion);
+public sealed record DiffLineDto(string Kind, int? OldLine, int? NewLine, string Text);
+public sealed record DocumentComparisonDto(Guid DocumentId, RevisionSummaryDto From, RevisionSummaryDto To,
+    int CurrentVersion, bool TitleChanged, bool ContentChanged, bool LineEndingsOnly, bool Simplified,
+    int AddedLines, int RemovedLines, int TotalRows, int Offset, IReadOnlyList<DiffLineDto> Lines, int? NextOffset);

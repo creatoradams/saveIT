@@ -62,6 +62,12 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<DocumentRevision>().HasOne<Document>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.DocumentId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         m.Entity<DocumentRevision>().Property(x => x.Title).HasMaxLength(160);
         m.Entity<DocumentRevision>().Property(x => x.Content).HasMaxLength(50000);
+        m.Entity<DocumentRevision>().Property(x => x.RestoreReason).HasMaxLength(500);
+        m.Entity<DocumentRevision>().HasOne<DocumentRevision>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.DocumentId, x.RestoredFromVersion })
+            .HasPrincipalKey(x => new { x.TenantId, x.DocumentId, x.Version }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentRevision>().ToTable(t => t.HasCheckConstraint("CK_Revision_RestoreProvenance",
+            "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)"));
         TenantEntity<AuditEvent>(m, "AuditEvents");
         m.Entity<AuditEvent>().HasKey(x => x.Id);
         m.Entity<AuditEvent>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);

@@ -45,7 +45,7 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
             try
             {
                 var isDeadLetter = false;
-                var type = current.Type switch { "Asset.Created" => "asset", "Document.Created" or "Document.Revised" => "document", _ => null };
+                var type = current.Type switch { "Asset.Created" => "asset", "Document.Created" or "Document.Revised" or "Document.Restored" => "document", _ => null };
                 if (current.SchemaVersion != 1 || type is null)
                 {
                     await WriteFailureAsync(connection, transaction, tenantId, current.Id, "unsupported_event", true, cancellationToken);
