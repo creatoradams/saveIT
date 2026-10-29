@@ -22,6 +22,8 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
     public DbSet<DocumentRevision> DocumentRevisions => Set<DocumentRevision>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+    public DbSet<SearchEntry> SearchEntries => Set<SearchEntry>();
+    public DbSet<SearchDelivery> SearchDeliveries => Set<SearchDelivery>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
@@ -66,8 +68,24 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<AuditEvent>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.Id });
         TenantEntity<OutboxEvent>(m, "OutboxEvents");
         m.Entity<OutboxEvent>().HasKey(x => x.Id);
+        m.Entity<OutboxEvent>().HasAlternateKey(x => new { x.TenantId, x.Id });
         m.Entity<OutboxEvent>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         m.Entity<OutboxEvent>().HasIndex(x => new { x.TenantId, x.DeliveredAt });
+
+        TenantEntity<SearchEntry>(m, "SearchEntries");
+        m.Entity<SearchEntry>().HasKey(x => new { x.TenantId, x.RecordType, x.Id });
+        m.Entity<SearchEntry>().Property(x => x.RecordType).HasMaxLength(16);
+        m.Entity<SearchEntry>().Property(x => x.Title).HasMaxLength(160);
+        m.Entity<SearchEntry>().Property(x => x.Body).HasMaxLength(50000);
+        m.Entity<SearchEntry>().HasOne<Asset>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.AssetId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<SearchEntry>().HasGeneratedTsVectorColumn(x => x.SearchVector, "simple", x => new { x.Title, x.Body })
+            .HasIndex(x => x.SearchVector).HasMethod("GIN");
+        m.Entity<SearchEntry>().HasIndex(x => new { x.TenantId, x.OrganizationId });
+        m.Entity<SearchEntry>().ToTable(t => t.HasCheckConstraint("CK_SearchEntry_Type", "\"RecordType\" IN ('asset', 'document')"));
+        TenantEntity<SearchDelivery>(m, "SearchDeliveries");
+        m.Entity<SearchDelivery>().HasKey(x => new { x.TenantId, x.EventId });
+        m.Entity<SearchDelivery>().HasOne<OutboxEvent>().WithMany().HasForeignKey(x => new { x.TenantId, x.EventId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<SearchDelivery>().Property(x => x.ErrorCode).HasMaxLength(48);
     }
 
     private void TenantEntity<T>(ModelBuilder m, string table) where T : class, ITenantOwned

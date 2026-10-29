@@ -77,3 +77,29 @@ public sealed class OutboxEvent : ITenantOwned
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? DeliveredAt { get; set; }
 }
+
+public sealed class SearchEntry : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public string RecordType { get; set; } = "";
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid AssetId { get; set; }
+    public string Title { get; set; } = "";
+    public string Body { get; set; } = "";
+    public int Version { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public DateTimeOffset IndexedAt { get; set; }
+    public NpgsqlTypes.NpgsqlTsVector SearchVector { get; set; } = null!;
+}
+
+public sealed class SearchDelivery : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid EventId { get; set; }
+    public int Attempts { get; set; }
+    public DateTimeOffset NextAttemptAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
+    public DateTimeOffset? DeadLetteredAt { get; set; }
+    public string? ErrorCode { get; set; }
+}

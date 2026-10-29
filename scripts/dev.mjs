@@ -1,6 +1,12 @@
 import { spawn, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-import { startDatabase, migrate, appConnection } from "./database.mjs";
+import {
+  startDatabase,
+  migrate,
+  appConnection,
+  workerEnvironment,
+  run,
+} from "./database.mjs";
 
 const pg = await startDatabase();
 const children = [];
@@ -24,6 +30,16 @@ process.on("SIGINT", () => stop());
 process.on("SIGTERM", () => stop());
 try {
   await migrate();
+  await run("dotnet", ["build", "services/workers", "--no-restore"]);
+  await run(
+    "dotnet",
+    [
+      "services/workers/bin/Debug/net10.0/SaveIT.Workers.dll",
+      "--rebuild",
+      "--once",
+    ],
+    workerEnvironment,
+  );
   const apiPort = process.env.SAVEIT_API_PORT || "5080";
   const webPort = process.env.SAVEIT_WEB_PORT || "3000";
   const api = spawn(
@@ -43,6 +59,16 @@ try {
     },
   );
   children.push(api);
+  const worker = spawn(
+    "dotnet",
+    [resolve("services/workers/bin/Debug/net10.0/SaveIT.Workers.dll")],
+    {
+      stdio: "inherit",
+      windowsHide: true,
+      env: { ...process.env, ...workerEnvironment },
+    },
+  );
+  children.push(worker);
   const web = spawn(
     process.execPath,
     [

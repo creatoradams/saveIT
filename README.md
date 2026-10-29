@@ -2,7 +2,7 @@
 
 An IT documentation and operations platform. This repository implements a persistent **local foundation slice** and preserves the full enterprise scope in [the backlog](docs/backlog.md). It is not enterprise-ready or verified IT Glue parity.
 
-Working flow: choose a synthetic development identity → select an authorized organization → create/list an asset → create a linked plain-text document → revise it → inspect revisions and audit history. PostgreSQL retains data across restarts.
+Working flow: choose a synthetic development identity → select an authorized organization → create/list an asset → create a linked plain-text document → revise it → inspect revisions/audit → find it with permission-aware search. PostgreSQL retains data across restarts.
 
 ## Run locally
 
@@ -14,7 +14,7 @@ dotnet restore SaveIT.slnx --locked-mode
 npm run dev
 ```
 
-Open **http://127.0.0.1:3000**. The script starts real PostgreSQL 18 on loopback port 55432, applies EF migrations and synthetic seeds through a separate owner connection, starts ASP.NET on 5080, and Next.js on 3000. Ctrl+C stops child services. First startup initializes ignored `.local/postgres`; later starts retain it. Do not run duplicate instances against the same ports/database directory.
+Open **http://127.0.0.1:3000**. The script starts real PostgreSQL 18 on loopback port 55432, applies EF migrations and synthetic seeds through a separate owner connection, rebuilds local search projections, starts ASP.NET on 5080, Next.js on 3000, and the restricted search worker. Ctrl+C stops child services. First startup initializes ignored `.local/postgres`; later starts retain it. Do not run duplicate instances against the same ports/database directory.
 
 | Synthetic profile | Tenant | Access |
 | --- | --- | --- |
@@ -73,8 +73,20 @@ Review migrations, tenant constraints and RLS before applying. Local `--migrate`
 
 ## Repository and remaining scope
 
-`apps/web` contains Next.js/TypeScript; `services/api` owns EF migrations, core records, policy, audit/outbox; `services/workers` is an empty runnable host; `infra/terraform` is a non-provisioning scaffold. `contracts`, `tests` and `docs` hold shared schemas, PostgreSQL/Playwright checks, original brief, architecture, threats, five ADRs, parity inventory, roadmap and progress.
+`apps/web` contains Next.js/TypeScript; `services/api` owns EF migrations, core records, policy, audit/outbox; `services/search` implements derived full-text projections/querying; `services/workers` runs the actual search consumer. `infra/terraform` remains a non-provisioning scaffold. `contracts`, `tests` and `docs` hold shared schemas, PostgreSQL/Playwright checks, original brief, architecture, threats, six ADRs, parity inventory, roadmap and progress.
 
-Tenant authority comes from a protected session and live membership. Server policies, tenant-qualified relationships and forced PostgreSQL RLS apply from the first slice. Successful writes and audit/outbox rows commit atomically; revisions are append-only to the application role. Pending events have no dispatcher yet.
+Tenant authority comes from a protected session and live membership. Server policies, tenant-qualified relationships and forced PostgreSQL RLS apply from the first slice. Successful writes and audit/outbox rows commit atomically; revisions are append-only to the application role. Search consumes immutable outbox invalidations using separate transactional completion receipts, bounded retries, dead letters and replay. Generic external event delivery is not implemented.
 
-**Next slice:** permission-aware search, including revocation during indexing lag. Enterprise SSO/MFA/SCIM, advanced grants, private attachments/rich editing, actual event delivery, integrations/workflows, vault/OTP/rotation, portals/discovery/mobile/extensions/offline, Office editing, AI, cloud operations and independent enterprise assurance remain on the roadmap. No public application deployment is configured.
+Search supports complete-word matching in asset names/types and document titles/content, organization/type filters, ranked cursor pages and plain-text previews. PostgreSQL full-text projections are rebuildable; OpenSearch remains planned. Every result is checked against current membership/grants and exact current source version/content before previews or pagination are returned. A stale revision is excluded until indexing catches up. No files, vault values, autocomplete, facets or total count are indexed/exposed. Search fails closed on projection/source/audit failure.
+
+With the local database running and worker project built:
+
+```sh
+npm run search:rebuild
+npm run search:once
+node scripts/search-worker.mjs --replay-event <event-uuid> --once
+```
+
+These commands use a separate synthetic `saveit_search_worker` account and the two configured development tenants. Rebuild does not modify core records. The background worker polls every second; writes may take a moment to appear. See [ADR 006](docs/adr/006-search-and-delivery.md) for ordering, retry/dead-letter semantics, tenant boundaries and recovery instructions. `SearchDeliveries` tracks this consumer; global `OutboxEvents.DeliveredAt` is intentionally untouched. Production needs externally managed worker credentials, explicit tenant scheduling and operator controls.
+
+**Next slice:** document comparison and audited restoration as a new revision with optimistic concurrency. Enterprise SSO/MFA/SCIM, advanced grants, private attachments/rich editing, OpenSearch, external event delivery, integrations/workflows, vault/OTP/rotation, portals/discovery/mobile/extensions/offline, Office editing, AI, cloud operations and independent enterprise assurance remain on the roadmap. No public application deployment is configured.

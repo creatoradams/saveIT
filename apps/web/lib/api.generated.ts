@@ -175,6 +175,64 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          q?: string;
+          organizationId?: string;
+          type?: string;
+          after?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["SearchPage"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Service Unavailable */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/session": {
     parameters: {
       query?: never;
@@ -682,6 +740,26 @@ export interface components {
       actor: string;
       /** Format: date-time */
       createdAt: string;
+    };
+    SearchHit: {
+      /** Format: uuid */
+      id: string;
+      type: string;
+      /** Format: uuid */
+      organizationId: string;
+      organizationName: string;
+      /** Format: uuid */
+      assetId: string;
+      title: string;
+      preview: string;
+      /** Format: int32 */
+      version: number | string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    SearchPage: {
+      items: components["schemas"]["SearchHit"][];
+      nextCursor: null | string;
     };
     SessionDto: {
       name: string;

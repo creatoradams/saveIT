@@ -10,6 +10,8 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "search:rebuild": "node scripts/search-worker.mjs --rebuild --once",
+    "search:once": "node scripts/search-worker.mjs --once",
     "db": "node scripts/database.mjs",
     "contracts": "openapi-typescript contracts/openapi.json -o apps/web/lib/api.generated.ts && prettier --write apps/web/lib/api.generated.ts",
     "typecheck": "npm run typecheck --workspace apps/web",

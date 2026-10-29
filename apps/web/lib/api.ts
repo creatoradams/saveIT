@@ -6,6 +6,8 @@ export type Session = components["schemas"]["SessionDto"];
 export type Profile = components["schemas"]["ProfileDto"];
 export type Revision = components["schemas"]["RevisionDto"];
 export type Audit = components["schemas"]["AuditDto"];
+export type SearchHit = components["schemas"]["SearchHit"];
+export type SearchPage = components["schemas"]["SearchPage"];
 export type Page<T> = { items: T[]; nextCursor: string | null };
 export class ApiError extends Error {
   constructor(

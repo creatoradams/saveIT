@@ -116,6 +116,7 @@ if (devIdentity)
 }
 app.MapPost("/api/v1/logout", async (HttpContext c) => { await c.SignOutAsync(); return Results.NoContent(); }).RequireAuthorization();
 app.MapSaveItEndpoints();
+app.MapSearchEndpoints();
 await app.RunAsync();
 
 public partial class Program;

@@ -7,6 +7,13 @@ import { fileURLToPath } from "node:url";
 export const port = Number(process.env.SAVEIT_DB_PORT || 55432);
 export const appConnection = `Host=127.0.0.1;Port=${port};Database=saveit;Username=saveit_app;Password=synthetic-app-only`;
 export const ownerConnection = `Host=127.0.0.1;Port=${port};Database=saveit;Username=postgres;Password=local-development-only`;
+export const workerConnection = `Host=127.0.0.1;Port=${port};Database=saveit;Username=saveit_search_worker;Password=synthetic-worker-only`;
+export const workerEnvironment = {
+  DOTNET_ENVIRONMENT: "Development",
+  ConnectionStrings__SearchWorker: workerConnection,
+  SearchWorker__Tenants__0: "10000000-0000-0000-0000-000000000001",
+  SearchWorker__Tenants__1: "20000000-0000-0000-0000-000000000001",
+};
 
 export function run(command, args, env = {}) {
   return new Promise((resolvePromise, reject) => {
@@ -50,6 +57,13 @@ export async function startDatabase() {
       if (!role.rowCount)
         await client.query(
           "CREATE ROLE saveit_app LOGIN PASSWORD 'synthetic-app-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS",
+        );
+      const workerRole = await client.query(
+        "SELECT 1 FROM pg_roles WHERE rolname='saveit_search_worker'",
+      );
+      if (!workerRole.rowCount)
+        await client.query(
+          "CREATE ROLE saveit_search_worker LOGIN PASSWORD 'synthetic-worker-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS",
         );
       const database = await client.query(
         "SELECT 1 FROM pg_database WHERE datname='saveit'",

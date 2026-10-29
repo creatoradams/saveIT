@@ -26,7 +26,9 @@ Updated 2026-10-28. Preserve all scope in the [original brief](project-brief.md)
 
 - [x] Authorized organization selection, persistent create/list assets, linked plain-text documents, append-only revisions with conflict detection, revision inspection, organization audit history.
 - [x] Cursor limits for assets/documents/revisions/audit; responsive workspace, native keyboard navigation, error/status regions and initial automated accessibility checks.
-- [ ] **Next concrete slice: permission-aware search** over asset and document metadata/content. Add rebuildable OpenSearch projections/outbox consumer; final authority checks for every result/snippet/count/facet/autocomplete. Test two-tenant retrieval, permission revocation during index lag, dependency outage, replay and deduplication. No AI/credential content in retrieval.
+- [x] Initial permission-aware asset/document full-text search, scoped/type filters, ranked keyset pages and plain-text previews through a rebuildable PostgreSQL projection and real outbox consumer (ADR 006). Current grants/source/version rechecked before all fields/pagination; two-tenant, stale content, revocation during indexing lag, outage, replay, deduplication, worker-role and audit failure tests pass. No credential content in retrieval.
+- [ ] Enterprise OpenSearch adapter, measured relevance/scaling, authorized facets/counts/autocomplete and file search. PostgreSQL is the intentional first implementation; distributed search remains in scope. Preserve final authority checks for every new side channel.
+- [ ] **Next concrete slice: document comparison and audited restore** as a new revision with expected-version conflict handling, historical content read auditing, tenant/role denial tests and usable recovery UX.
 - [ ] Organization management and paginated selection, locations, contacts, configurations, typed AssetType/flexible schemas, validated/versioned JSONB and schema migration rules, templates, explicit AssetRelationship model, bulk updates/previews.
 - [ ] Rich Tiptap/ProseMirror content with sanitization/isolation, folders, knowledge base/SOP templates, flags, ownership/freshness/review dates, approvals and collaboration; verify commercial licensing before adding extensions.
 - [ ] Asset history, revision comparison, restore/rollback, deletion recovery and retention, audit coverage for metadata access as required by policy.
@@ -35,7 +37,8 @@ Updated 2026-10-28. Preserve all scope in the [original brief](project-brief.md)
 
 ## Phase 3 — integrations and workflows
 
-- [ ] Working transactional outbox dispatcher with at-least-once delivery, event schema/version policy, per-target ordering expectations, retries/jitter, deduplication, dead letters, replay and operator recovery; real consumers with idempotent effects/reconciliation.
+- [x] Real tenant-scoped search-v1 consumer: immutable invalidations, separate transactional receipts, current-source/version-safe idempotent projection, advisory-lock concurrency, five-attempt backoff/jitter, safe-code dead letters, scoped rebuild/replay commands and failure recovery tests.
+- [ ] Generic transactional outbox dispatch to additional consumers/external systems, event schema/version evolution, external ordering/reconciliation, production operator administration, scheduling and immutable operational audit. Local search success does not establish connector or exactly-once external effects.
 - [ ] Temporal workflow adapter and separate worker pools; do not claim exactly-once external effects. Use opaque credential references, never secret values in workflow history.
 - [ ] Connector SDK, scoped service identities, webhooks/public API, IntegrationConnection/SyncCheckpoint models, real imports/exports and migration tooling, checkpoint/reconciliation and explicit sync status.
 - [ ] Build each native PSA/RMM/backup/cloud integration independently. See individual leads in the parity matrix, including Autotask, Intune, Entra/AD/M365, Google Workspace, Datto products, Spanning, Unitrends, Vorex, myITprocess, Dark Web ID and BullPhish ID; verify demand/entitlements first.

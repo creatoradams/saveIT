@@ -487,7 +487,14 @@
           "Microsoft.AspNetCore.OpenApi": "[10.0.14, )",
           "Microsoft.EntityFrameworkCore": "[10.0.14, )",
           "Microsoft.EntityFrameworkCore.Relational": "[10.0.14, )",
-          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.2, )"
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.2, )",
+          "SaveIT.Search": "[1.0.0, )"
+        }
+      },
+      "saveit.search": {
+        "type": "Project",
+        "dependencies": {
+          "Npgsql": "[10.0.3, )"
         }
       }
     }

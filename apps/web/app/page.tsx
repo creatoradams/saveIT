@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import SearchPanel from "./search-panel";
 import {
   api,
   ApiError,
@@ -12,6 +13,7 @@ import {
   type Revision,
   type Audit,
   type Page,
+  type SearchHit,
 } from "../lib/api";
 
 const errorText = (error: unknown) =>
@@ -39,7 +41,11 @@ export default function Workspace() {
   const [revisionCursor, setRevisionCursor] = useState<string | null>(null);
   const [events, setEvents] = useState<Audit[]>([]);
   const [auditCursor, setAuditCursor] = useState<string | null>(null);
-  const [view, setView] = useState<"workspace" | "audit">("workspace");
+  const [view, setView] = useState<"workspace" | "audit" | "search">(
+    "workspace",
+  );
+  const searchSelection = useRef<SearchHit | null>(null);
+  const [navigationVersion, setNavigationVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [assetsLoading, setAssetsLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -92,11 +98,22 @@ export default function Workspace() {
     setDocuments([]);
     setEditing(false);
     setRevisions([]);
+    const target =
+      searchSelection.current?.organizationId === organizationId
+        ? searchSelection.current
+        : null;
     api<Page<Asset>>(`${base}/assets`, { signal: abort.signal })
-      .then((page) => {
+      .then(async (page) => {
+        if (target && !page.items.some((asset) => asset.id === target.assetId))
+          page.items.push(
+            await api<Asset>(`${base}/assets/${target.assetId}`, {
+              signal: abort.signal,
+            }),
+          );
+        if (abort.signal.aborted) return;
         setAssets(page.items);
         setAssetCursor(page.nextCursor);
-        setAssetId(page.items[0]?.id || "");
+        setAssetId(target?.assetId || page.items[0]?.id || "");
       })
       .catch((err) => {
         if (!abort.signal.aborted) setError(errorText(err));
@@ -105,7 +122,7 @@ export default function Workspace() {
         if (!abort.signal.aborted) setAssetsLoading(false);
       });
     return () => abort.abort();
-  }, [organizationId]); // Organization changes cancel in-flight reads and clear all record state.
+  }, [organizationId, navigationVersion]); // Organization changes cancel in-flight reads and clear all record state.
 
   useEffect(() => {
     setDocument(null);
@@ -118,7 +135,24 @@ export default function Workspace() {
     api<Page<Doc>>(`${base}/assets/${assetId}/documents`, {
       signal: abort.signal,
     })
-      .then((page) => {
+      .then(async (page) => {
+        const target = searchSelection.current;
+        if (
+          target?.type === "document" &&
+          target.organizationId === organizationId &&
+          target.assetId === assetId
+        ) {
+          const doc = await api<Doc>(`${base}/documents/${target.id}`, {
+            signal: abort.signal,
+          });
+          if (abort.signal.aborted) return;
+          if (!page.items.some((item) => item.id === doc.id))
+            page.items.push({ ...doc, content: "" });
+          setDocument(doc);
+          setTitle(doc.title);
+          setContent(doc.content);
+        }
+        if (abort.signal.aborted) return;
         setDocuments(page.items);
         setDocumentCursor(page.nextCursor);
       })
@@ -126,7 +160,7 @@ export default function Workspace() {
         if (!abort.signal.aborted) setError(errorText(err));
       });
     return () => abort.abort();
-  }, [assetId, organizationId, refresh]);
+  }, [assetId, organizationId, refresh, navigationVersion]);
 
   useEffect(() => {
     setEvents([]);
@@ -193,6 +227,7 @@ export default function Workspace() {
           kind: form.get("kind"),
         }),
       });
+      searchSelection.current = null;
       setAssets((previous) => [...previous, asset]);
       setAssetId(asset.id);
       setAssetForm(false);
@@ -201,6 +236,7 @@ export default function Workspace() {
     });
   }
   async function openDocument(id: string) {
+    searchSelection.current = null;
     await perform(async () => {
       const doc = await api<Doc>(`${base}/documents/${id}`);
       setDocument(doc);
@@ -328,6 +364,13 @@ export default function Workspace() {
             <span aria-hidden="true">▦</span> Assets & docs
           </button>
           <button
+            className={view === "search" ? "nav-item active" : "nav-item"}
+            disabled={busy}
+            onClick={() => setView("search")}
+          >
+            <span aria-hidden="true">⌕</span> Search
+          </button>
+          <button
             className={view === "audit" ? "nav-item active" : "nav-item"}
             onClick={() => setView("audit")}
           >
@@ -335,9 +378,6 @@ export default function Workspace() {
           </button>
         </nav>
         <span className="nav-label roadmap-label">ON THE ROADMAP</span>
-        <div className="planned">
-          <span>⌕</span> Authorized search <small>Next</small>
-        </div>
         <div className="planned">
           <span>◇</span> Credential vault <small>Planned</small>
         </div>
@@ -369,7 +409,9 @@ export default function Workspace() {
             <strong>
               {view === "workspace"
                 ? "Assets & documentation"
-                : "Audit history"}
+                : view === "search"
+                  ? "Search"
+                  : "Audit history"}
             </strong>
           </div>
           <span className="development">
@@ -385,12 +427,16 @@ export default function Workspace() {
               <h1>
                 {view === "workspace"
                   ? "Everything has a home."
-                  : "Every change leaves a trail."}
+                  : view === "search"
+                    ? "Find the detail that matters."
+                    : "Every change leaves a trail."}
               </h1>
               <p>
                 {view === "workspace"
                   ? "Keep your infrastructure and its know-how connected."
-                  : "Follow the people and changes behind your documentation."}
+                  : view === "search"
+                    ? "Search your assets and documentation across the organizations you can access."
+                    : "Follow the people and changes behind your documentation."}
               </p>
             </div>
           </div>
@@ -406,6 +452,7 @@ export default function Workspace() {
                   value={organizationId}
                   disabled={busy}
                   onChange={(e) => {
+                    searchSelection.current = null;
                     setOrganizationId(e.target.value);
                     setError("");
                     setNotice("");
@@ -550,7 +597,10 @@ export default function Workspace() {
                             className={
                               assetId === asset.id ? "asset selected" : "asset"
                             }
-                            onClick={() => setAssetId(asset.id)}
+                            onClick={() => {
+                              searchSelection.current = null;
+                              setAssetId(asset.id);
+                            }}
                           >
                             <span className="asset-symbol">▧</span>
                             <span>
@@ -574,7 +624,14 @@ export default function Workspace() {
                           const page = await api<Page<Asset>>(
                             `${base}/assets?after=${assetCursor}`,
                           );
-                          setAssets((x) => [...x, ...page.items]);
+                          setAssets((x) => [
+                            ...new Map(
+                              [...x, ...page.items].map((item) => [
+                                item.id,
+                                item,
+                              ]),
+                            ).values(),
+                          ]);
                           setAssetCursor(page.nextCursor);
                         })
                       }
@@ -668,7 +725,14 @@ export default function Workspace() {
                               const page = await api<Page<Doc>>(
                                 `${base}/assets/${assetId}/documents?after=${documentCursor}`,
                               );
-                              setDocuments((x) => [...x, ...page.items]);
+                              setDocuments((x) => [
+                                ...new Map(
+                                  [...x, ...page.items].map((item) => [
+                                    item.id,
+                                    item,
+                                  ]),
+                                ).values(),
+                              ]);
                               setDocumentCursor(page.nextCursor);
                             })
                           }
@@ -827,6 +891,20 @@ export default function Workspace() {
                 </span>
               </div>
             </>
+          )}
+          {organizationId && view === "search" && (
+            <SearchPanel
+              organizationId={organizationId}
+              organizations={organizations}
+              onOpen={(hit) => {
+                searchSelection.current = hit;
+                setOrganizationId(hit.organizationId);
+                setNavigationVersion((value) => value + 1);
+                setError("");
+                setNotice("");
+                setView("workspace");
+              }}
+            />
           )}
           {organizationId && view === "audit" && (
             <section className="panel audit-panel">

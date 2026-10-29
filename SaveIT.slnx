@@ -3,6 +3,9 @@
   <Folder Name="/services/api/">
     <Project Path="services/api/SaveIT.Api.csproj" />
   </Folder>
+  <Folder Name="/services/search/">
+    <Project Path="services/search/SaveIT.Search.csproj" />
+  </Folder>
   <Folder Name="/services/workers/">
     <Project Path="services/workers/SaveIT.Workers.csproj" />
   </Folder>
