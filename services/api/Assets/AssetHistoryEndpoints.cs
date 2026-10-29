@@ -7,10 +7,11 @@ namespace SaveIT.Api.Assets;
 
 public static class AssetHistoryEndpoints
 {
-    public static AssetDto Dto(Asset x) => new(x.Id, x.OrganizationId, x.Name, x.Kind, x.CreatedAt, x.Version, x.LocationId);
+    public static AssetDto Dto(Asset x) => new(x.Id, x.OrganizationId, x.Name, x.Kind, x.CreatedAt, x.Version, x.LocationId, x.AssetTypeId, x.AssetTypeVersion);
     public static void Snapshot(SaveItDb db, TenantScope scope, Asset asset, int? source = null, string? reason = null) =>
         db.AssetRevisions.Add(new() { TenantId = scope.TenantId, OrganizationId = asset.OrganizationId, AssetId = asset.Id, Version = asset.Version,
-            Name = asset.Name, Kind = asset.Kind, LocationId = asset.LocationId, Actor = scope.Subject, CreatedAt = asset.UpdatedAt, RestoredFromVersion = source, RestoreReason = reason });
+            Name = asset.Name, Kind = asset.Kind, LocationId = asset.LocationId, Actor = scope.Subject, CreatedAt = asset.UpdatedAt, RestoredFromVersion = source, RestoreReason = reason,
+            AssetTypeId = asset.AssetTypeId, AssetTypeVersion = asset.AssetTypeVersion, FieldsJson = asset.FieldsJson });
 
     public static void MapAssetHistoryEndpoints(this WebApplication app)
     {
@@ -35,10 +36,10 @@ public static class AssetHistoryEndpoints
         {
             if (await Permissions.RoleAsync(db, scope, organizationId) is null || !await db.Assets.AnyAsync(x => x.Id == assetId && x.OrganizationId == organizationId)) return Results.NotFound();
             var rows = await db.AssetRevisions.AsNoTracking().Where(x => x.AssetId == assetId && x.OrganizationId == organizationId && (before == null || x.Version < before))
-                .OrderByDescending(x => x.Version).Take(51).Select(x => new AssetRevisionDto(x.Version, x.Name, x.Kind, x.LocationId, x.Actor, x.CreatedAt, x.RestoredFromVersion, x.RestoreReason)).ToListAsync(context.RequestAborted);
+                .OrderByDescending(x => x.Version).Take(51).ToListAsync(context.RequestAborted);
             ChangeLog.Add(db, scope, context, organizationId, assetId, "Asset.RevisionsRead", false);
             await db.SaveChangesAsync(context.RequestAborted);
-            return Results.Ok(new CursorPage<AssetRevisionDto>(rows.Take(50).ToList(), rows.Count > 50 ? rows[49].Version.ToString() : null));
+            return Results.Ok(new CursorPage<AssetRevisionDto>(rows.Take(50).Select(x => new AssetRevisionDto(x.Version, x.Name, x.Kind, x.LocationId, x.Actor, x.CreatedAt, x.RestoredFromVersion, x.RestoreReason, x.AssetTypeId, x.AssetTypeVersion, AssetSchemas.Json(x.FieldsJson))).ToList(), rows.Count > 50 ? rows[49].Version.ToString() : null));
         }).Produces<CursorPage<AssetRevisionDto>>();
         group.MapPost("/restore", async (Guid organizationId, Guid assetId, RestoreDocumentRequest input, SaveItDb db, TenantScope scope, HttpContext context) =>
         {
@@ -54,7 +55,12 @@ public static class AssetHistoryEndpoints
             if (source is null) return Results.NotFound();
             if (source.LocationId != null && !await db.Locations.AnyAsync(x => x.Id == source.LocationId && x.OrganizationId == organizationId && !x.IsArchived))
                 return Results.Problem(statusCode: 400, title: "The historical location is archived or unavailable. Restore that location or revise the asset placement first.");
-            asset.Name = source.Name; asset.Kind = source.Kind; asset.LocationId = source.LocationId; asset.Version++; asset.UpdatedAt = DateTimeOffset.UtcNow;
+            if (!await AssetSchemas.ValidBinding(db, organizationId, source.AssetTypeId, source.AssetTypeVersion, AssetSchemas.Json(source.FieldsJson),
+                source.AssetTypeId != asset.AssetTypeId || source.AssetTypeVersion != asset.AssetTypeVersion, context.RequestAborted))
+                return Results.Problem(statusCode: 400, title: "The historical template is archived or unavailable. Reactivate it before restoring this binding.");
+            asset.Name = source.Name; asset.Kind = source.Kind; asset.LocationId = source.LocationId;
+            asset.AssetTypeId = source.AssetTypeId; asset.AssetTypeVersion = source.AssetTypeVersion; asset.FieldsJson = source.FieldsJson;
+            asset.Version++; asset.UpdatedAt = DateTimeOffset.UtcNow;
             Snapshot(db, scope, asset, source.Version, input.Reason.Trim());
             ChangeLog.Add(db, scope, context, organizationId, assetId, "Asset.Restored", source: source.Version, version: asset.Version);
             await db.SaveChangesAsync(context.RequestAborted); return Results.Ok(Dto(asset));

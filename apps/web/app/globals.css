@@ -386,7 +386,9 @@ small {
 .primary:hover {
   background: #074d45;
 }
-.secondary {
+.secondary,
+.template-panel button:not([class]),
+.asset-fields button:not([class]) {
   background: white;
   color: #36564a;
   border: 1px solid #cbd8d0;
@@ -1418,5 +1420,109 @@ td strong {
   }
   .search-result {
     padding: 18px;
+  }
+}
+/* Versioned asset templates */
+.template-intro,
+.template-detail,
+.template-toggle,
+.template-list,
+.schema-grid,
+.schema-row {
+  margin: 16px 24px;
+}
+.template-intro {
+  line-height: 1.7;
+  font-size: 13px;
+}
+.template-toggle {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+}
+.template-toggle input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+.template-list {
+  list-style: none;
+  padding: 0;
+}
+.template-panel > button,
+.template-panel > .message {
+  margin-inline: 24px;
+}
+.template-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.template-list button {
+  flex-shrink: 0;
+  max-width: 55%;
+}
+.schema-row {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+}
+.schema-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.directory-form .schema-grid,
+.directory-form .schema-row,
+.directory-form .template-toggle {
+  margin: 0;
+}
+.schema-grid label {
+  min-width: 0;
+}
+.schema-grid input,
+.schema-grid select,
+.schema-grid textarea {
+  width: 100%;
+}
+.schema-snapshot {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 20px;
+  max-height: 400px;
+  overflow: auto;
+}
+.field-values {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.field-values div {
+  margin-bottom: 8px;
+}
+.field-values dt {
+  font-weight: 600;
+}
+.field-values dd {
+  margin: 4px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .schema-grid {
+    grid-template-columns: 1fr;
+  }
+  .template-list li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .template-list button {
+    max-width: 100%;
   }
 }

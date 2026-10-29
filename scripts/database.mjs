@@ -68,7 +68,10 @@ export async function startDatabase() {
       const database = await client.query(
         "SELECT 1 FROM pg_database WHERE datname='saveit'",
       );
-      if (!database.rowCount) await client.query("CREATE DATABASE saveit");
+      if (!database.rowCount)
+        await client.query(
+          "CREATE DATABASE saveit ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'",
+        );
     } finally {
       await client.end();
     }

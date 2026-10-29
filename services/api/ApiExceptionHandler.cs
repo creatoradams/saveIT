@@ -10,10 +10,11 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
     {
         var conflict = exception is DbUpdateConcurrencyException || exception is DbUpdateException { InnerException: PostgresException { SqlState: "23505" } };
-        var status = exception switch { SearchValidationException or BadHttpRequestException { StatusCode: 400 } => 400, SearchUnavailableException => 503, _ => conflict ? 409 : 500 };
+        var status = exception switch { SearchValidationException or BadHttpRequestException { StatusCode: 400 } => 400, BadHttpRequestException { StatusCode: 413 } => 413, SearchUnavailableException => 503, _ => conflict ? 409 : 500 };
         var title = status switch {
             400 when exception is SearchValidationException => "Use 2–120 characters, at most 12 search terms, and valid filters/cursor.",
             400 => "Use valid route, query and JSON values.",
+            413 => "The request body exceeds the 1 MiB limit.",
             503 => "Search is temporarily unavailable. Try again shortly.",
             409 => "This record changed. Reload it before saving again.",
             _ => "The request could not be completed."

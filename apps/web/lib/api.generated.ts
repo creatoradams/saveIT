@@ -1522,6 +1522,323 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/organizations/{organizationId}/asset-types": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          after?: string;
+          includeArchived?: boolean;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CursorPageOfAssetTypeDto"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["AssetTypeRequest"];
+        };
+      };
+      responses: {
+        /** @description Created */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AssetTypeDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/asset-types/{typeId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          typeId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AssetTypeDto"];
+          };
+        };
+      };
+    };
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          typeId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["AssetTypeRequest"];
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AssetTypeDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/asset-types/{typeId}/revisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          before?: number | string;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+          typeId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CursorPageOfAssetTypeRevisionSummaryDto"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/asset-types/{typeId}/revisions/{version}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          typeId: string;
+          version: number;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AssetTypeRevisionDto"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/assets/{assetId}/fields": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          assetId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AssetFieldsDto"];
+          };
+        };
+      };
+    };
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          assetId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["ReviseAssetFieldsRequest"];
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AssetDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1542,6 +1859,15 @@ export interface components {
       version: number | string;
       /** Format: uuid */
       locationId?: null | string;
+      /** Format: uuid */
+      assetTypeId?: null | string;
+      /** Format: int32 */
+      assetTypeVersion?: null | number | string;
+    };
+    AssetFieldsDto: {
+      asset: components["schemas"]["AssetDto"];
+      schema: null | components["schemas"]["AssetTypeRevisionDto"];
+      values: components["schemas"]["JsonElement"];
     };
     AssetRelationshipDto: {
       /** Format: uuid */
@@ -1570,6 +1896,53 @@ export interface components {
       /** Format: int32 */
       restoredFromVersion: null | number | string;
       restoreReason: null | string;
+      /** Format: uuid */
+      assetTypeId: null | string;
+      /** Format: int32 */
+      assetTypeVersion: null | number | string;
+      fields: components["schemas"]["JsonElement"];
+    };
+    AssetTypeDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      organizationId: string;
+      name: string;
+      /** Format: int32 */
+      version: number | string;
+      isArchived: boolean;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    AssetTypeRequest: {
+      name: string;
+      definition: components["schemas"]["JsonElement"];
+      /**
+       * Format: int32
+       * @default 0
+       */
+      expectedVersion: number | string;
+      /** @default false */
+      isArchived: boolean;
+    };
+    AssetTypeRevisionDto: {
+      /** Format: uuid */
+      assetTypeId: string;
+      /** Format: int32 */
+      version: number | string;
+      name: string;
+      definition: components["schemas"]["JsonElement"];
+      actor: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    AssetTypeRevisionSummaryDto: {
+      /** Format: int32 */
+      version: number | string;
+      name: string;
+      actor: string;
+      /** Format: date-time */
+      createdAt: string;
     };
     AuditDto: {
       /** Format: int64 */
@@ -1590,6 +1963,11 @@ export interface components {
     CreateAssetRequest: {
       name: string;
       kind: string;
+      /** Format: uuid */
+      assetTypeId?: null | string;
+      /** Format: int32 */
+      assetTypeVersion?: null | number | string;
+      fields?: unknown;
     };
     CreateDocumentRequest: {
       /** Format: uuid */
@@ -1615,6 +1993,14 @@ export interface components {
     };
     CursorPageOfAssetRevisionDto: {
       items: components["schemas"]["AssetRevisionDto"][];
+      nextCursor: null | string;
+    };
+    CursorPageOfAssetTypeDto: {
+      items: components["schemas"]["AssetTypeDto"][];
+      nextCursor: null | string;
+    };
+    CursorPageOfAssetTypeRevisionSummaryDto: {
+      items: components["schemas"]["AssetTypeRevisionSummaryDto"][];
       nextCursor: null | string;
     };
     CursorPageOfAuditDto: {
@@ -1712,6 +2098,7 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
     };
+    JsonElement: unknown;
     LoginRequest: {
       profile: string;
     };
@@ -1748,6 +2135,15 @@ export interface components {
       /** Format: int32 */
       expectedVersion: number | string;
       reason: string;
+    };
+    ReviseAssetFieldsRequest: {
+      /** Format: int32 */
+      expectedVersion: number | string;
+      /** Format: uuid */
+      assetTypeId: null | string;
+      /** Format: int32 */
+      assetTypeVersion: null | number | string;
+      fields: components["schemas"]["JsonElement"];
     };
     ReviseAssetRequest: {
       name: string;

@@ -2,7 +2,7 @@
 
 An IT documentation and operations platform. This repository implements a persistent **local foundation slice** and preserves the full enterprise scope in [the backlog](docs/backlog.md). It is not enterprise-ready or verified IT Glue parity.
 
-Working flow: choose a synthetic development identity → select an authorized organization through bounded pages → create/rename organizations with the separately provisioned administrator capability → manage locations/contacts → create assets, assign locations and link dependencies → create a linked plain-text document → revise, inspect history and restore earlier metadata/content with an audited reason → find assets/documents with permission-aware search. PostgreSQL retains data across restarts. A separately configured Okta OIDC adapter is implemented; no live provider is connected.
+Working flow: choose a synthetic development identity → select an authorized organization through bounded pages → create/rename organizations with the separately provisioned administrator capability → manage locations/contacts → publish versioned asset templates and create typed assets → assign locations and link dependencies → create a linked plain-text document → revise, inspect history and restore earlier metadata/typed values/content with an audited reason → find assets/documents with permission-aware search. PostgreSQL retains data across restarts. A separately configured Okta OIDC adapter is implemented; no live provider is connected.
 
 ## Run locally
 
@@ -15,6 +15,8 @@ npm run dev
 ```
 
 Open **http://127.0.0.1:3000**. The script starts real PostgreSQL 18 on loopback port 55432, applies EF migrations and synthetic seeds through a separate owner connection, rebuilds local search projections, starts ASP.NET on 5080, Next.js on 3000, and the restricted search worker. Ctrl+C stops child services. First startup initializes ignored `.local/postgres`; later starts retain it. Do not run duplicate instances against the same ports/database directory.
+
+Databases must use UTF-8; new development and isolated test databases explicitly use `UTF8` with the `C` locale. Older Windows-created databases may inherit `WIN1252` and will fail the runtime guard. Preserve them and use a reviewed logical transfer into UTF-8 before switching; do not delete retained records to satisfy startup. This workspace's synthetic data was transferred with exact snapshot verification, retaining its original local database as a backup. This is separate from unimplemented enterprise backup recovery.
 
 | Synthetic profile | Tenant | Access |
 | --- | --- | --- |
@@ -79,9 +81,9 @@ Review migrations, tenant constraints and RLS before applying. Local `--migrate`
 
 ## Repository and remaining scope
 
-`apps/web` contains Next.js/TypeScript; `services/api` owns EF migrations, core records, policy, audit/outbox and Okta mapping; `services/search` implements derived full-text projections/querying; `services/workers` runs the actual search consumer. `infra/terraform` remains a non-provisioning scaffold. `contracts`, `tests` and `docs` hold shared schemas, PostgreSQL/Playwright checks, original brief, architecture, threats, twelve ADRs, parity inventory, roadmap and progress.
+`apps/web` contains Next.js/TypeScript; `services/api` owns EF migrations, core records, policy, audit/outbox and Okta mapping; `services/search` implements derived full-text projections/querying; `services/workers` runs the actual search consumer. `infra/terraform` remains a non-provisioning scaffold. `contracts`, `tests` and `docs` hold shared schemas, PostgreSQL/Playwright checks, original brief, architecture, threats, thirteen ADRs, parity inventory, roadmap and progress.
 
-Tenant authority comes from a protected session and live membership. Server policies, tenant-qualified relationships and forced PostgreSQL RLS cover all 15 tenant tables. Startup rejects reachable owner/privileged roles and worker core-write privileges. Successful writes, snapshots, audit/outbox and pending search receipts commit atomically; revisions are append-only to the application role. Search consumes due receipts through a partial queue index with bounded retries, dead letters and replay. Generic external event delivery is not implemented.
+Tenant authority comes from a protected session and live membership. Server policies, tenant-qualified relationships and forced PostgreSQL RLS cover all 17 tenant tables. Startup rejects reachable owner/privileged roles and worker core-write privileges. Successful writes, snapshots, audit/outbox and pending search receipts commit atomically; revisions are append-only to the application role. Search consumes due receipts through a partial queue index with bounded retries, dead letters and replay. Generic external event delivery is not implemented.
 
 Search supports complete-word matching in asset names/types and document titles/content, organization/type filters, ranked cursor pages and plain-text previews. PostgreSQL full-text projections are rebuildable; OpenSearch remains planned. Every result is checked against current membership/grants and exact current source version/content before previews or pagination are returned. A stale revision is excluded until indexing catches up. No files, vault values, autocomplete, facets or total count are indexed/exposed. Search fails closed on projection/source/audit failure.
 

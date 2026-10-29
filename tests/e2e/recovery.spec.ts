@@ -53,7 +53,19 @@ async function open(page: Page, title: string) {
   // Refresh metadata after API setup; the browser still uses its real authenticated session.
   await page.reload();
   await page.getByRole("button", { name: /Core switch/ }).click();
-  await page.getByRole("button", { name: new RegExp(title) }).click();
+  const list = page.locator(".document-list"),
+    target = list.getByRole("button", { name: new RegExp(title) });
+  await expect(list).toBeVisible();
+  for (let i = 0; i < 30 && !(await target.count()); i++) {
+    const count = await list.getByRole("button").count();
+    await page
+      .getByRole("button", { name: "Load more documents", exact: true })
+      .click();
+    await expect
+      .poll(() => list.getByRole("button").count())
+      .toBeGreaterThan(count);
+  }
+  await target.click();
   await page.getByRole("button", { name: "View revisions" }).click();
   await page
     .getByRole("button", { name: "Compare revisions", exact: true })

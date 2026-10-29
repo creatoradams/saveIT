@@ -13,6 +13,7 @@ using SaveIT.Api.Core;
 using SaveIT.Search;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1_048_576);
 var devIdentity = builder.Configuration.GetValue<bool>("DevelopmentIdentity:Enabled");
 var oktaEnabled = builder.Configuration.GetValue<bool>("Identity:Okta:Enabled");
 if (devIdentity && oktaEnabled) throw new InvalidOperationException("Choose development identity or Okta, never both.");
@@ -132,6 +133,7 @@ app.MapAssetRelationshipEndpoints();
 app.MapDirectoryEndpoints();
 app.MapOrganizationEndpoints();
 app.MapAssetHistoryEndpoints();
+app.MapAssetTypeEndpoints();
 await app.RunAsync();
 
 public partial class Program;

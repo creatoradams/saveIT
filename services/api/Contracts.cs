@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace SaveIT.Api;
 
 public sealed record LoginRequest(string Profile);
@@ -6,10 +8,16 @@ public sealed record SessionDto(string Name, Guid TenantId, string TenantName, b
 public sealed record OrganizationDto(Guid Id, string Name, string Role, int Version, DateTimeOffset UpdatedAt);
 public sealed record CreateOrganizationRequest(string Name);
 public sealed record ReviseOrganizationRequest(string Name, int ExpectedVersion);
-public sealed record CreateAssetRequest(string Name, string Kind);
-public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string Kind, DateTimeOffset CreatedAt, int Version = 1, Guid? LocationId = null);
+public sealed record CreateAssetRequest(string Name, string Kind, Guid? AssetTypeId = null, int? AssetTypeVersion = null, JsonElement? Fields = null);
+public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string Kind, DateTimeOffset CreatedAt, int Version = 1, Guid? LocationId = null, Guid? AssetTypeId = null, int? AssetTypeVersion = null);
 public sealed record ReviseAssetRequest(string Name, string Kind, Guid? LocationId, int ExpectedVersion);
-public sealed record AssetRevisionDto(int Version, string Name, string Kind, Guid? LocationId, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, string? RestoreReason);
+public sealed record AssetRevisionDto(int Version, string Name, string Kind, Guid? LocationId, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, string? RestoreReason, Guid? AssetTypeId, int? AssetTypeVersion, JsonElement Fields);
+public sealed record AssetTypeRequest(string Name, JsonElement Definition, int ExpectedVersion = 0, bool IsArchived = false);
+public sealed record AssetTypeDto(Guid Id, Guid OrganizationId, string Name, int Version, bool IsArchived, DateTimeOffset UpdatedAt);
+public sealed record AssetTypeRevisionDto(Guid AssetTypeId, int Version, string Name, JsonElement Definition, string Actor, DateTimeOffset CreatedAt);
+public sealed record AssetTypeRevisionSummaryDto(int Version, string Name, string Actor, DateTimeOffset CreatedAt);
+public sealed record AssetFieldsDto(AssetDto Asset, AssetTypeRevisionDto? Schema, JsonElement Values);
+public sealed record ReviseAssetFieldsRequest(int ExpectedVersion, Guid? AssetTypeId, int? AssetTypeVersion, JsonElement Fields);
 public sealed record DirectoryRequest(string Name, string Details, string Email, string Phone, string Notes, bool IsArchived = false, int ExpectedVersion = 0);
 public sealed record DirectoryDto(Guid Id, Guid OrganizationId, string Name, string Details, string Email, string Phone, string Notes, bool IsArchived, int Version, DateTimeOffset UpdatedAt);
 public sealed record CreateRelationshipRequest(Guid TargetAssetId, string Kind);

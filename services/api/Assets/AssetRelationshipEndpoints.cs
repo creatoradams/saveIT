@@ -26,8 +26,8 @@ public static class AssetRelationshipEndpoints
                     && (after == null || edge.Id.CompareTo(after.Value) > 0)
                 orderby edge.Id
                 select new AssetRelationshipDto(edge.Id, edge.OrganizationId,
-                    new AssetDto(source.Id, source.OrganizationId, source.Name, source.Kind, source.CreatedAt, source.Version, source.LocationId),
-                    new AssetDto(target.Id, target.OrganizationId, target.Name, target.Kind, target.CreatedAt, target.Version, target.LocationId),
+                    new AssetDto(source.Id, source.OrganizationId, source.Name, source.Kind, source.CreatedAt, source.Version, source.LocationId, source.AssetTypeId, source.AssetTypeVersion),
+                    new AssetDto(target.Id, target.OrganizationId, target.Name, target.Kind, target.CreatedAt, target.Version, target.LocationId, target.AssetTypeId, target.AssetTypeVersion),
                     edge.Kind, edge.Version, edge.CreatedBy, edge.CreatedAt)).Take(PageSize + 1).ToListAsync(context.RequestAborted);
             Record(db, scope, context, organizationId, assetId, "Asset.RelationshipsRead", false);
             await db.SaveChangesAsync(context.RequestAborted);
@@ -43,7 +43,8 @@ public static class AssetRelationshipEndpoints
             if (input.Kind is not ("DependsOn" or "Contains") || input.TargetAssetId == Guid.Empty || input.TargetAssetId == assetId)
                 return Invalid("Choose a different asset and a supported relationship type.");
             var endpoints = await db.Assets.AsNoTracking().Where(x => x.OrganizationId == organizationId
-                && (x.Id == assetId || x.Id == input.TargetAssetId)).ToListAsync(context.RequestAborted);
+                && (x.Id == assetId || x.Id == input.TargetAssetId))
+                .Select(x => new AssetDto(x.Id, x.OrganizationId, x.Name, x.Kind, x.CreatedAt, x.Version, x.LocationId, x.AssetTypeId, x.AssetTypeVersion)).ToListAsync(context.RequestAborted);
             if (endpoints.Count != 2) return Results.NotFound();
             if (await db.AssetRelationships.AnyAsync(x => x.OrganizationId == organizationId && x.SourceAssetId == assetId
                 && x.TargetAssetId == input.TargetAssetId && x.Kind == input.Kind && x.RemovedAt == null)) return Conflict();
@@ -53,7 +54,7 @@ public static class AssetRelationshipEndpoints
             Record(db, scope, context, organizationId, edge.Id, "AssetRelationship.Created");
             await db.SaveChangesAsync(context.RequestAborted);
             var source = endpoints.Single(x => x.Id == assetId); var target = endpoints.Single(x => x.Id == input.TargetAssetId);
-            return Results.Json(new AssetRelationshipDto(edge.Id, organizationId, Dto(source), Dto(target), edge.Kind, edge.Version, edge.CreatedBy, edge.CreatedAt), statusCode: 201);
+            return Results.Json(new AssetRelationshipDto(edge.Id, organizationId, source, target, edge.Kind, edge.Version, edge.CreatedBy, edge.CreatedAt), statusCode: 201);
         }).Produces<AssetRelationshipDto>(201).ProducesProblem(400).ProducesProblem(409);
 
         group.MapPost("/{relationshipId:guid}/remove", async (Guid organizationId, Guid assetId, Guid relationshipId,
@@ -77,7 +78,6 @@ public static class AssetRelationshipEndpoints
         }).Produces(204).ProducesProblem(400).ProducesProblem(409);
     }
 
-    private static AssetDto Dto(Asset asset) => AssetHistoryEndpoints.Dto(asset);
     private static IResult Invalid(string message) => Results.Problem(statusCode: 400, title: message);
     private static IResult Conflict() => Results.Problem(statusCode: 409, title: "This relationship already exists or changed. Reload relationships before trying again.");
     private static void Record(SaveItDb db, TenantScope scope, HttpContext context, Guid org, Guid target, string action, bool publish = true)

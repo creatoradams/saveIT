@@ -39,6 +39,30 @@ public sealed class Asset : ITenantOwned
     public Guid? LocationId { get; set; }
     public int Version { get; set; } = 1;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public Guid? AssetTypeId { get; set; }
+    public int? AssetTypeVersion { get; set; }
+    public string FieldsJson { get; set; } = "{}";
+}
+public sealed class AssetType : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = "";
+    public int Version { get; set; } = 1;
+    public bool IsArchived { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+public sealed class AssetTypeRevision : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid AssetTypeId { get; set; }
+    public int Version { get; set; }
+    public string Name { get; set; } = "";
+    public string DefinitionJson { get; set; } = "[]";
+    public string Actor { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
 }
 public sealed class Location : ITenantOwned
 {
@@ -79,6 +103,9 @@ public sealed class AssetRevision : ITenantOwned
     public DateTimeOffset CreatedAt { get; set; }
     public int? RestoredFromVersion { get; set; }
     public string? RestoreReason { get; set; }
+    public Guid? AssetTypeId { get; set; }
+    public int? AssetTypeVersion { get; set; }
+    public string FieldsJson { get; set; } = "{}";
 }
 public sealed class Document : ITenantOwned
 {

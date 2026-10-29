@@ -7,6 +7,8 @@ import AssetRelationships from "./asset-relationships";
 import DirectoryPanel from "./directory-panel";
 import AssetMetadata from "./asset-metadata";
 import OrganizationPanel from "./organization-panel";
+import AssetTemplates from "./asset-templates";
+import AssetFieldsPanel from "./asset-fields";
 import {
   api,
   ApiError,
@@ -58,7 +60,12 @@ export default function Workspace() {
   const [events, setEvents] = useState<Audit[]>([]);
   const [auditCursor, setAuditCursor] = useState<string | null>(null);
   const [view, setView] = useState<
-    "workspace" | "audit" | "search" | "directory" | "organizations"
+    | "workspace"
+    | "audit"
+    | "search"
+    | "directory"
+    | "organizations"
+    | "templates"
   >("workspace");
   const searchSelection = useRef<SearchHit | null>(null);
   const [navigationVersion, setNavigationVersion] = useState(0);
@@ -524,6 +531,13 @@ export default function Workspace() {
           >
             Locations & contacts
           </button>
+          <button
+            className={view === "templates" ? "nav-item active" : "nav-item"}
+            disabled={busy}
+            onClick={() => setView("templates")}
+          >
+            <span aria-hidden="true">▦</span> Asset templates
+          </button>
           {session.canManageOrganizations && (
             <button
               className={
@@ -574,7 +588,9 @@ export default function Workspace() {
                     ? "Locations & contacts"
                     : view === "organizations"
                       ? "Manage organizations"
-                      : "Audit history"}
+                      : view === "templates"
+                        ? "Asset templates"
+                        : "Audit history"}
             </strong>
           </div>
           <span className="development">
@@ -599,7 +615,9 @@ export default function Workspace() {
                       ? "People and places, connected."
                       : view === "organizations"
                         ? "Make room for what comes next."
-                        : "Every change leaves a trail."}
+                        : view === "templates"
+                          ? "A consistent starting point."
+                          : "Every change leaves a trail."}
               </h1>
               <p>
                 {view === "workspace"
@@ -610,7 +628,9 @@ export default function Workspace() {
                       ? "Keep location and contact records inside their organization."
                       : view === "organizations"
                         ? "Create and name the organizations your team documents."
-                        : "Follow the people and changes behind your documentation."}
+                        : view === "templates"
+                          ? "Define the fields that matter, then keep their history intact."
+                          : "Follow the people and changes behind your documentation."}
               </p>
             </div>
           </div>
@@ -855,6 +875,25 @@ export default function Workspace() {
                       />
                       <AssetMetadata
                         key={`metadata:${organizationId}:${assetId}:${selectedAsset.version ?? 1}`}
+                        asset={selectedAsset}
+                        organizationId={organizationId}
+                        canEdit={canEdit}
+                        disabled={busy || editing}
+                        onBusyChange={setBusy}
+                        onUpdated={(updated) => {
+                          setAssets((previous) =>
+                            previous.map((item) =>
+                              item.id === updated.id ? updated : item,
+                            ),
+                          );
+                          setNotice(
+                            `Asset saved as version ${updated.version}.`,
+                          );
+                          setError("");
+                        }}
+                      />
+                      <AssetFieldsPanel
+                        key={`fields:${organizationId}:${assetId}:${selectedAsset.version ?? 1}`}
                         asset={selectedAsset}
                         organizationId={organizationId}
                         canEdit={canEdit}
@@ -1167,6 +1206,24 @@ export default function Workspace() {
               organizationId={organizationId}
               canEdit={canEdit}
               onBusyChange={setBusy}
+            />
+          )}
+          {organizationId && view === "templates" && (
+            <AssetTemplates
+              key={organizationId}
+              organizationId={organizationId}
+              canEdit={canEdit}
+              disabled={busy}
+              onBusyChange={setBusy}
+              onCreated={(created) => {
+                setAssets((previous) => [
+                  created,
+                  ...previous.filter((item) => item.id !== created.id),
+                ]);
+                setAssetId(created.id);
+                setView("workspace");
+                setNotice("Typed asset created with a pinned schema.");
+              }}
             />
           )}
           {session.canManageOrganizations && view === "organizations" && (

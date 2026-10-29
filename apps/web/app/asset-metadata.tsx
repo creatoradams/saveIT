@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Values, type FieldValues } from "./schema-fields";
 import {
   api,
   ApiError,
@@ -348,6 +349,13 @@ export default function AssetMetadata({
                 {row.name} · {row.kind}
               </p>
               <p>Location: {row.locationId || "Unassigned"}</p>
+              <p>
+                Template:{" "}
+                {row.assetTypeId
+                  ? `${row.assetTypeId} · version ${row.assetTypeVersion}`
+                  : "Unassigned"}
+              </p>
+              <Values values={(row.fields as FieldValues) ?? {}} />
               {row.restoredFromVersion && (
                 <p>
                   Restored from revision {row.restoredFromVersion} ·{" "}
@@ -398,9 +406,9 @@ export default function AssetMetadata({
             </h2>
             <p>
               Create version {Number(asset.version ?? 1) + 1} with {source.name}
-              , type {source.kind}, and the historical location. Documents and
-              relationships remain linked to this asset; earlier history is
-              preserved.
+              , type {source.kind}, the historical location, template version
+              and custom values. Documents and relationships remain linked to
+              this asset; earlier history is preserved.
             </p>
             <label>
               Reason for asset restore

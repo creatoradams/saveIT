@@ -29,8 +29,20 @@ namespace SaveIT.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssetTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("AssetTypeVersion")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FieldsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("{}");
 
                     b.Property<string>("Kind")
                         .IsRequired()
@@ -68,8 +80,12 @@ namespace SaveIT.Api.Migrations
 
                     b.HasIndex("TenantId", "OrganizationId", "LocationId");
 
+                    b.HasIndex("TenantId", "OrganizationId", "AssetTypeId", "AssetTypeVersion");
+
                     b.ToTable("Assets", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Asset_TypePair", "(\"AssetTypeId\" IS NULL AND \"AssetTypeVersion\" IS NULL AND \"FieldsJson\"='{}'::jsonb) OR (\"AssetTypeId\" IS NOT NULL AND \"AssetTypeVersion\" IS NOT NULL AND \"AssetTypeVersion\">0)");
+
                             t.HasCheckConstraint("CK_Asset_Version", "\"Version\" > 0");
                         });
                 });
@@ -151,8 +167,20 @@ namespace SaveIT.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("AssetTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("AssetTypeVersion")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FieldsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("{}");
 
                     b.Property<string>("Kind")
                         .IsRequired()
@@ -185,9 +213,90 @@ namespace SaveIT.Api.Migrations
 
                     b.HasIndex("TenantId", "OrganizationId", "LocationId");
 
+                    b.HasIndex("TenantId", "OrganizationId", "AssetTypeId", "AssetTypeVersion");
+
                     b.ToTable("AssetRevisions", null, t =>
                         {
                             t.HasCheckConstraint("CK_AssetRevision_Provenance", "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)");
+
+                            t.HasCheckConstraint("CK_AssetRevision_TypePair", "(\"AssetTypeId\" IS NULL AND \"AssetTypeVersion\" IS NULL AND \"FieldsJson\"='{}'::jsonb) OR (\"AssetTypeId\" IS NOT NULL AND \"AssetTypeVersion\" IS NOT NULL AND \"AssetTypeVersion\">0)");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AssetType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "OrganizationId", "IsArchived", "Id");
+
+                    b.ToTable("AssetTypes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AssetType_Version", "\"Version\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AssetTypeRevision", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssetTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DefinitionJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.HasKey("TenantId", "OrganizationId", "AssetTypeId", "Version");
+
+                    b.ToTable("AssetTypeRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AssetTypeRevision_Definition", "public.valid_asset_definition_v1(\"DefinitionJson\") IS TRUE");
+
+                            t.HasCheckConstraint("CK_AssetTypeRevision_Version", "\"Version\" > 0");
                         });
                 });
 
@@ -706,6 +815,11 @@ namespace SaveIT.Api.Migrations
                         .HasForeignKey("TenantId", "OrganizationId", "LocationId")
                         .HasPrincipalKey("TenantId", "OrganizationId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SaveIT.Api.Data.AssetTypeRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "AssetTypeId", "AssetTypeVersion")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SaveIT.Api.Data.AssetRelationship", b =>
@@ -756,6 +870,43 @@ namespace SaveIT.Api.Migrations
                         .HasForeignKey("TenantId", "OrganizationId", "LocationId")
                         .HasPrincipalKey("TenantId", "OrganizationId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SaveIT.Api.Data.AssetTypeRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "AssetTypeId", "AssetTypeVersion")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AssetType", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AssetTypeRevision", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.AssetType", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "AssetTypeId")
+                        .HasPrincipalKey("TenantId", "OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SaveIT.Api.Data.AuditEvent", b =>

@@ -20,8 +20,8 @@ Source of truth: [OpenAPI](../contracts/openapi.json); generated TypeScript: `ap
 | POST /organizations/{org}/assets | Editor + CSRF | Persist asset, audit/outbox; 201 |
 | GET /organizations/{org}/assets/{asset} | Viewer/Editor | Scoped asset metadata |
 | PUT /organizations/{org}/assets/{asset} | Editor + CSRF | Expected-version name/type/location edit, snapshot/audit/outbox; 409 on conflict |
-| GET /organizations/{org}/assets/{asset}/revisions?before={int} | Viewer/Editor | Audited latest-first metadata snapshots, max 50 |
-| POST /organizations/{org}/assets/{asset}/restore | Editor + CSRF | Earlier metadata snapshot as new version with provenance; 409 on conflict |
+| GET /organizations/{org}/assets/{asset}/revisions?before={int} | Viewer/Editor | Audited latest-first metadata/typed-field snapshots, max 50 |
+| POST /organizations/{org}/assets/{asset}/restore | Editor + CSRF | Exact earlier metadata/typed-field snapshot as new version with provenance; 409 on conflict |
 | GET /organizations/{org}/locations or /contacts?after={uuid}&includeArchived={bool} | Viewer/Editor | Audited directory page, max 50; active by default |
 | GET /organizations/{org}/locations/{id} or /contacts/{id} | Viewer/Editor | Audited directory record, including archived |
 | POST /organizations/{org}/locations or /contacts | Editor + CSRF | Scoped directory record/audit/outbox; 201 |
@@ -68,3 +68,11 @@ Search requires 2–120 characters, at most 12 complete-word terms and no contro
 Search writes read-audit events before serializing results/cursor; audit failure returns 500 without previews. A missing/unavailable projection/source returns 503 without fallback or cached results. Invalid query/filter/cursor returns 400. Search terms and snippets are not recorded in audit/outbox/log messages. Configure any future reverse-proxy access logging to redact query strings.
 
 404 hides guessed/inaccessible organizations and mismatched targets; a forbidden action inside a readable organization returns 403; inactive membership returns 401. A 409 does not overwrite the record or create a successful event. Audited body/history/directory/relationship reads fail if their audit insert fails. Denied/authentication and remaining metadata-read auditing are incomplete. No hard-delete, export, share, vault or permission-administration endpoint exists.
+
+## Typed asset templates and fields
+
+Under `/organizations/{org}/asset-types`: GET a 50-row UUID page (`after`, `includeArchived`), POST a v1 template, GET/PUT `/{type}`, GET `/{type}/revisions?before={version}` (50 metadata summaries), and GET `/{type}/revisions/{version}` (audited exact definition). Current Viewer/Editor reads; Editor + CSRF publishes, archives or reactivates with `expectedVersion`. Every publication appends a new immutable definition and audit/outbox; a stale version returns 409.
+
+`AssetTypeRequest.definition` is the bounded field array specified in ADR 013. Asset POST optionally accepts paired `assetTypeId`/`assetTypeVersion` and full `fields`; defaults are never applied implicitly. GET `/assets/{asset}/fields` audits and returns asset metadata, its pinned schema and values. PUT that path accepts `expectedVersion`, paired nullable schema references and full `fields`; it increments the asset version with snapshot/audit/outbox atomically. Untyped fields must be `{}`. Lists/relationships carry reference IDs only. Metadata PUT preserves fields. Restore copies the exact historical schema/values and keeps previous snapshots. Rebinding to an archived schema requires reactivation; retaining the identical archived pin is allowed.
+
+Raw and canonical JSON limits are 16 KiB, with at most 20 fields and five scalar types. Null/nested/unknown values, duplicates, invalid calendar dates, numeric precision/range and malformed Unicode fail generically without echoing content. UTF-8 is required. Kestrel caps all bodies at 1 MiB; the Next proxy returns 413 early for oversized declared Content-Length. Streaming oversized bodies remain bounded but may surface a generic proxy transport failure. See ADR 013 for explicit format, lifecycle and future migration constraints.

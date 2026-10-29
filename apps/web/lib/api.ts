@@ -1,5 +1,10 @@
 import type { components } from "./api.generated";
 export type Asset = components["schemas"]["AssetDto"];
+export type AssetType = components["schemas"]["AssetTypeDto"];
+export type AssetTypeRevision = components["schemas"]["AssetTypeRevisionDto"];
+export type AssetTypeRevisionSummary =
+  components["schemas"]["AssetTypeRevisionSummaryDto"];
+export type AssetFields = components["schemas"]["AssetFieldsDto"];
 export type DirectoryEntry = components["schemas"]["DirectoryDto"];
 export type AssetRevision = components["schemas"]["AssetRevisionDto"];
 export type AssetRelationship = components["schemas"]["AssetRelationshipDto"];
