@@ -30,18 +30,24 @@ The pinned embedded PostgreSQL wrapper is development tooling, not a production 
 
 ## Verify
 
-With `npm run dev` running in another terminal:
+Start `npm run db` in another terminal for the backend checks. Stop an existing `npm run dev` instance first, especially on Windows where the running API locks its assembly during rebuilds:
 
 ```sh
-dotnet test SaveIT.slnx --no-restore
+dotnet build SaveIT.slnx --no-restore
+dotnet test SaveIT.slnx --no-build --no-restore
 npm run check:ignore
 npm run typecheck
 npm run build
+```
+
+Stop the database-only launcher with Ctrl+C before the browser checks; Playwright starts the complete stack:
+
+```sh
 npx playwright install chromium
 npm run test:e2e
 ```
 
-API tests create/drop an isolated randomly named test database, apply real migrations, and exercise the actual non-owner NOBYPASSRLS application role. They do not reset development data. Override `SAVEIT_TEST_ADMIN` only with an owner connection to an isolated synthetic test cluster. `npm run db` starts the database alone. On Windows, stop the API before rebuilding changed backend files if assembly file locking prevents compilation.
+API tests create/drop an isolated randomly named test database, apply real migrations, and exercise the actual non-owner NOBYPASSRLS application role. They do not reset development data. Override `SAVEIT_TEST_ADMIN` only with an owner connection to an isolated synthetic test cluster.
 
 Playwright starts the complete stack automatically if the local web service is absent. It writes synthetic test records to the development database; use a separate checkout/ports for isolated browser data. Traces/reports/screenshots are ignored. Checks cover persistence, organization switching, roles, conflicts, keyboard navigation, responsive layout and axe accessibility; they do not establish complete WCAG compliance.
 
