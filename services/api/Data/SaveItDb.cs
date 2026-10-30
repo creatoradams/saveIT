@@ -143,6 +143,8 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<AssetRevision>().HasOne<Asset>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.AssetId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         m.Entity<AssetRevision>().Property(x => x.Name).HasMaxLength(160);
         m.Entity<AssetRevision>().Property(x => x.Kind).HasMaxLength(80);
+        m.Entity<AssetRevision>().Property(x => x.LocationName).HasMaxLength(160);
+        m.Entity<AssetRevision>().ToTable(t => t.HasCheckConstraint("CK_AssetRevision_LocationName", "\"LocationName\" IS NULL OR (\"LocationId\" IS NOT NULL AND length(btrim(\"LocationName\")) BETWEEN 1 AND 160)"));
         m.Entity<AssetRevision>().Property(x => x.RestoreReason).HasMaxLength(500);
         m.Entity<AssetRevision>().Property(x => x.FieldsJson).HasColumnType("jsonb").HasDefaultValue("{}");
         m.Entity<AssetRevision>().HasOne<AssetTypeRevision>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.AssetTypeId, x.AssetTypeVersion }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.AssetTypeId, x.Version }).OnDelete(DeleteBehavior.Restrict);

@@ -29,7 +29,13 @@ function Side({ side, field }: { side: AssetComparisonSide; field: boolean }) {
         </>
       )}
       <p className="comparison-value">
-        {side.present ? scalar(side.value) : field ? "Not set" : "Unassigned"}
+        {side.unavailable
+          ? "Historical name unavailable"
+          : side.present
+            ? scalar(side.value)
+            : field
+              ? "Not set"
+              : "Unassigned"}
       </p>
       {definition && (
         <details className="field-rules">
@@ -134,9 +140,9 @@ export default function AssetComparisonPanel({
         </button>
       </div>
       <p className="subtle">
-        Compare stored values and pinned field definitions. Locations use IDs;
-        historical location names are unavailable. Restore through asset history
-        after reviewing the current asset version.
+        Compare stored values and pinned field definitions, including location
+        IDs and saved names. Older snapshots may have unavailable names. Restore
+        through asset history after reviewing the current asset version.
       </p>
       <form
         className="asset-comparison-form"
@@ -243,7 +249,9 @@ export default function AssetComparisonPanel({
           <p className="subtle">
             Current asset version: {result.currentVersion}. {result.changedRows}{" "}
             changed rows. Field keys align across templates; definitions
-            describe each historical side.
+            describe each historical side. Location names come from snapshots.
+            Two unavailable names do not establish that the historical names
+            were equal.
           </p>
           {Number(result.currentVersion) !== assetVersion && (
             <div className="message" role="status">

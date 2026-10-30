@@ -59,6 +59,52 @@ async function open(page: Page, name: string) {
   });
 }
 const literal = '<img src=x onerror="window.assetComparisonInjected=true">';
+async function placed(page: Page) {
+  const name = `Pinned-site-${Date.now()}`;
+  const oldName = `Old ${literal} ${"Z".repeat(65)}`;
+  const location = await write(page.request, `${base}/locations`, {
+    name: oldName,
+    details: "",
+    email: "",
+    phone: "",
+    notes: "",
+  });
+  const asset = await write(page.request, `${base}/assets`, {
+    name,
+    kind: "Server",
+  });
+  await write(
+    page.request,
+    `${base}/assets/${asset.id}`,
+    { name, kind: "Server", locationId: location.id, expectedVersion: 1 },
+    true,
+  );
+  await write(
+    page.request,
+    `${base}/locations/${location.id}`,
+    {
+      name: "Current data center",
+      details: "",
+      email: "",
+      phone: "",
+      notes: "",
+      expectedVersion: 1,
+    },
+    true,
+  );
+  await write(
+    page.request,
+    `${base}/assets/${asset.id}/fields`,
+    {
+      expectedVersion: 2,
+      assetTypeId: null,
+      assetTypeVersion: null,
+      fields: {},
+    },
+    true,
+  );
+  return { asset, location, name, oldName };
+}
 const fields = [
   {
     key: "serial",
@@ -452,4 +498,180 @@ test("comparison stays separate from stale restore confirmation and exact restor
   await expect(equal.getByRole("status")).toContainText("No differences");
   await expect(equal).toContainText("Restored from asset revision 1");
   await expect(equal).not.toContainText(reason);
+});
+
+test("snapshot location names survive rename and exact restoration while current placement retains its current name", async ({
+  page,
+}) => {
+  await login(page);
+  const { asset, location, name, oldName } = await placed(page);
+  const panel = await open(page, name);
+  const metadata = page.getByRole("region", {
+    name: "Asset placement and history",
+  });
+  await expect(metadata).toContainText("Location: Current data center");
+  await panel.getByLabel("From asset revision", { exact: true }).fill("2");
+  await panel.getByLabel("To asset revision", { exact: true }).fill("3");
+  await panel
+    .getByRole("button", { name: "Compare asset versions", exact: true })
+    .click();
+  await expect(panel).toContainText("1 changed rows");
+  const row = panel
+    .getByRole("row")
+    .filter({ hasText: "Snapshot location name" });
+  await expect(row.getByRole("cell").nth(0)).toContainText(oldName);
+  await expect(row.getByRole("cell").nth(1)).toContainText(
+    "Current data center",
+  );
+  await expect(panel.locator("img")).toHaveCount(0);
+  await panel.getByRole("button", { name: "Close asset comparison" }).click();
+  await metadata
+    .locator("summary")
+    .filter({ hasText: /^Asset revision 2 ·/ })
+    .click();
+  await metadata
+    .getByRole("button", { name: "Restore asset revision 2…", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Restore asset revision 2?",
+  });
+  await expect(dialog).toContainText(oldName);
+  await expect(dialog).toContainText(
+    "The current location keeps its current name",
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await dialog
+    .getByLabel("Reason for asset restore", { exact: true })
+    .fill("Restore exact historical placement label");
+  await dialog
+    .getByRole("button", { name: "Create restored asset version" })
+    .click();
+  await expect(metadata).toContainText("Asset version 4");
+  await expect(metadata).toContainText("Location: Current data center");
+  const saved = await (
+    await page.request.get(`/api/v1${base}/assets/${asset.id}/revisions`)
+  ).json();
+  expect(saved.items[0].locationName).toBe(oldName);
+  expect(saved.items[0].locationId).toBe(location.id);
+  expect(
+    saved.items.find((r: { version: number }) => r.version === 2).locationName,
+  ).toBe(oldName);
+  const same = await open(page, name);
+  await same.getByLabel("From asset revision", { exact: true }).fill("2");
+  await same.getByLabel("To asset revision", { exact: true }).fill("4");
+  await same
+    .getByRole("button", { name: "Compare asset versions", exact: true })
+    .click();
+  await expect(same.getByRole("status")).toContainText("No differences");
+  await page.screenshot({
+    path: "test-results/historical-location-mobile.png",
+    fullPage: true,
+  });
+});
+
+test("legacy unknown names are distinct from unassigned, remain literal for Viewers and clear on failed history refresh", async ({
+  page,
+  browser,
+}) => {
+  await login(page);
+  const { asset, name } = await placed(page);
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
+  const viewer = await context.newPage();
+  try {
+    await login(viewer, "Sam Rivera");
+    // Explicit legacy response fixture: real predecessor migration/restore is tested against PostgreSQL.
+    await viewer.route(`**/assets/${asset.id}/revisions`, async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      data.items = data.items.map(
+        (r: { version: number; locationName: string | null }) =>
+          r.version === 2 ? { ...r, locationName: null } : r,
+      );
+      await route.fulfill({ response, json: data });
+    });
+    await viewer.route(`**/assets/${asset.id}/compare?**`, async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      data.rows = data.rows.map((r: { key: string; from: object }) =>
+        r.key === "locationName"
+          ? {
+              ...r,
+              from: {
+                present: true,
+                value: null,
+                definition: null,
+                unavailable: true,
+              },
+            }
+          : r,
+      );
+      await route.fulfill({ response, json: data });
+    });
+    const panel = await open(viewer, name);
+    await panel
+      .getByRole("button", { name: "Compare asset versions", exact: true })
+      .click();
+    await expect(
+      panel.getByRole("row").filter({ hasText: "Snapshot location name" }),
+    ).toContainText("Historical name unavailable");
+    await panel.getByRole("button", { name: "Close asset comparison" }).click();
+    const metadata = viewer.getByRole("region", {
+      name: "Asset placement and history",
+    });
+    await metadata
+      .locator("summary")
+      .filter({ hasText: /^Asset revision 2 ·/ })
+      .click();
+    await metadata
+      .locator("summary")
+      .filter({ hasText: /^Asset revision 1 ·/ })
+      .click();
+    await expect(metadata).toContainText(
+      "Snapshot location: Historical name unavailable",
+    );
+    await expect(metadata).toContainText("Snapshot location: Unassigned");
+    await expect(
+      metadata.getByRole("button", { name: /Restore asset revision/ }),
+    ).toHaveCount(0);
+    await expect(metadata.locator("img")).toHaveCount(0);
+    expect(
+      (
+        await new AxeBuilder({ page: viewer })
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    await viewer.unroute(`**/assets/${asset.id}/revisions`);
+    await viewer.route(`**/assets/${asset.id}/revisions`, (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/problem+json",
+        body: JSON.stringify({ title: "History temporarily unavailable" }),
+      }),
+    );
+    await metadata.getByRole("button", { name: "View asset history" }).click();
+    await expect(metadata.getByRole("alert")).toContainText(
+      "History temporarily unavailable",
+    );
+    await expect(
+      metadata.getByRole("region", { name: "Asset revisions", exact: true }),
+    ).toHaveCount(0);
+    await expect(metadata).not.toContainText("Historical name unavailable");
+  } finally {
+    await context.close();
+  }
 });

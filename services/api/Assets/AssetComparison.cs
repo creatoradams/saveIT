@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace SaveIT.Api.Assets;
 
-public sealed record AssetComparisonSnapshot(int Version, string Name, string Kind, Guid? LocationId,
+public sealed record AssetComparisonSnapshot(int Version, string Name, string Kind, Guid? LocationId, string? LocationName,
     Guid? AssetTypeId, int? AssetTypeVersion, string FieldsJson, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion);
 
 public static class AssetComparison
@@ -16,6 +16,7 @@ public static class AssetComparison
         {
             Metadata("name", "Asset name", from.Name, to.Name), Metadata("kind", "Asset type", from.Kind, to.Kind),
             Metadata("location", "Location ID", from.LocationId?.ToString(), to.LocationId?.ToString()),
+            LocationName(from, to),
             Metadata("template", "Template pin", Pin(from), Pin(to))
         };
         var fromDefinitions = Definitions(fromSchema); var toDefinitions = Definitions(toSchema);
@@ -36,6 +37,15 @@ public static class AssetComparison
         new(snapshot.Version, snapshot.Name, snapshot.Actor, snapshot.CreatedAt, snapshot.RestoredFromVersion,
             schema is null ? null : new(schema.AssetTypeId, schema.Version, schema.Name));
     private static string? Pin(AssetComparisonSnapshot x) => x.AssetTypeId is null ? null : $"{x.AssetTypeId}@{x.AssetTypeVersion}";
+    private static AssetComparisonRowDto LocationName(AssetComparisonSnapshot from, AssetComparisonSnapshot to)
+    {
+        static AssetComparisonSideDto Side(AssetComparisonSnapshot x) => new(x.LocationId is not null,
+            x.LocationName is null ? null : JsonSerializer.SerializeToElement(x.LocationName), null,
+            x.LocationId is not null && x.LocationName is null);
+        var old = Side(from); var current = Side(to);
+        var changed = old.Present != current.Present || old.Unavailable != current.Unavailable || !SameScalar(old.Value, current.Value);
+        return new("metadata", "locationName", "Snapshot location name", changed ? "changed" : "unchanged", changed, false, old, current);
+    }
     private static Dictionary<string, JsonElement> Definitions(AssetTypeRevisionDto? schema) => schema is null ? new(StringComparer.Ordinal)
         : schema.Definition.EnumerateArray().ToDictionary(f => f.GetProperty("key").GetString()!, f => f, StringComparer.Ordinal);
     private static AssetComparisonSideDto Side(Dictionary<string, JsonElement> definitions, JsonElement values, string key)

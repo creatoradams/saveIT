@@ -54,8 +54,8 @@ public sealed class AssetComparisonTests(DatabaseFixture fixture) : IDisposable
         Assert.Equal(HttpStatusCode.OK, (await Write(c, Path(a), new ReviseAssetRequest("Revised synthetic asset", "Server", loc.Id, 1), true)).StatusCode);
         var outbox = await fixture.Scalar<long>("SELECT count(*) FROM \"OutboxEvents\"");
         var comparison = (await c.GetFromJsonAsync<AssetComparisonDto>(Compare(a)))!;
-        Assert.Equal(2, comparison.CurrentVersion); Assert.Equal(3, comparison.ChangedRows); Assert.Equal(3, comparison.TotalRows); Assert.True(comparison.ChangesOnly);
-        Assert.Equal(new[] { "name", "kind", "location" }, comparison.Rows.Select(x => x.Key));
+        Assert.Equal(2, comparison.CurrentVersion); Assert.Equal(4, comparison.ChangedRows); Assert.Equal(4, comparison.TotalRows); Assert.True(comparison.ChangesOnly);
+        Assert.Equal(new[] { "name", "kind", "location", "locationName" }, comparison.Rows.Select(x => x.Key));
         var placement = comparison.Rows.Single(x => x.Key == "location"); Assert.False(placement.From.Present); Assert.Null(placement.From.Value); Assert.Equal(loc.Id.ToString(), placement.To.Value!.Value.GetString());
         Assert.Equal("Historical synthetic asset", comparison.From.Name); Assert.Equal("Revised synthetic asset", comparison.To.Name);
         Assert.Equal(1, comparison.From.Version); Assert.Equal(2, comparison.To.Version); Assert.Null(comparison.NextOffset);
@@ -63,11 +63,11 @@ public sealed class AssetComparisonTests(DatabaseFixture fixture) : IDisposable
         Assert.Equal(outbox, await fixture.Scalar<long>("SELECT count(*) FROM \"OutboxEvents\""));
         Assert.Equal(2L, await fixture.Scalar<long>($"SELECT count(*) FROM \"AssetRevisions\" WHERE \"AssetId\"='{a.Id}'"));
         var reversed = (await c.GetFromJsonAsync<AssetComparisonDto>(Compare(a, 2, 1)))!;
-        Assert.Equal(3, reversed.ChangedRows); Assert.True(reversed.Rows.Single(x => x.Key == "location").From.Present); Assert.False(reversed.Rows.Single(x => x.Key == "location").To.Present);
+        Assert.Equal(4, reversed.ChangedRows); Assert.True(reversed.Rows.Single(x => x.Key == "location").From.Present); Assert.False(reversed.Rows.Single(x => x.Key == "location").To.Present);
         var same = (await c.GetFromJsonAsync<AssetComparisonDto>(Compare(a, 2, 2)))!;
         Assert.Empty(same.Rows); Assert.Equal(0, same.TotalRows); Assert.Equal(0, same.ChangedRows); Assert.Null(same.NextOffset);
         same = (await c.GetFromJsonAsync<AssetComparisonDto>(Compare(a, 2, 2, "&changesOnly=false")))!;
-        Assert.Equal(4, same.Rows.Count); Assert.All(same.Rows, row => Assert.Equal("unchanged", row.Change));
+        Assert.Equal(5, same.Rows.Count); Assert.All(same.Rows, row => Assert.Equal("unchanged", row.Change));
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public sealed class AssetComparisonTests(DatabaseFixture fixture) : IDisposable
         Assert.Equal(3,pages);Assert.Equal(41,keys.Distinct().Count());Assert.Equal("metadata:template",keys[0]);
         Assert.Equal(Enumerable.Range(0,20).Select(i=>"field:new"+i.ToString("D2")).Concat(Enumerable.Range(0,20).Select(i=>"field:old"+i.ToString("D2"))),keys.Skip(1));
         Assert.Equal(3L,await fixture.Scalar<long>($"SELECT count(*) FROM \"AuditEvents\" WHERE \"TargetId\"='{a.Id}' AND \"Action\"='Asset.Compared' AND \"SourceVersion\"=1 AND \"TargetVersion\"=2"));
-        var full=(await c.GetFromJsonAsync<AssetComparisonDto>(Compare(a,extra:"&changesOnly=false")))!;Assert.Equal(44,full.TotalRows);Assert.Equal(20,full.Rows.Count);
+        var full=(await c.GetFromJsonAsync<AssetComparisonDto>(Compare(a,extra:"&changesOnly=false")))!;Assert.Equal(45,full.TotalRows);Assert.Equal(20,full.Rows.Count);
         Assert.Equal(HttpStatusCode.BadRequest,(await c.GetAsync(Compare(a,extra:"&offset=41"))).StatusCode);
         Assert.Equal(0L,await fixture.Scalar<long>("SELECT count(*) FROM \"OutboxEvents\" WHERE \"Type\"='Asset.Compared'"));
         using var viewer=await Login("viewer");

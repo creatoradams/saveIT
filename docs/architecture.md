@@ -1,6 +1,6 @@
 # SaveIT architecture
 
-Status: working local core and unconfigured Okta adapter, 2026-10-29. [Original enterprise brief](project-brief.md) remains the scope of the product. This is not a production release.
+Status: working local core and unconfigured Okta adapter, 2026-10-30. [Original enterprise brief](project-brief.md) remains the scope of the product. This is not a production release.
 
 ## Repository inspection and choices
 
@@ -46,7 +46,7 @@ All nineteen tenant tables have forced PostgreSQL RLS. API and worker roles are 
 | Location / Contact | Tenant/organization-qualified IDs; bounded plain-text fields, optimistic versions, retained archival |
 | LocationRevision / ContactRevision | Append-only tenant/organization/record/version key; exact fields/lifecycle, actor/time and scoped source/reason provenance |
 | Asset | Tenant/organization/Id key; bounded name/type, optional scoped location; optimistic version, created/updated timestamps |
-| AssetRevision | Append-only tenant/asset/version key; organization, exact name/type/location, actor/time, source/reason provenance with scoped FKs/check |
+| AssetRevision | Append-only tenant/asset/version key; organization, exact name/type/location ID and nullable historical name, actor/time, source/reason provenance with scoped FKs/check |
 | AssetRelationship | Two tenant/organization-qualified asset FKs; directed type, active uniqueness, optimistic lifecycle version, creation/removal actor/time; restricted update columns |
 | Document | Tenant/organization/asset FK; title, plain text, optimistic integer version |
 | DocumentRevision | Append-only tenant/document/version key; actor, exact title/content snapshot; nullable restore source/reason with composite FK/check |
@@ -95,8 +95,12 @@ Schema/value/default content is returned only by audited field/definition/histor
 
 ADR 015 adds `LocationRevisions`/`ContactRevisions`, bringing the protected table total to 19. Creation/edit/archive/reactivate and confirmed restore append exact snapshots in the current-record/audit/outbox/queue transaction. Backfill captures only the actual current version/time/fields as `migration`; earlier missing history remains unavailable. Scoped parent/source FKs, paired provenance checks, forced RLS and app SELECT/INSERT-only grants protect both tables. Every metadata-only 50-row page and exact snapshot read requires current membership/grants and durable read audit. Restoration copies exact fields and archived state as a new version with current Editor/CSRF/expected-version checks. Linked assets keep their identity/placement.
 
-Worker guards reject new-table ownership, reachable core/column writes and directory current/history reads. Exact schema-v1 directory restoration events are acknowledged without indexing fields; unknown events/schemas still dead-letter. Browser review/confirmation preserves reasons across conflicts/failed reloads, clears failed historical output and coordinates global busy/cancellation. Historical asset-location name pins, directory comparison/merges, deletion/retention and backup restoration remain separate work.
+Worker guards reject new-table ownership, reachable core/column writes and directory current/history reads. Exact schema-v1 directory restoration events are acknowledged without indexing fields; unknown events/schemas still dead-letter. Browser review/confirmation preserves reasons across conflicts/failed reloads, clears failed historical output and coordinates global busy/cancellation. Directory comparison/merges, deletion/retention and backup restoration remain separate work. ADR 016 adds historical asset-location name pins below.
 
 ## Asset revision comparison
 
-ADR 014 adds a read-only comparison endpoint over at most two scoped immutable asset snapshots and two pinned schema revisions. The current asset query selects its version only. Metadata and up to 40 union field keys produce at most 44 deterministic rows, filtered before 20-row offset pages. Every page requires current membership/organization authority and durable numeric-only audit; missing historical schema/source or failed audit withholds results. Exact historical definitions supply names/rules/defaults; values distinguish absent, false, zero and empty text, without applying defaults. Restore reasons are not selected. Comparison creates no business writes/outbox/search events, and restoration retains its independent Editor/concurrency checks. No migration, grant or dependency is added; historical directory names and broader recovery remain separate work.
+ADR 014 adds a read-only comparison endpoint over at most two scoped immutable asset snapshots and two pinned schema revisions. The current asset query selects its version only. With ADR 016's fifth metadata row and up to 40 union field keys, comparison produces at most 45 deterministic rows, filtered before 20-row offset pages. Every page requires current membership/organization authority and durable numeric-only audit; missing historical schema/source or failed audit withholds results. Exact historical definitions supply names/rules/defaults; values distinguish absent, false, zero and empty text, without applying defaults. Restore reasons are not selected. Comparison creates no business writes/outbox/search events, and restoration retains its independent Editor/concurrency checks.
+
+## Historical asset location names
+
+ADR 016 adds a nullable bounded name to immutable asset snapshots. Ordinary writes capture one current scoped name, including retained archived placements, and fail closed if that source cannot be read. Restore copies the source name/NULL exactly, leaving the current directory unchanged. The additive migration invents no earlier names. History/confirmation/comparison distinguish unassigned from unavailable and render literal saved labels; comparison never substitutes current directory data. Audit/outbox/search carry no names, worker history reads stay denied and all 19 forced-RLS table boundaries remain. Capture reflects its READ COMMITTED lookup, not serialized ordering with concurrent directory changes.

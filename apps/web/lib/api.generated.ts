@@ -2261,6 +2261,8 @@ export interface components {
       present: boolean;
       value: null | components["schemas"]["JsonElement"];
       definition: null | components["schemas"]["JsonElement"];
+      /** @default false */
+      unavailable: boolean;
     };
     AssetComparisonTemplateDto: {
       /** Format: uuid */
@@ -2327,6 +2329,7 @@ export interface components {
       /** Format: int32 */
       assetTypeVersion: null | number | string;
       fields: components["schemas"]["JsonElement"];
+      locationName?: null | string;
     };
     AssetTypeDto: {
       /** Format: uuid */

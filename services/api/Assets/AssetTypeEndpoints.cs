@@ -86,7 +86,7 @@ public static class AssetTypeEndpoints
             if (!await AssetSchemas.ValidBinding(db, organizationId, input.AssetTypeId, input.AssetTypeVersion, input.Fields,
                 asset.AssetTypeId != input.AssetTypeId || asset.AssetTypeVersion != input.AssetTypeVersion, c.RequestAborted)) return AssetSchemas.Invalid();
             asset.AssetTypeId = input.AssetTypeId; asset.AssetTypeVersion = input.AssetTypeVersion; asset.FieldsJson = input.Fields.GetRawText(); asset.Version++; asset.UpdatedAt = DateTimeOffset.UtcNow;
-            AssetHistoryEndpoints.Snapshot(db, scope, asset); ChangeLog.Add(db, scope, c, organizationId, assetId, "Asset.Revised", version: asset.Version); await db.SaveChangesAsync(c.RequestAborted);
+            await AssetHistoryEndpoints.SnapshotAsync(db, scope, asset, c.RequestAborted); ChangeLog.Add(db, scope, c, organizationId, assetId, "Asset.Revised", version: asset.Version); await db.SaveChangesAsync(c.RequestAborted);
             return Results.Ok(AssetHistoryEndpoints.Dto(asset));
         }).Produces<AssetDto>().ProducesProblem(400).ProducesProblem(409);
     }

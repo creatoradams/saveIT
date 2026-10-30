@@ -297,7 +297,8 @@ public sealed class DirectoryHistoryTests(DatabaseFixture fixture) : IDisposable
         try
         {
             var scope = new TenantScope(); await using var db = new SaveItDb(new DbContextOptionsBuilder<SaveItDb>().UseNpgsql(connection).Options, scope);
-            await db.GetService<IMigrator>().MigrateAsync("20261029225741_TypedAssetSchemas"); await DevelopmentSeed.SeedAsync(db, scope); scope.TenantId = DevelopmentSeed.TenantA;
+            await db.Database.MigrateAsync(); await DevelopmentSeed.SeedAsync(db, scope);
+            await db.GetService<IMigrator>().MigrateAsync("20261029225741_TypedAssetSchemas"); scope.TenantId = DevelopmentSeed.TenantA;
             var at = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
             var place = new Location { Id = Guid.NewGuid(), TenantId = scope.TenantId, OrganizationId = DevelopmentSeed.OrgA, Version = 7, Name = "Migration location", Details = "Exact address", Notes = "Exact\r\n😀", IsArchived = true, UpdatedAt = at };
             var person = new Contact { Id = Guid.NewGuid(), TenantId = scope.TenantId, OrganizationId = DevelopmentSeed.OrgA, Version = 9, Name = "Migration contact", Email = "migration@example.invalid", Phone = "555", Notes = "Exact\r\ncontact", UpdatedAt = at };

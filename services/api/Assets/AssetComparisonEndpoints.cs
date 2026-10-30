@@ -20,7 +20,7 @@ public static class AssetComparisonEndpoints
             if (fromVersion < 1 || toVersion < 1 || offset is < 0) return Invalid();
             var snapshots = await db.AssetRevisions.AsNoTracking().Where(x => x.AssetId == assetId && x.OrganizationId == organizationId
                 && (x.Version == fromVersion || x.Version == toVersion))
-                .Select(x => new AssetComparisonSnapshot(x.Version, x.Name, x.Kind, x.LocationId, x.AssetTypeId, x.AssetTypeVersion,
+                .Select(x => new AssetComparisonSnapshot(x.Version, x.Name, x.Kind, x.LocationId, x.LocationName, x.AssetTypeId, x.AssetTypeVersion,
                     x.FieldsJson, x.Actor, x.CreatedAt, x.RestoredFromVersion)).Take(2).ToListAsync(c.RequestAborted);
             var from = snapshots.SingleOrDefault(x => x.Version == fromVersion); var to = snapshots.SingleOrDefault(x => x.Version == toVersion);
             if (from is null || to is null) return Results.NotFound();

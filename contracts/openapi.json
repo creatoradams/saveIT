@@ -2772,6 +2772,10 @@
                 "$ref": "#/components/schemas/JsonElement"
               }
             ]
+          },
+          "unavailable": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -3012,6 +3016,12 @@
           },
           "fields": {
             "$ref": "#/components/schemas/JsonElement"
+          },
+          "locationName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

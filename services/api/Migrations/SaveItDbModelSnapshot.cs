@@ -190,6 +190,10 @@ namespace SaveIT.Api.Migrations
                     b.Property<Guid?>("LocationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("LocationName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -217,6 +221,8 @@ namespace SaveIT.Api.Migrations
 
                     b.ToTable("AssetRevisions", null, t =>
                         {
+                            t.HasCheckConstraint("CK_AssetRevision_LocationName", "\"LocationName\" IS NULL OR (\"LocationId\" IS NOT NULL AND length(btrim(\"LocationName\")) BETWEEN 1 AND 160)");
+
                             t.HasCheckConstraint("CK_AssetRevision_Provenance", "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)");
 
                             t.HasCheckConstraint("CK_AssetRevision_TypePair", "(\"AssetTypeId\" IS NULL AND \"AssetTypeVersion\" IS NULL AND \"FieldsJson\"='{}'::jsonb) OR (\"AssetTypeId\" IS NOT NULL AND \"AssetTypeVersion\" IS NOT NULL AND \"AssetTypeVersion\">0)");

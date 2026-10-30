@@ -33,7 +33,7 @@ public static class Endpoints
             if (!await AssetSchemas.ValidBinding(db, organizationId, input.AssetTypeId, input.AssetTypeVersion, fields, true, c.RequestAborted)) return AssetSchemas.Invalid();
             asset.AssetTypeId = input.AssetTypeId; asset.AssetTypeVersion = input.AssetTypeVersion; asset.FieldsJson = fields.GetRawText();
             db.Assets.Add(asset);
-            AssetHistoryEndpoints.Snapshot(db, s, asset);
+            await AssetHistoryEndpoints.SnapshotAsync(db, s, asset, c.RequestAborted);
             Record(db, s, c, organizationId, asset.Id, "Asset.Created");
             await db.SaveChangesAsync();
             return Results.Created($"/api/v1/organizations/{organizationId}/assets/{asset.Id}", AssetHistoryEndpoints.Dto(asset));

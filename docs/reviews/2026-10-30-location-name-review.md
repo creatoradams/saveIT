@@ -1,0 +1,5 @@
+# Historical location-name reviews, 2026-10-30
+
+Separate read-only security and efficiency agents reviewed ADR 016, the nullable additive migration/name-ID CHECK, shared scoped capture on all ordinary asset paths, distinct exact known/NULL restoration, immutable history/comparison availability, existing worker content denial and new PostgreSQL/browser tests. Both found stale comparison introduction text claiming all historical names unavailable; it now describes saved labels and older unknowns. Efficiency review also identified the README's old 17-table count, corrected to the existing 19.
+
+Security review found no actionable security issue. Efficiency review found no substantive correctness or efficiency issue. Tests were run by the primary agent; actual results and remote CI evidence are recorded in [progress](../progress.md). Agents did not edit files or run mutating tests. Their source review does not establish independent production security, measured performance, full accessibility or vendor parity.

@@ -131,6 +131,7 @@ public sealed class AssetRevision : ITenantOwned
     public string Name { get; set; } = "";
     public string Kind { get; set; } = "";
     public Guid? LocationId { get; set; }
+    public string? LocationName { get; set; }
     public string Actor { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
     public int? RestoredFromVersion { get; set; }

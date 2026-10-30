@@ -11,7 +11,7 @@ public sealed record ReviseOrganizationRequest(string Name, int ExpectedVersion)
 public sealed record CreateAssetRequest(string Name, string Kind, Guid? AssetTypeId = null, int? AssetTypeVersion = null, JsonElement? Fields = null);
 public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string Kind, DateTimeOffset CreatedAt, int Version = 1, Guid? LocationId = null, Guid? AssetTypeId = null, int? AssetTypeVersion = null);
 public sealed record ReviseAssetRequest(string Name, string Kind, Guid? LocationId, int ExpectedVersion);
-public sealed record AssetRevisionDto(int Version, string Name, string Kind, Guid? LocationId, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, string? RestoreReason, Guid? AssetTypeId, int? AssetTypeVersion, JsonElement Fields);
+public sealed record AssetRevisionDto(int Version, string Name, string Kind, Guid? LocationId, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, string? RestoreReason, Guid? AssetTypeId, int? AssetTypeVersion, JsonElement Fields, string? LocationName = null);
 public sealed record AssetTypeRequest(string Name, JsonElement Definition, int ExpectedVersion = 0, bool IsArchived = false);
 public sealed record AssetTypeDto(Guid Id, Guid OrganizationId, string Name, int Version, bool IsArchived, DateTimeOffset UpdatedAt);
 public sealed record AssetTypeRevisionDto(Guid AssetTypeId, int Version, string Name, JsonElement Definition, string Actor, DateTimeOffset CreatedAt);
@@ -20,7 +20,7 @@ public sealed record AssetFieldsDto(AssetDto Asset, AssetTypeRevisionDto? Schema
 public sealed record ReviseAssetFieldsRequest(int ExpectedVersion, Guid? AssetTypeId, int? AssetTypeVersion, JsonElement Fields);
 public sealed record AssetComparisonTemplateDto(Guid Id, int Version, string Name);
 public sealed record AssetComparisonRevisionDto(int Version, string Name, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, AssetComparisonTemplateDto? Template);
-public sealed record AssetComparisonSideDto(bool Present, JsonElement? Value, JsonElement? Definition);
+public sealed record AssetComparisonSideDto(bool Present, JsonElement? Value, JsonElement? Definition, bool Unavailable = false);
 public sealed record AssetComparisonRowDto(string Section, string Key, string Label, string Change, bool ValueChanged, bool DefinitionChanged, AssetComparisonSideDto From, AssetComparisonSideDto To);
 public sealed record AssetComparisonDto(Guid AssetId, AssetComparisonRevisionDto From, AssetComparisonRevisionDto To,
     int CurrentVersion, bool ChangesOnly, int ChangedRows, int TotalRows, int Offset, IReadOnlyList<AssetComparisonRowDto> Rows, int? NextOffset);

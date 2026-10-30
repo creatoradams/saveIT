@@ -70,7 +70,7 @@ export default function AssetMetadata({
     return () => {
       abort.abort();
     };
-  }, [asset.locationId, base, placementRetry]);
+  }, [asset.locationId, asset.version, base, placementRetry]);
   useEffect(
     () => () => {
       request.current?.abort();
@@ -147,15 +147,25 @@ export default function AssetMetadata({
   }
   async function revisions(after: string | null = null) {
     await perform(async (signal) => {
-      const page = await api<Page<AssetRevision>>(
-        `${path}/revisions${after ? `?before=${after}` : ""}`,
-        { signal },
-      );
-      if (!signal.aborted) {
-        setHistory((previous) =>
-          after ? [...previous, ...page.items] : page.items,
+      try {
+        const page = await api<Page<AssetRevision>>(
+          `${path}/revisions${after ? `?before=${after}` : ""}`,
+          { signal },
         );
-        setHistoryCursor(page.nextCursor);
+        if (!signal.aborted) {
+          setHistory((previous) =>
+            after ? [...previous, ...page.items] : page.items,
+          );
+          setHistoryCursor(page.nextCursor);
+        }
+      } catch (err) {
+        if (!signal.aborted) {
+          setHistory([]);
+          setHistoryCursor(null);
+          setSource(null);
+          setComparing(false);
+        }
+        throw err;
       }
     });
   }
@@ -369,7 +379,13 @@ export default function AssetMetadata({
               <p>
                 {row.name} · {row.kind}
               </p>
-              <p>Location: {row.locationId || "Unassigned"}</p>
+              <p className="comparison-value">
+                Snapshot location:{" "}
+                {row.locationId
+                  ? (row.locationName ?? "Historical name unavailable")
+                  : "Unassigned"}
+              </p>
+              {row.locationId && <p>Location ID: {row.locationId}</p>}
               <p>
                 Template:{" "}
                 {row.assetTypeId
@@ -430,6 +446,15 @@ export default function AssetMetadata({
               , type {source.kind}, the historical location, template version
               and custom values. Documents and relationships remain linked to
               this asset; earlier history is preserved.
+            </p>
+            <p className="comparison-value">
+              Snapshot location:{" "}
+              {source.locationId
+                ? (source.locationName ?? "Historical name unavailable")
+                : "Unassigned"}
+              {source.locationId && <> · ID: {source.locationId}</>}. The
+              current location keeps its current name. Unavailable historical
+              names remain unavailable.
             </p>
             <label>
               Reason for asset restore
