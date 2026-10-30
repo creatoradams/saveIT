@@ -398,10 +398,26 @@ test("template archive, immutable history, mobile layout and Viewer controls", a
     .getByLabel("Archive template (existing pins remain usable)")
     .check();
   await panel.getByRole("button", { name: "Publish template version" }).click();
+  const archivedPage = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      url.pathname === `/api/v1${base}/asset-types` &&
+      url.searchParams.get("includeArchived") === "true" &&
+      !url.searchParams.has("after")
+    );
+  });
   await panel.getByLabel("Include archived templates").check();
-  await panel
-    .getByRole("button", { name: `Open template ${name}`, exact: true })
-    .click();
+  expect((await archivedPage).status()).toBe(200);
+  await expect(templateList).toBeVisible();
+  for (let i = 0; i < 30 && !(await open.count()); i++) {
+    const previous = await templateList.getByRole("listitem").count();
+    await panel.getByRole("button", { name: "Load more templates" }).click();
+    await expect
+      .poll(() => templateList.getByRole("listitem").count())
+      .toBeGreaterThan(previous);
+  }
+  await open.click();
   await expect(
     panel.getByRole("button", { name: "Create asset from template" }),
   ).toHaveCount(0);

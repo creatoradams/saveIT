@@ -90,6 +90,38 @@ public sealed class Contact : ITenantOwned
     public bool IsArchived { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
+public sealed class LocationRevision : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid RecordId { get; set; }
+    public int Version { get; set; }
+    public string Name { get; set; } = "";
+    public string Details { get; set; } = "";
+    public string Notes { get; set; } = "";
+    public bool IsArchived { get; set; }
+    public string Actor { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+    public int? RestoredFromVersion { get; set; }
+    public string? RestoreReason { get; set; }
+}
+public sealed class ContactRevision : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid RecordId { get; set; }
+    public int Version { get; set; }
+    public string Name { get; set; } = "";
+    public string Details { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public string Notes { get; set; } = "";
+    public bool IsArchived { get; set; }
+    public string Actor { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+    public int? RestoredFromVersion { get; set; }
+    public string? RestoreReason { get; set; }
+}
 public sealed class AssetRevision : ITenantOwned
 {
     public Guid TenantId { get; set; }

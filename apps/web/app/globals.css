@@ -1623,3 +1623,46 @@ td strong {
     min-width: 480px;
   }
 }
+.directory-history {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.directory-history-list {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.directory-history-list li {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.directory-history-list button {
+  justify-self: start;
+}
+.directory-history-list small {
+  color: var(--ink);
+}
+.directory-snapshot {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.directory-snapshot dl {
+  display: grid;
+  gap: 6px;
+}
+.directory-snapshot dt {
+  font-weight: 600;
+  margin-top: 10px;
+}
+.directory-snapshot dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

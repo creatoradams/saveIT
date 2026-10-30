@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, type DirectoryEntry, type Page } from "../lib/api";
+import DirectoryHistory from "./directory-history";
 
 const empty = {
   name: "",
@@ -14,10 +15,12 @@ const empty = {
 export default function DirectoryPanel({
   organizationId,
   canEdit,
+  disabled,
   onBusyChange,
 }: {
   organizationId: string;
   canEdit: boolean;
+  disabled: boolean;
   onBusyChange: (value: boolean) => void;
 }) {
   const [resource, setResource] = useState("locations");
@@ -33,15 +36,18 @@ export default function DirectoryPanel({
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState("");
   const [reload, setReload] = useState(0);
+  const [historyRecord, setHistoryRecord] = useState<DirectoryEntry | null>(
+    null,
+  );
   const request = useRef<AbortController | null>(null);
   const base = `/organizations/${organizationId}/${resource}`;
   const singular = resource === "locations" ? "location" : "contact";
   useEffect(() => {
     const abort = new AbortController();
-    request.current = abort;
     setItems([]);
     setCursor(null);
     setSelected(null);
+    setHistoryRecord(null);
     setEditing(false);
     setError("");
     setNotice("");
@@ -68,11 +74,20 @@ export default function DirectoryPanel({
         if (!abort.signal.aborted) setLoading(false);
       });
     return () => {
-      request.current?.abort();
-      onBusyChange(false);
+      abort.abort();
     };
   }, [base, archived, reload, onBusyChange]);
+  useEffect(
+    () => () => {
+      if (request.current) {
+        request.current.abort();
+        onBusyChange(false);
+      }
+    },
+    [onBusyChange],
+  );
   async function perform(action: (signal: AbortSignal) => Promise<void>) {
+    if (disabled || busy || loading) return;
     request.current?.abort();
     const abort = new AbortController();
     request.current = abort;
@@ -92,12 +107,15 @@ export default function DirectoryPanel({
         setConflict(err instanceof ApiError && err.status === 409);
         if (err instanceof ApiError && [401, 403, 404].includes(err.status)) {
           setItems([]);
+          setCursor(null);
           setSelected(null);
+          setHistoryRecord(null);
           setEditing(false);
         }
       }
     } finally {
       if (!abort.signal.aborted) {
+        request.current = null;
         setBusy(false);
         onBusyChange(false);
       }
@@ -105,6 +123,7 @@ export default function DirectoryPanel({
   }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (conflict || historyRecord) return;
     await perform(async (signal) => {
       const saved = await api<DirectoryEntry>(
         selected ? `${base}/${selected.id}` : base,
@@ -142,7 +161,7 @@ export default function DirectoryPanel({
         {canEdit && (
           <button
             className="primary"
-            disabled={busy || loading}
+            disabled={disabled || busy || loading || !!historyRecord}
             onClick={() => {
               setSelected(null);
               setForm(empty);
@@ -160,7 +179,7 @@ export default function DirectoryPanel({
           Directory
           <select
             value={resource}
-            disabled={busy}
+            disabled={disabled || busy}
             onChange={(e) => setResource(e.target.value)}
           >
             <option value="locations">Locations</option>
@@ -171,7 +190,7 @@ export default function DirectoryPanel({
           <input
             type="checkbox"
             checked={archived}
-            disabled={busy}
+            disabled={disabled || busy}
             onChange={(e) => setArchived(e.target.checked)}
           />
           Include archived records
@@ -187,7 +206,10 @@ export default function DirectoryPanel({
               current version before retrying.
             </p>
           )}
-          <button disabled={busy} onClick={() => setReload((x) => x + 1)}>
+          <button
+            disabled={disabled || busy}
+            onClick={() => setReload((x) => x + 1)}
+          >
             Reload directory
           </button>
         </div>
@@ -220,36 +242,48 @@ export default function DirectoryPanel({
                 {new Date(item.updatedAt).toLocaleString()}
               </small>
             </div>
-            {canEdit && (
+            <div className="actions">
               <button
                 className="secondary"
-                disabled={busy}
-                aria-label={`Edit ${singular} ${item.name}`}
-                onClick={() => {
-                  setSelected(item);
-                  setForm({
-                    name: item.name,
-                    details: item.details,
-                    email: item.email,
-                    phone: item.phone,
-                    notes: item.notes,
-                    isArchived: item.isArchived,
-                  });
-                  setEditing(true);
-                  setError("");
-                  setConflict(false);
-                }}
+                disabled={
+                  disabled || busy || loading || editing || !!historyRecord
+                }
+                aria-label={`View ${singular} history ${item.name}`}
+                onClick={() => setHistoryRecord(item)}
               >
-                Edit
+                View history
               </button>
-            )}
+              {canEdit && (
+                <button
+                  className="secondary"
+                  disabled={disabled || busy || loading || !!historyRecord}
+                  aria-label={`Edit ${singular} ${item.name}`}
+                  onClick={() => {
+                    setSelected(item);
+                    setForm({
+                      name: item.name,
+                      details: item.details,
+                      email: item.email,
+                      phone: item.phone,
+                      notes: item.notes,
+                      isArchived: item.isArchived,
+                    });
+                    setEditing(true);
+                    setError("");
+                    setConflict(false);
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
       {cursor && (
         <button
           className="load-more"
-          disabled={busy}
+          disabled={disabled || busy || !!historyRecord}
           onClick={() =>
             perform(async (signal) => {
               const page = await api<Page<DirectoryEntry>>(
@@ -270,6 +304,33 @@ export default function DirectoryPanel({
           Load more {resource}
         </button>
       )}
+      {historyRecord && (
+        <DirectoryHistory
+          key={`${base}/${historyRecord.id}`}
+          base={base}
+          record={historyRecord}
+          canEdit={canEdit}
+          disabled={disabled || busy || loading || editing}
+          onBusyChange={onBusyChange}
+          onClose={() => setHistoryRecord(null)}
+          onRestored={(saved) => {
+            setHistoryRecord(saved);
+            setItems((previous) =>
+              [...previous.filter((x) => x.id !== saved.id), saved].filter(
+                (x) => archived || !x.isArchived,
+              ),
+            );
+          }}
+          onDenied={(message) => {
+            setItems([]);
+            setCursor(null);
+            setHistoryRecord(null);
+            setSelected(null);
+            setEditing(false);
+            setError(message);
+          }}
+        />
+      )}
       {editing && (
         <form
           className="directory-form"
@@ -287,7 +348,7 @@ export default function DirectoryPanel({
               required
               maxLength={160}
               value={form.name}
-              disabled={busy}
+              disabled={disabled || busy}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </label>
@@ -296,7 +357,7 @@ export default function DirectoryPanel({
             <input
               maxLength={500}
               value={form.details}
-              disabled={busy}
+              disabled={disabled || busy}
               onChange={(e) => setForm({ ...form, details: e.target.value })}
             />
           </label>
@@ -308,7 +369,7 @@ export default function DirectoryPanel({
                   type="email"
                   maxLength={320}
                   value={form.email}
-                  disabled={busy}
+                  disabled={disabled || busy}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
               </label>
@@ -318,7 +379,7 @@ export default function DirectoryPanel({
                   type="tel"
                   maxLength={80}
                   value={form.phone}
-                  disabled={busy}
+                  disabled={disabled || busy}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
               </label>
@@ -330,7 +391,7 @@ export default function DirectoryPanel({
               maxLength={4000}
               rows={4}
               value={form.notes}
-              disabled={busy}
+              disabled={disabled || busy}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </label>
@@ -338,7 +399,7 @@ export default function DirectoryPanel({
             <input
               type="checkbox"
               checked={form.isArchived}
-              disabled={busy}
+              disabled={disabled || busy}
               onChange={(e) =>
                 setForm({ ...form, isArchived: e.target.checked })
               }
@@ -348,14 +409,14 @@ export default function DirectoryPanel({
           <div className="actions">
             <button
               className="primary"
-              disabled={busy || conflict}
+              disabled={disabled || busy || conflict}
               type="submit"
             >
               Save {singular}
             </button>
             <button
               className="secondary"
-              disabled={busy}
+              disabled={disabled || busy}
               type="button"
               onClick={() => setEditing(false)}
             >

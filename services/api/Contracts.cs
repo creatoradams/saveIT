@@ -26,6 +26,9 @@ public sealed record AssetComparisonDto(Guid AssetId, AssetComparisonRevisionDto
     int CurrentVersion, bool ChangesOnly, int ChangedRows, int TotalRows, int Offset, IReadOnlyList<AssetComparisonRowDto> Rows, int? NextOffset);
 public sealed record DirectoryRequest(string Name, string Details, string Email, string Phone, string Notes, bool IsArchived = false, int ExpectedVersion = 0);
 public sealed record DirectoryDto(Guid Id, Guid OrganizationId, string Name, string Details, string Email, string Phone, string Notes, bool IsArchived, int Version, DateTimeOffset UpdatedAt);
+public sealed record DirectoryRevisionSummaryDto(int Version, string Name, bool IsArchived, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion);
+public sealed record DirectoryRevisionDto(int Version, string Name, string Details, string Email, string Phone, string Notes, bool IsArchived,
+    string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, string? RestoreReason);
 public sealed record CreateRelationshipRequest(Guid TargetAssetId, string Kind);
 public sealed record RemoveRelationshipRequest(int ExpectedVersion);
 public sealed record AssetRelationshipDto(Guid Id, Guid OrganizationId, AssetDto Source, AssetDto Target,

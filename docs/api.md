@@ -27,6 +27,9 @@ Source of truth: [OpenAPI](../contracts/openapi.json); generated TypeScript: `ap
 | GET /organizations/{org}/locations/{id} or /contacts/{id} | Viewer/Editor | Audited directory record, including archived |
 | POST /organizations/{org}/locations or /contacts | Editor + CSRF | Scoped directory record/audit/outbox; 201 |
 | PUT /organizations/{org}/locations/{id} or /contacts/{id} | Editor + CSRF | Expected-version edit/archive/reactivate, audit/outbox; 409 on conflict |
+| GET /organizations/{org}/{resource}/{id}/revisions?before={int} | Viewer/Editor | Audited newest-first metadata-only history, max 50; resource is locations or contacts |
+| GET /organizations/{org}/{resource}/{id}/revisions/{version} | Viewer/Editor | Audited exact directory fields/lifecycle and restoration provenance, including archived records |
+| POST /organizations/{org}/{resource}/{id}/restore | Editor + CSRF | Earlier exact fields and archived state as a new version; atomic snapshot/audit/outbox/queue, 409 on conflict |
 | GET /organizations/{org}/assets/{asset}/relationships?after={uuid} | Viewer/Editor | Active incoming/outgoing links with current scoped endpoint labels; audited page, max 50 |
 | POST /organizations/{org}/assets/{asset}/relationships | Editor + CSRF | Create directed link to a different asset in this organization, audit/outbox; 201 or duplicate 409 |
 | POST /organizations/{org}/assets/{asset}/relationships/{relationship}/remove | Editor + CSRF | Expected-version soft removal, audit/outbox; 204 or conflict 409 |
@@ -77,6 +80,12 @@ Under `/organizations/{org}/asset-types`: GET a 50-row UUID page (`after`, `incl
 `AssetTypeRequest.definition` is the bounded field array specified in ADR 013. Asset POST optionally accepts paired `assetTypeId`/`assetTypeVersion` and full `fields`; defaults are never applied implicitly. GET `/assets/{asset}/fields` audits and returns asset metadata, its pinned schema and values. PUT that path accepts `expectedVersion`, paired nullable schema references and full `fields`; it increments the asset version with snapshot/audit/outbox atomically. Untyped fields must be `{}`. Lists/relationships carry reference IDs only. Metadata PUT preserves fields. Restore copies the exact historical schema/values and keeps previous snapshots. Rebinding to an archived schema requires reactivation; retaining the identical archived pin is allowed.
 
 Raw and canonical JSON limits are 16 KiB, with at most 20 fields and five scalar types. Null/nested/unknown values, duplicates, invalid calendar dates, numeric precision/range and malformed Unicode fail generically without echoing content. UTF-8 is required. Kestrel caps all bodies at 1 MiB; the Next proxy returns 413 early for oversized declared Content-Length. Streaming oversized bodies remain bounded but may surface a generic proxy transport failure. See ADR 013 for explicit format, lifecycle and future migration constraints.
+
+## Directory history and recovery
+
+For resource `locations` or `contacts`, `GET /organizations/{org}/{resource}/{id}/revisions?before={positive version}` returns up to 50 latest-first metadata summaries and a version cursor. It excludes details/email/phone/notes/reasons. `GET .../revisions/{positive version}` returns one exact snapshot with those fields, archived state, actor/time and restore provenance. Both reads require a live current Viewer/Editor grant, including for archived records, and commit read audit before serialization. Missing records/versions are 404; malformed/nonpositive cursors/versions are 400; failed source/audit reads return generic errors without historical fields/cursors. Migration snapshots start at the actual current version, so earlier versions can be unavailable.
+
+`POST .../restore` accepts `{ "sourceVersion": 1, "expectedVersion": 3, "reason": "Restore the reviewed historical record" }`. A current Editor and CSRF are required. The source must exist and precede the expected current version; the trimmed reason is 3–500 characters. Restoration copies every historical field **and archived state** as a new version, retaining the record ID and previous snapshots. It never rewrites linked asset placements. Head/revision/audit/outbox/queue commit atomically; conflicts return 409. Reasons remain in audited snapshots, never audit/outbox metadata. Schema-v1 directory restoration events are explicit search no-ops. See ADR 015.
 
 ## Asset comparison
 

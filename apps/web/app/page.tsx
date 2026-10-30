@@ -1205,6 +1205,7 @@ export default function Workspace() {
               key={organizationId}
               organizationId={organizationId}
               canEdit={canEdit}
+              disabled={busy}
               onBusyChange={setBusy}
             />
           )}

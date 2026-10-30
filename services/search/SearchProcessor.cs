@@ -48,7 +48,7 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
                 var type = current.Type switch { "Asset.Created" or "Asset.Revised" or "Asset.Restored" => "asset", "Document.Created" or "Document.Revised" or "Document.Restored" => "document", _ => null };
                 // Explicitly acknowledge core relationship events; they have no searchable text and
                 // must not delete or create asset/document projections. Other schemas/types still fail.
-                var metadataOnly = current.Type is "AssetRelationship.Created" or "AssetRelationship.Removed" or "Location.Created" or "Location.Revised" or "Contact.Created" or "Contact.Revised" or "Organization.Created" or "Organization.Revised" or "AssetType.Created" or "AssetType.Revised";
+                var metadataOnly = current.Type is "AssetRelationship.Created" or "AssetRelationship.Removed" or "Location.Created" or "Location.Revised" or "Location.Restored" or "Contact.Created" or "Contact.Revised" or "Contact.Restored" or "Organization.Created" or "Organization.Revised" or "AssetType.Created" or "AssetType.Revised";
                 if (current.SchemaVersion != 1 || (type is null && !metadataOnly))
                 {
                     await WriteFailureAsync(connection, transaction, tenantId, current.Id, "unsupported_event", true, cancellationToken);

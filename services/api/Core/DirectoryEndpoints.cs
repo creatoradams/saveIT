@@ -35,6 +35,7 @@ public static class DirectoryEndpoints
             await Write(organizationId, null, input, contact, db, scope, context)).Produces<DirectoryDto>(201).ProducesProblem(400);
         group.MapPut("/{recordId:guid}", async (Guid organizationId, Guid recordId, DirectoryRequest input, SaveItDb db, TenantScope scope, HttpContext context) =>
             await Write(organizationId, recordId, input, contact, db, scope, context)).Produces<DirectoryDto>().ProducesProblem(400).ProducesProblem(409);
+        DirectoryHistoryEndpoints.Map(group, contact);
     }
     private static IQueryable<DirectoryDto> Query(SaveItDb db, bool contact, Guid org, Guid? after, bool archived, Guid? id = null) => contact
         ? db.Contacts.AsNoTracking().Where(x => x.OrganizationId == org && (archived || !x.IsArchived) && (id == null || x.Id == id)
@@ -62,6 +63,7 @@ public static class DirectoryEndpoints
             if (id is null) db.Contacts.Add(row); else row.Version++;
             row.Name = input.Name.Trim(); row.Details = input.Details.Trim(); row.Email = input.Email.Trim(); row.Phone = input.Phone.Trim(); row.Notes = input.Notes;
             row.IsArchived = input.IsArchived; row.UpdatedAt = now; version = row.Version;
+            DirectoryHistoryEndpoints.Snapshot(db, scope, row);
         }
         else
         {
@@ -72,8 +74,9 @@ public static class DirectoryEndpoints
             if (id is null) db.Locations.Add(row); else row.Version++;
             row.Name = input.Name.Trim(); row.Details = input.Details.Trim(); row.Notes = input.Notes;
             row.IsArchived = input.IsArchived; row.UpdatedAt = now; version = row.Version;
+            DirectoryHistoryEndpoints.Snapshot(db, scope, row);
         }
-        ChangeLog.Add(db, scope, context, org, target, (contact ? "Contact." : "Location.") + (id == null ? "Created" : "Revised"));
+        ChangeLog.Add(db, scope, context, org, target, (contact ? "Contact." : "Location.") + (id == null ? "Created" : "Revised"), version: version);
         await db.SaveChangesAsync(context.RequestAborted);
         return Results.Json(new DirectoryDto(target, org, input.Name.Trim(), input.Details.Trim(), contact ? input.Email.Trim() : "", contact ? input.Phone.Trim() : "",
             input.Notes, input.IsArchived, version, now), statusCode: id == null ? 201 : 200);

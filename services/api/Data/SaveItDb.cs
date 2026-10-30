@@ -23,6 +23,8 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
     public DbSet<AssetTypeRevision> AssetTypeRevisions => Set<AssetTypeRevision>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Contact> Contacts => Set<Contact>();
+    public DbSet<LocationRevision> LocationRevisions => Set<LocationRevision>();
+    public DbSet<ContactRevision> ContactRevisions => Set<ContactRevision>();
     public DbSet<AssetRevision> AssetRevisions => Set<AssetRevision>();
     public DbSet<AssetRelationship> AssetRelationships => Set<AssetRelationship>();
     public DbSet<Document> Documents => Set<Document>();
@@ -79,6 +81,32 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<Contact>().Property(x => x.Version).IsConcurrencyToken();
         m.Entity<Contact>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.IsArchived, x.Id });
         m.Entity<Contact>().ToTable(t => t.HasCheckConstraint("CK_Contact_Version", "\"Version\" > 0"));
+        TenantEntity<LocationRevision>(m, "LocationRevisions");
+        m.Entity<LocationRevision>().HasKey(x => new { x.TenantId, x.OrganizationId, x.RecordId, x.Version });
+        m.Entity<LocationRevision>().HasOne<Location>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.RecordId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<LocationRevision>().HasOne<LocationRevision>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.RecordId, x.RestoredFromVersion }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.RecordId, x.Version }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<LocationRevision>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<LocationRevision>().Property(x => x.Details).HasMaxLength(500);
+        m.Entity<LocationRevision>().Property(x => x.Notes).HasMaxLength(4000);
+        m.Entity<LocationRevision>().Property(x => x.RestoreReason).HasMaxLength(500);
+        m.Entity<LocationRevision>().ToTable(t => {
+            t.HasCheckConstraint("CK_LocationRevision_Version", "\"Version\" > 0");
+            t.HasCheckConstraint("CK_LocationRevision_Provenance", "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)");
+        });
+        TenantEntity<ContactRevision>(m, "ContactRevisions");
+        m.Entity<ContactRevision>().HasKey(x => new { x.TenantId, x.OrganizationId, x.RecordId, x.Version });
+        m.Entity<ContactRevision>().HasOne<Contact>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.RecordId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<ContactRevision>().HasOne<ContactRevision>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.RecordId, x.RestoredFromVersion }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.RecordId, x.Version }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<ContactRevision>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<ContactRevision>().Property(x => x.Details).HasMaxLength(500);
+        m.Entity<ContactRevision>().Property(x => x.Email).HasMaxLength(320);
+        m.Entity<ContactRevision>().Property(x => x.Phone).HasMaxLength(80);
+        m.Entity<ContactRevision>().Property(x => x.Notes).HasMaxLength(4000);
+        m.Entity<ContactRevision>().Property(x => x.RestoreReason).HasMaxLength(500);
+        m.Entity<ContactRevision>().ToTable(t => {
+            t.HasCheckConstraint("CK_ContactRevision_Version", "\"Version\" > 0");
+            t.HasCheckConstraint("CK_ContactRevision_Provenance", "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)");
+        });
         TenantEntity<Asset>(m, "Assets");
         TenantEntity<AssetType>(m, "AssetTypes");
         m.Entity<AssetType>().HasKey(x => x.Id);

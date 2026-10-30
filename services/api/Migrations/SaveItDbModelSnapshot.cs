@@ -398,13 +398,79 @@ namespace SaveIT.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasAlternateKey("TenantId", "OrganizationId", "Id");
-
                     b.HasIndex("TenantId", "OrganizationId", "IsArchived", "Id");
 
                     b.ToTable("Contacts", null, t =>
                         {
                             t.HasCheckConstraint("CK_Contact_Version", "\"Version\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.ContactRevision", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("RestoreReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("RestoredFromVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "OrganizationId", "RecordId", "Version");
+
+                    b.HasIndex("TenantId", "OrganizationId", "RecordId", "RestoredFromVersion");
+
+                    b.ToTable("ContactRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ContactRevision_Provenance", "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)");
+
+                            t.HasCheckConstraint("CK_ContactRevision_Version", "\"Version\" > 0");
                         });
                 });
 
@@ -541,6 +607,64 @@ namespace SaveIT.Api.Migrations
                     b.ToTable("Locations", null, t =>
                         {
                             t.HasCheckConstraint("CK_Location_Version", "\"Version\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.LocationRevision", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("RestoreReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("RestoredFromVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "OrganizationId", "RecordId", "Version");
+
+                    b.HasIndex("TenantId", "OrganizationId", "RecordId", "RestoredFromVersion");
+
+                    b.ToTable("LocationRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LocationRevision_Provenance", "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)");
+
+                            t.HasCheckConstraint("CK_LocationRevision_Version", "\"Version\" > 0");
                         });
                 });
 
@@ -941,6 +1065,27 @@ namespace SaveIT.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SaveIT.Api.Data.ContactRevision", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Contact", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "RecordId")
+                        .HasPrincipalKey("TenantId", "OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.ContactRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "RecordId", "RestoredFromVersion")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("SaveIT.Api.Data.Document", b =>
                 {
                     b.HasOne("SaveIT.Api.Data.Tenant", null)
@@ -992,6 +1137,27 @@ namespace SaveIT.Api.Migrations
                         .HasPrincipalKey("TenantId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.LocationRevision", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Location", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "RecordId")
+                        .HasPrincipalKey("TenantId", "OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.LocationRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "RecordId", "RestoredFromVersion")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SaveIT.Api.Data.Membership", b =>
