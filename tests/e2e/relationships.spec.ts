@@ -5,9 +5,11 @@ import {
   type Page,
 } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { reserveDevelopmentLogin } from "./helpers/development-login";
 
 const org = "10000000-0000-0000-0000-000000000010";
 async function post(request: APIRequestContext, path: string, data: object) {
+  if (path === "/dev/login") await reserveDevelopmentLogin();
   const csrf = await (await request.get("/api/v1/csrf")).json();
   const response = await request.post(`/api/v1${path}`, {
     data,
@@ -18,6 +20,7 @@ async function post(request: APIRequestContext, path: string, data: object) {
 }
 async function login(page: Page, name = "Alice Chen") {
   await page.goto("/");
+  await reserveDevelopmentLogin();
   await page.getByRole("button", { name: new RegExp(name) }).click();
   await expect(
     page.getByRole("heading", { name: "Everything has a home." }),

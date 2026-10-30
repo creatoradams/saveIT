@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { reserveDevelopmentLogin } from "./helpers/development-login";
 import { readFileSync } from "node:fs";
 
 test("live OpenAPI matches the committed shared contract", async ({
@@ -16,6 +17,7 @@ test("live OpenAPI matches the committed shared contract", async ({
 
 async function login(page: Page, name = "Alice Chen") {
   await page.goto("/");
+  await reserveDevelopmentLogin();
   await page.getByRole("button", { name: new RegExp(name) }).click();
   await expect(
     page.getByRole("heading", { name: "Everything has a home." }),
@@ -127,24 +129,26 @@ test("a stale revision preserves the editor text and offers an explicit reload",
   page,
 }) => {
   await login(page);
-  await page.getByRole("button", { name: /Core switch/ }).click();
+  await openAsset(page, "Core switch");
   await page.getByRole("button", { name: "Add document" }).click();
   const title = `Conflict ${Date.now()}`;
   await page.getByRole("textbox", { name: "Document title" }).fill(title);
   await page
     .getByRole("textbox", { name: "Content", exact: true })
     .fill("Initial text");
-  await page.getByRole("button", { name: "Save document" }).click();
-  await expect(page.getByRole("status")).toContainText("revision 1");
   const org = await page.locator("#organization").inputValue();
-  const docs = await (
-    await page.request.get(
-      `/api/v1/organizations/${org}/assets/10000000-0000-0000-0000-000000001000/documents`,
-    )
-  ).json();
-  const doc = docs.items.find(
-    (item: { title: string }) => item.title === title,
+  const created = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname ===
+        `/api/v1/organizations/${org}/documents`,
   );
+  await page.getByRole("button", { name: "Save document" }).click();
+  const creationResponse = await created;
+  expect(creationResponse.status()).toBe(201);
+  const doc = await creationResponse.json();
+  expect(doc.title).toBe(title);
+  await expect(page.getByRole("status")).toContainText("revision 1");
   await page.getByRole("button", { name: "Edit document" }).click();
   await page
     .getByRole("textbox", { name: "Content", exact: true })
@@ -184,6 +188,7 @@ test("keyboard sign-in, responsive layout, and automated WCAG checks", async ({
   expect(loginScan.violations).toEqual([]);
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: /Alice Chen/ })).toBeFocused();
+  await reserveDevelopmentLogin();
   await page.keyboard.press("Enter");
   await expect(
     page.getByRole("heading", { name: "Everything has a home." }),

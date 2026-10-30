@@ -53,6 +53,8 @@ API tests create/drop an isolated randomly named test database, apply real migra
 
 Playwright starts the complete stack automatically if the local web service is absent. It writes synthetic test records to the development database; use a separate checkout/ports for isolated browser data. Traces/reports/screenshots are ignored. Checks cover persistence, organization switching, roles, conflicts, keyboard navigation, responsive layout and axe accessibility; they do not establish complete WCAG compliance.
 
+The browser suite uses one worker and a shared test-side sign-in budget for browser and API contexts. Fast runs may pause before a login to respect the application's unchanged 30-per-minute development login limit. A local run that can reuse a server, or a replacement worker after failure, first allows its previous rate-limit bucket to expire. New sign-in paths must reserve that budget; the suite does not retry rejected logins or relax authentication assertions.
+
 ```sh
 npm audit --audit-level=high
 dotnet list SaveIT.slnx package --vulnerable --include-transitive --format json > .local/nuget-audit.json

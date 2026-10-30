@@ -1,7 +1,9 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { reserveDevelopmentLogin } from "./helpers/development-login";
 
 async function mutate(request: APIRequestContext, path: string, body: object) {
+  if (path === "/dev/login") await reserveDevelopmentLogin();
   const csrf = await (await request.get("/api/v1/csrf")).json();
   return request.post(`/api/v1${path}`, {
     data: body,
@@ -14,6 +16,7 @@ test("search indexes real changes, filters tenants and types, and opens current 
   playwright,
 }) => {
   await page.goto("/");
+  await reserveDevelopmentLogin();
   await page.getByRole("button", { name: /Alice Chen/ }).click();
   await expect(
     page.getByRole("heading", { name: "Everything has a home." }),
@@ -148,6 +151,7 @@ test("read-only search clears stale previews on failure, retries, and handles em
   page,
 }) => {
   await page.goto("/");
+  await reserveDevelopmentLogin();
   await page.getByRole("button", { name: /Sam Rivera/ }).click();
   await expect(
     page.getByRole("heading", { name: "Everything has a home." }),

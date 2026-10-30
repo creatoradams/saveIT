@@ -5,9 +5,11 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { reserveDevelopmentLogin } from "./helpers/development-login";
 
 async function login(page: Page, name = "Alice Chen") {
   await page.goto("/");
+  await reserveDevelopmentLogin();
   await page.getByRole("button", { name: new RegExp(name) }).click();
   await expect(
     page.getByRole("heading", { name: "Everything has a home." }),
