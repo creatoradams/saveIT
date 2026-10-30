@@ -134,6 +134,7 @@ app.MapDirectoryEndpoints();
 app.MapOrganizationEndpoints();
 app.MapAssetHistoryEndpoints();
 app.MapAssetTypeEndpoints();
+app.MapAssetComparisonEndpoints();
 await app.RunAsync();
 
 public partial class Program;

@@ -59,6 +59,15 @@ Boundaries: browser ↔ same-origin Next proxy ↔ ASP.NET session/policy ↔ re
 | Archived schema or concurrent edit silently loses values | Existing pins retained, explicit active rebinding, exact restore and expected versions | Archive/reactivate, retained drafts after conflicts/failed reload, atomic audit/outbox/queue rollback; no in-flight revocation barrier |
 | Oversized/malformed representation exhausts normalization | 1 MiB request bound, 16 KiB raw/canonical JSON, 20-field cap, strict Unicode/numeric checks, UTF-8 database guard | Real browser declared-body 413 and database validation tests; streaming proxy error presentation and general quotas remain release work |
 
+## Asset comparison additions
+
+| Threat | Implemented boundary | Evidence / remaining limits |
+| --- | --- | --- |
+| Comparing historical fields bypasses current access or exposes later definitions | Live membership/organization role on each page, scoped immutable source revisions and exact pinned definitions under existing forced RLS | Cross-tenant/organization, Viewer, revoked membership/grant and between-page revocation tests; already-authorized in-flight requests retain ADR 002 semantics |
+| Failed source/schema/audit access leaks cached fields or cursors | No fallback, audit commits before response serialization, browser clears rows/counts/cursors before requests and on failures | Real source permission, hidden schema and audit failure tests; delayed browser failure/retry/denial coverage |
+| Comparison leaks restore reasons or mutates authority | Snapshot projection excludes reasons; numeric-only read audit, no outbox event; comparison never authorizes restoration | Reason/content omission and no-event/no-business-write assertions; stale restore still conflicts and current Editor/CSRF/reason checks remain required |
+| Malformed or costly differences exhaust resources | Persisted v1 schema/value validation; at most two snapshots/two schemas, 44 total rows and 20 rows per response | Disjoint 20-field schema paging and scalar/absence tests; historical location names and directory comparison remain absent |
+
 ## Release-risk register
 
 All entries below block a production/enterprise-ready claim. Separate automated code reviews are recorded in the review report; no external penetration assessment, SOC 2, production security guarantee, achieved SLO or vendor parity is claimed.
@@ -74,4 +83,4 @@ All entries below block a production/enterprise-ready claim. Separate automated 
 
 ## Review checklist for the next slice
 
-Keep current search authority/stale-index/outage and queue atomicity/late-commit tests for every extension, including future OpenSearch, facets/counts/autocomplete, filenames and AI retrieval. Never use indexed ACLs as final authority. Preserve document recovery (ADR 007), both relationship endpoint FKs/lifecycle tests (ADR 008), directory/asset history (ADR 009), signed identity denial tests (ADR 010) and reachable-role/queue controls (ADR 011). Organization administration must define trusted actions and revocation consistency before exposing permission changes. Private attachments require scan/quarantine, isolated parsers, SSRF controls, authorized delivery and retention. Production rollout requires reviewed migrations and an actual isolated backup restore test.
+Keep current search authority/stale-index/outage and queue atomicity/late-commit tests for every extension, including future OpenSearch, facets/counts/autocomplete, filenames and AI retrieval. Never use indexed ACLs as final authority. Preserve document recovery (ADR 007), both relationship endpoint FKs/lifecycle tests (ADR 008), directory/asset history (ADR 009), signed identity denial tests (ADR 010), reachable-role/queue controls (ADR 011), checked organization administration (ADR 012), typed schema/worker isolation (ADR 013) and audited bounded historical comparison (ADR 014). Organization administration must define trusted actions and revocation consistency before exposing permission changes. Private attachments require scan/quarantine, isolated parsers, SSRF controls, authorized delivery and retention. Production rollout requires reviewed migrations and an actual isolated backup restore test.

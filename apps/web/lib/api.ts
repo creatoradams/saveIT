@@ -7,6 +7,9 @@ export type AssetTypeRevisionSummary =
 export type AssetFields = components["schemas"]["AssetFieldsDto"];
 export type DirectoryEntry = components["schemas"]["DirectoryDto"];
 export type AssetRevision = components["schemas"]["AssetRevisionDto"];
+export type AssetComparison = components["schemas"]["AssetComparisonDto"];
+export type AssetComparisonSide =
+  components["schemas"]["AssetComparisonSideDto"];
 export type AssetRelationship = components["schemas"]["AssetRelationshipDto"];
 export type Doc = components["schemas"]["DocumentDto"];
 export type Organization = components["schemas"]["OrganizationDto"];

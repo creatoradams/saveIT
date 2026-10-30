@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Values, type FieldValues } from "./schema-fields";
+import AssetComparisonPanel from "./asset-comparison";
 import {
   api,
   ApiError,
@@ -42,6 +43,7 @@ export default function AssetMetadata({
     [conflict, setConflict] = useState(false);
   const [source, setSource] = useState<AssetRevision | null>(null),
     [reason, setReason] = useState("");
+  const [comparing, setComparing] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null),
     request = useRef<AbortController | null>(null);
   const base = `/organizations/${organizationId}`,
@@ -105,6 +107,7 @@ export default function AssetMetadata({
           setLocations([]);
           setPlacement(null);
           setEditing(false);
+          setComparing(false);
         }
       }
     } finally {
@@ -340,6 +343,24 @@ export default function AssetMetadata({
       {!!history.length && (
         <section className="revisions" aria-label="Asset revisions">
           <h3>Asset history</h3>
+          <button
+            className="secondary"
+            disabled={disabled || busy || editing || !!source}
+            onClick={() => setComparing(true)}
+          >
+            Compare asset revisions
+          </button>
+          {comparing && (
+            <AssetComparisonPanel
+              organizationId={organizationId}
+              assetId={asset.id}
+              assetVersion={Number(asset.version ?? 1)}
+              disabled={disabled || busy || editing || !!source}
+              onBusyChange={onBusyChange}
+              onReload={reload}
+              onClose={() => setComparing(false)}
+            />
+          )}
           {history.map((row) => (
             <details key={row.version}>
               <summary>

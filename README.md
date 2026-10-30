@@ -2,7 +2,7 @@
 
 An IT documentation and operations platform. This repository implements a persistent **local foundation slice** and preserves the full enterprise scope in [the backlog](docs/backlog.md). It is not enterprise-ready or verified IT Glue parity.
 
-Working flow: choose a synthetic development identity → select an authorized organization through bounded pages → create/rename organizations with the separately provisioned administrator capability → manage locations/contacts → publish versioned asset templates and create typed assets → assign locations and link dependencies → create a linked plain-text document → revise, inspect history and restore earlier metadata/typed values/content with an audited reason → find assets/documents with permission-aware search. PostgreSQL retains data across restarts. A separately configured Okta OIDC adapter is implemented; no live provider is connected.
+Working flow: choose a synthetic development identity → select an authorized organization through bounded pages → create/rename organizations with the separately provisioned administrator capability → manage locations/contacts → publish versioned asset templates and create typed assets → assign locations and link dependencies → create a linked plain-text document → revise, compare history and restore earlier metadata/typed values/content with an audited reason → find assets/documents with permission-aware search. PostgreSQL retains data across restarts. A separately configured Okta OIDC adapter is implemented; no live provider is connected.
 
 ## Run locally
 
@@ -81,7 +81,7 @@ Review migrations, tenant constraints and RLS before applying. Local `--migrate`
 
 ## Repository and remaining scope
 
-`apps/web` contains Next.js/TypeScript; `services/api` owns EF migrations, core records, policy, audit/outbox and Okta mapping; `services/search` implements derived full-text projections/querying; `services/workers` runs the actual search consumer. `infra/terraform` remains a non-provisioning scaffold. `contracts`, `tests` and `docs` hold shared schemas, PostgreSQL/Playwright checks, original brief, architecture, threats, thirteen ADRs, parity inventory, roadmap and progress.
+`apps/web` contains Next.js/TypeScript; `services/api` owns EF migrations, core records, policy, audit/outbox and Okta mapping; `services/search` implements derived full-text projections/querying; `services/workers` runs the actual search consumer. `infra/terraform` remains a non-provisioning scaffold. `contracts`, `tests` and `docs` hold shared schemas, PostgreSQL/Playwright checks, original brief, architecture, threats, fourteen ADRs, parity inventory, roadmap and progress.
 
 Tenant authority comes from a protected session and live membership. Server policies, tenant-qualified relationships and forced PostgreSQL RLS cover all 17 tenant tables. Startup rejects reachable owner/privileged roles and worker core-write privileges. Successful writes, snapshots, audit/outbox and pending search receipts commit atomically; revisions are append-only to the application role. Search consumes due receipts through a partial queue index with bounded retries, dead letters and replay. Generic external event delivery is not implemented.
 

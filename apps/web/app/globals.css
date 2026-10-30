@@ -1526,3 +1526,100 @@ td strong {
     max-width: 100%;
   }
 }
+/* Bounded, literal asset history comparison. */
+.asset-comparison {
+  border-block: 1px solid var(--border);
+  margin: 18px 0;
+  padding: 18px 0;
+}
+.asset-comparison-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.asset-comparison-form label,
+.asset-comparison-form input {
+  min-width: 0;
+  width: 100%;
+}
+.asset-comparison-form .template-toggle {
+  margin: 0;
+}
+.asset-comparison-form .template-toggle input {
+  width: 20px;
+}
+.asset-comparison-summaries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-block: 16px;
+}
+.asset-comparison-summaries section {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 14px;
+  min-width: 0;
+}
+.asset-comparison-summaries h4 {
+  margin: 0 0 10px;
+}
+.comparison-value,
+.field-rules {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.comparison-table-scroll {
+  overflow-x: auto;
+}
+.asset-comparison-table {
+  table-layout: fixed;
+  width: 100%;
+  font-size: 12px;
+}
+.asset-comparison-table th,
+.asset-comparison-table td {
+  vertical-align: top;
+  padding: 12px 8px;
+  overflow-wrap: anywhere;
+}
+.asset-comparison-table th {
+  width: 28%;
+  text-align: left;
+  color: var(--ink);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.comparison-table-scroll:focus-visible {
+  outline: 3px solid #348fbb;
+  outline-offset: 3px;
+}
+.asset-comparison-table th p {
+  font-weight: normal;
+  margin-block: 6px;
+}
+.asset-comparison-table td p {
+  margin-bottom: 8px;
+}
+.asset-comparison-table caption {
+  text-align: left;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.field-rules {
+  margin-top: 12px;
+}
+.field-rules summary {
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  .asset-comparison-form,
+  .asset-comparison-summaries {
+    grid-template-columns: 1fr;
+  }
+  .asset-comparison-table {
+    min-width: 480px;
+  }
+}

@@ -18,6 +18,12 @@ public sealed record AssetTypeRevisionDto(Guid AssetTypeId, int Version, string 
 public sealed record AssetTypeRevisionSummaryDto(int Version, string Name, string Actor, DateTimeOffset CreatedAt);
 public sealed record AssetFieldsDto(AssetDto Asset, AssetTypeRevisionDto? Schema, JsonElement Values);
 public sealed record ReviseAssetFieldsRequest(int ExpectedVersion, Guid? AssetTypeId, int? AssetTypeVersion, JsonElement Fields);
+public sealed record AssetComparisonTemplateDto(Guid Id, int Version, string Name);
+public sealed record AssetComparisonRevisionDto(int Version, string Name, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, AssetComparisonTemplateDto? Template);
+public sealed record AssetComparisonSideDto(bool Present, JsonElement? Value, JsonElement? Definition);
+public sealed record AssetComparisonRowDto(string Section, string Key, string Label, string Change, bool ValueChanged, bool DefinitionChanged, AssetComparisonSideDto From, AssetComparisonSideDto To);
+public sealed record AssetComparisonDto(Guid AssetId, AssetComparisonRevisionDto From, AssetComparisonRevisionDto To,
+    int CurrentVersion, bool ChangesOnly, int ChangedRows, int TotalRows, int Offset, IReadOnlyList<AssetComparisonRowDto> Rows, int? NextOffset);
 public sealed record DirectoryRequest(string Name, string Details, string Email, string Phone, string Notes, bool IsArchived = false, int ExpectedVersion = 0);
 public sealed record DirectoryDto(Guid Id, Guid OrganizationId, string Name, string Details, string Email, string Phone, string Notes, bool IsArchived, int Version, DateTimeOffset UpdatedAt);
 public sealed record CreateRelationshipRequest(Guid TargetAssetId, string Kind);
