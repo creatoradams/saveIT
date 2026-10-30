@@ -36,6 +36,7 @@ public static class DirectoryEndpoints
         group.MapPut("/{recordId:guid}", async (Guid organizationId, Guid recordId, DirectoryRequest input, SaveItDb db, TenantScope scope, HttpContext context) =>
             await Write(organizationId, recordId, input, contact, db, scope, context)).Produces<DirectoryDto>().ProducesProblem(400).ProducesProblem(409);
         DirectoryHistoryEndpoints.Map(group, contact);
+        DirectoryComparisonEndpoints.Map(group, contact);
     }
     private static IQueryable<DirectoryDto> Query(SaveItDb db, bool contact, Guid org, Guid? after, bool archived, Guid? id = null) => contact
         ? db.Contacts.AsNoTracking().Where(x => x.OrganizationId == org && (archived || !x.IsArchived) && (id == null || x.Id == id)

@@ -29,6 +29,9 @@ public sealed record DirectoryDto(Guid Id, Guid OrganizationId, string Name, str
 public sealed record DirectoryRevisionSummaryDto(int Version, string Name, bool IsArchived, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion);
 public sealed record DirectoryRevisionDto(int Version, string Name, string Details, string Email, string Phone, string Notes, bool IsArchived,
     string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion, string? RestoreReason);
+public sealed record DirectoryComparisonRowDto(string Key, string Label, bool Changed, bool LineEndingsOnly, JsonElement From, JsonElement To);
+public sealed record DirectoryComparisonDto(Guid RecordId, DirectoryRevisionSummaryDto From, DirectoryRevisionSummaryDto To,
+    int CurrentVersion, bool ChangesOnly, int ChangedRows, int TotalRows, int Offset, IReadOnlyList<DirectoryComparisonRowDto> Rows, int? NextOffset);
 public sealed record CreateRelationshipRequest(Guid TargetAssetId, string Kind);
 public sealed record RemoveRelationshipRequest(int ExpectedVersion);
 public sealed record AssetRelationshipDto(Guid Id, Guid OrganizationId, AssetDto Source, AssetDto Target,

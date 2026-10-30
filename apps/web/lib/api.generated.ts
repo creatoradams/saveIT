@@ -1308,6 +1308,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/organizations/{organizationId}/locations/{recordId}/compare": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query: {
+          fromVersion: number | string;
+          toVersion: number | string;
+          offset?: number | string;
+          changesOnly?: boolean;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+          recordId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DirectoryComparisonDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/organizations/{organizationId}/contacts": {
     parameters: {
       query?: never;
@@ -1615,6 +1667,58 @@ export interface paths {
         };
       };
     };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/contacts/{recordId}/compare": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query: {
+          fromVersion: number | string;
+          toVersion: number | string;
+          offset?: number | string;
+          changesOnly?: boolean;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+          recordId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DirectoryComparisonDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2463,6 +2567,32 @@ export interface components {
       /** Format: int32 */
       newLine: null | number | string;
       text: string;
+    };
+    DirectoryComparisonDto: {
+      /** Format: uuid */
+      recordId: string;
+      from: components["schemas"]["DirectoryRevisionSummaryDto"];
+      to: components["schemas"]["DirectoryRevisionSummaryDto"];
+      /** Format: int32 */
+      currentVersion: number | string;
+      changesOnly: boolean;
+      /** Format: int32 */
+      changedRows: number | string;
+      /** Format: int32 */
+      totalRows: number | string;
+      /** Format: int32 */
+      offset: number | string;
+      rows: components["schemas"]["DirectoryComparisonRowDto"][];
+      /** Format: int32 */
+      nextOffset: null | number | string;
+    };
+    DirectoryComparisonRowDto: {
+      key: string;
+      label: string;
+      changed: boolean;
+      lineEndingsOnly: boolean;
+      from: components["schemas"]["JsonElement"];
+      to: components["schemas"]["JsonElement"];
     };
     DirectoryDto: {
       /** Format: uuid */

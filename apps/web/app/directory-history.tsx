@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import DirectoryComparisonPanel from "./directory-comparison";
 import {
   api,
   ApiError,
@@ -49,6 +50,9 @@ export default function DirectoryHistory({
   const restoreButton = useRef<HTMLButtonElement>(null),
     closeButton = useRef<HTMLButtonElement>(null);
   const focusAfterClose = useRef(false);
+  const [comparing, setComparing] = useState(false);
+  const comparisonButton = useRef<HTMLButtonElement>(null),
+    focusAfterComparison = useRef(false);
   const locked = disabled || busy || loading;
   useEffect(() => {
     const abort = new AbortController();
@@ -56,6 +60,7 @@ export default function DirectoryHistory({
     setRows([]);
     setCursor(null);
     setSnapshot(null);
+    setComparing(false);
     setError("");
     api<Page<DirectoryRevisionSummary>>(`${path}/revisions`, {
       signal: abort.signal,
@@ -103,6 +108,12 @@ export default function DirectoryHistory({
       )?.focus();
     }
   }, [confirming, locked]);
+  useEffect(() => {
+    if (!comparing && !locked && focusAfterComparison.current) {
+      focusAfterComparison.current = false;
+      comparisonButton.current?.focus();
+    }
+  }, [comparing, locked]);
   function closeConfirmation() {
     focusAfterClose.current = true;
     setConfirming(false);
@@ -126,6 +137,7 @@ export default function DirectoryHistory({
         setRows([]);
         setCursor(null);
         setSnapshot(null);
+        setComparing(false);
         if (e instanceof ApiError && e.status === 409) setConflict(true);
         if (e instanceof ApiError && [401, 403, 404].includes(e.status))
           onDenied(message);
@@ -139,6 +151,7 @@ export default function DirectoryHistory({
     }
   }
   async function inspect(version: number) {
+    setComparing(false);
     setSnapshot(null);
     await perform(async (signal) => {
       const head = await api<DirectoryEntry>(path, { signal });
@@ -155,6 +168,7 @@ export default function DirectoryHistory({
     });
   }
   async function reloadCurrent() {
+    setComparing(false);
     await perform(async (signal) => {
       const head = await api<DirectoryEntry>(path, { signal });
       const historical =
@@ -267,6 +281,29 @@ export default function DirectoryHistory({
         </p>
       )}
       {!loading && !rows.length && !error && <p>No recorded revisions.</p>}
+      {!!rows.length && (
+        <button
+          ref={comparisonButton}
+          className="secondary"
+          disabled={locked || confirming}
+          onClick={() => setComparing(true)}
+        >
+          Compare directory revisions
+        </button>
+      )}
+      {comparing && (
+        <DirectoryComparisonPanel
+          path={path}
+          currentVersion={Number(current.version)}
+          disabled={locked || confirming}
+          onBusyChange={onBusyChange}
+          onDenied={onDenied}
+          onClose={() => {
+            focusAfterComparison.current = true;
+            setComparing(false);
+          }}
+        />
+      )}
       <ol className="directory-history-list" aria-label="Directory revisions">
         {rows.map((row) => (
           <li key={row.version}>
@@ -356,7 +393,10 @@ export default function DirectoryHistory({
               ref={restoreButton}
               className="secondary"
               disabled={locked || conflict}
-              onClick={() => setConfirming(true)}
+              onClick={() => {
+                setComparing(false);
+                setConfirming(true);
+              }}
             >
               Restore directory revision {snapshot.version}
             </button>
