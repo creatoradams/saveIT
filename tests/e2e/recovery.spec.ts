@@ -51,10 +51,22 @@ async function seed(
   );
   return { current, title, oldContent, newContent };
 }
-async function open(page: Page, title: string) {
+async function openDocument(page: Page, title: string) {
   // Refresh metadata after API setup; the browser still uses its real authenticated session.
   await page.reload();
-  await page.getByRole("button", { name: /Core switch/ }).click();
+  const inventory = page.getByRole("region", { name: "Asset inventory" });
+  const core = inventory.getByRole("button", { name: /Core switch/ });
+  await expect(inventory.getByRole("list")).toBeVisible();
+  for (let i = 0; i < 30 && !(await core.count()); i++) {
+    const previous = await inventory.getByRole("listitem").count();
+    await inventory
+      .getByRole("button", { name: "Load more assets", exact: true })
+      .click();
+    await expect
+      .poll(() => inventory.getByRole("listitem").count())
+      .toBeGreaterThan(previous);
+  }
+  await core.click();
   const list = page.locator(".document-list"),
     target = list.getByRole("button", { name: new RegExp(title) });
   await expect(list).toBeVisible();
@@ -68,6 +80,9 @@ async function open(page: Page, title: string) {
       .toBeGreaterThan(count);
   }
   await target.click();
+}
+async function open(page: Page, title: string) {
+  await openDocument(page, title);
   await page.getByRole("button", { name: "View revisions" }).click();
   await page
     .getByRole("button", { name: "Compare revisions", exact: true })
@@ -141,11 +156,7 @@ test("compare, confirm and persist an audited restore without losing history; se
   await expect(
     page.getByRole("row").filter({ hasText: "Document.Restored" }).first(),
   ).toContainText("Revision 1 → 3");
-  await page.reload();
-  await page.getByRole("button", { name: /Core switch/ }).click();
-  await page
-    .getByRole("button", { name: new RegExp(`${doc.title} original`) })
-    .click();
+  await openDocument(page, `${doc.title} original`);
   await expect(page.getByRole("article")).toContainText("Revision 3");
   await expect(page.getByRole("article")).toContainText(doc.oldContent);
   await expect
