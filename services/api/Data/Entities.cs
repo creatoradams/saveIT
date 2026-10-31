@@ -150,6 +150,25 @@ public sealed class AssetRevision : ITenantOwned
     public int? AssetTypeVersion { get; set; }
     public string FieldsJson { get; set; } = "{}";
 }
+public sealed class DocumentFolder : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid? ParentId { get; set; }
+    public string Name { get; set; } = "";
+    public int Version { get; set; } = 1;
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+public sealed class DocumentPlacement : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid DocumentId { get; set; }
+    public Guid? FolderId { get; set; }
+    public int Version { get; set; } = 1;
+    public DateTimeOffset UpdatedAt { get; set; }
+}
 public sealed class Document : ITenantOwned
 {
     public Guid Id { get; set; }

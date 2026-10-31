@@ -38,6 +38,12 @@ public sealed record RemoveRelationshipRequest(int ExpectedVersion);
 public sealed record AssetRelationshipDto(Guid Id, Guid OrganizationId, AssetDto Source, AssetDto Target,
     string Kind, int Version, string CreatedBy, DateTimeOffset CreatedAt);
 public sealed record CreateDocumentRequest(Guid AssetId, string Title, string Content);
+public sealed record FolderRequest(string Name, Guid? ParentId, int ExpectedVersion = 0);
+public sealed record FolderDto(Guid Id, Guid OrganizationId, Guid? ParentId, string Name, int Version, DateTimeOffset UpdatedAt);
+public sealed record FolderDetailDto(FolderDto Folder, IReadOnlyList<FolderDto> Path);
+public sealed record FileDocumentRequest(Guid? FolderId, int ExpectedVersion);
+public sealed record DocumentPlacementDto(Guid DocumentId, Guid? FolderId, int Version, DateTimeOffset? UpdatedAt);
+public sealed record LibraryDocumentDto(Guid Id, Guid AssetId, string Title, int Version, DateTimeOffset UpdatedAt, Guid? FolderId, int PlacementVersion);
 public sealed record ReviseDocumentRequest(string Title, string Content, int ExpectedVersion);
 public sealed record DocumentDto(Guid Id, Guid OrganizationId, Guid AssetId, string Title, string Content, int Version, DateTimeOffset UpdatedAt);
 public sealed record RevisionDto(int Version, string Title, string Content, string Actor, DateTimeOffset CreatedAt, int? RestoredFromVersion = null, string? RestoreReason = null);

@@ -5,7 +5,7 @@ namespace SaveIT.Search;
 public static class DatabaseRoleGuard
 {
     private static readonly string[] ProtectedTables = ["Tenants", "Memberships", "Organizations", "OrganizationRevisions", "OrganizationGrants", "Assets", "AssetRelationships",
-        "Documents", "DocumentRevisions", "AuditEvents", "OutboxEvents", "SearchEntries", "SearchDeliveries", "Locations", "Contacts", "LocationRevisions", "ContactRevisions", "AssetRevisions", "AssetTypes", "AssetTypeRevisions"];
+        "Documents", "DocumentRevisions", "DocumentFolders", "DocumentPlacements", "AuditEvents", "OutboxEvents", "SearchEntries", "SearchDeliveries", "Locations", "Contacts", "LocationRevisions", "ContactRevisions", "AssetRevisions", "AssetTypes", "AssetTypeRevisions"];
     private static readonly string[] CoreTables = ProtectedTables.Where(x => x is not ("SearchEntries" or "SearchDeliveries")).ToArray();
     public static async Task ValidateAsync(NpgsqlConnection connection, CancellationToken cancellationToken = default)
     {
@@ -51,7 +51,9 @@ public static class DatabaseRoleGuard
                   OR has_any_column_privilege(r.oid,'"Contacts"','SELECT')
                   OR has_any_column_privilege(r.oid,'"LocationRevisions"','SELECT')
                   OR has_any_column_privilege(r.oid,'"ContactRevisions"','SELECT')
-                  OR has_any_column_privilege(r.oid,'"OrganizationRevisions"','SELECT')))
+                  OR has_any_column_privilege(r.oid,'"OrganizationRevisions"','SELECT')
+                  OR has_any_column_privilege(r.oid,'"DocumentFolders"','SELECT')
+                  OR has_any_column_privilege(r.oid,'"DocumentPlacements"','SELECT')))
             """, connection);
         command.Parameters.AddWithValue("core", CoreTables);
         if (await command.ExecuteScalarAsync(cancellationToken) is not true)

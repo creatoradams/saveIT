@@ -8,6 +8,7 @@ import DirectoryPanel from "./directory-panel";
 import AssetMetadata from "./asset-metadata";
 import OrganizationPanel from "./organization-panel";
 import OrganizationHistory from "./organization-history";
+import DocumentLibrary from "./document-library";
 import AssetTemplates from "./asset-templates";
 import AssetFieldsPanel from "./asset-fields";
 import {
@@ -22,6 +23,7 @@ import {
   type Audit,
   type Page,
   type SearchHit,
+  type LibraryDocument,
 } from "../lib/api";
 
 const errorText = (error: unknown) =>
@@ -67,9 +69,13 @@ export default function Workspace() {
     | "directory"
     | "organizations"
     | "organization-history"
+    | "library"
     | "templates"
   >("workspace");
-  const searchSelection = useRef<SearchHit | null>(null);
+  const searchSelection = useRef<Pick<
+    SearchHit,
+    "id" | "type" | "organizationId" | "assetId"
+  > | null>(null);
   const [navigationVersion, setNavigationVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [assetsLoading, setAssetsLoading] = useState(false);
@@ -94,6 +100,68 @@ export default function Workspace() {
     tenant: session?.tenantId,
     id: organizationId,
   };
+
+  function denyOrganization(
+    message: string,
+    expectedTenant: string,
+    expectedOrg: string,
+  ) {
+    if (
+      organizationContext.current.tenant !== expectedTenant ||
+      organizationContext.current.id !== expectedOrg
+    )
+      return;
+    searchSelection.current = null;
+    setOrganizations([]);
+    setOrganizationCursor(null);
+    setOrganizationId("");
+    setAssets([]);
+    setAssetId("");
+    setAssetCursor(null);
+    setDocuments([]);
+    setDocument(null);
+    setDocumentCursor(null);
+    setRevisions([]);
+    setRevisionCursor(null);
+    setRevisionSelection(null);
+    setEvents([]);
+    setAuditCursor(null);
+    setEditing(false);
+    setTitle("");
+    setContent("");
+    setError(message);
+    setNotice("");
+  }
+
+  async function openLibraryDocument(row: LibraryDocument) {
+    await perform(async () => {
+      try {
+        const current = await api<Organization>(
+          `/organizations/${organizationId}`,
+        );
+        setOrganizations((previous) => [
+          ...previous.filter((x) => x.id !== current.id),
+          current,
+        ]);
+        searchSelection.current = {
+          id: row.id,
+          type: "document",
+          organizationId,
+          assetId: row.assetId,
+        };
+        setNavigationVersion((x) => x + 1);
+        setView("workspace");
+      } catch (e) {
+        if (
+          e instanceof ApiError &&
+          [401, 403, 404].includes(e.status) &&
+          session
+        )
+          denyOrganization(errorText(e), session.tenantId, organizationId);
+        throw e;
+      }
+    });
+  }
 
   useEffect(() => {
     setRevisionSelection(null);
@@ -557,6 +625,13 @@ export default function Workspace() {
           >
             Organization history
           </button>
+          <button
+            className={view === "library" ? "nav-item active" : "nav-item"}
+            disabled={busy}
+            onClick={() => setView("library")}
+          >
+            Document library
+          </button>
           {session.canManageOrganizations && (
             <button
               className={
@@ -607,11 +682,13 @@ export default function Workspace() {
                     ? "Locations & contacts"
                     : view === "organizations"
                       ? "Manage organizations"
-                      : view === "organization-history"
-                        ? "Organization history"
-                        : view === "templates"
-                          ? "Asset templates"
-                          : "Audit history"}
+                      : view === "library"
+                        ? "Document library"
+                        : view === "organization-history"
+                          ? "Organization history"
+                          : view === "templates"
+                            ? "Asset templates"
+                            : "Audit history"}
             </strong>
           </div>
           <span className="development">
@@ -636,11 +713,13 @@ export default function Workspace() {
                       ? "People and places, connected."
                       : view === "organizations"
                         ? "Make room for what comes next."
-                        : view === "organization-history"
-                          ? "A name for every chapter."
-                          : view === "templates"
-                            ? "A consistent starting point."
-                            : "Every change leaves a trail."}
+                        : view === "library"
+                          ? "A place for every document."
+                          : view === "organization-history"
+                            ? "A name for every chapter."
+                            : view === "templates"
+                              ? "A consistent starting point."
+                              : "Every change leaves a trail."}
               </h1>
               <p>
                 {view === "workspace"
@@ -651,11 +730,13 @@ export default function Workspace() {
                       ? "Keep location and contact records inside their organization."
                       : view === "organizations"
                         ? "Create and name the organizations your team documents."
-                        : view === "organization-history"
-                          ? "Inspect the saved names of the organization you can access."
-                          : view === "templates"
-                            ? "Define the fields that matter, then keep their history intact."
-                            : "Follow the people and changes behind your documentation."}
+                        : view === "library"
+                          ? "Organize documentation while keeping its history and connections."
+                          : view === "organization-history"
+                            ? "Inspect the saved names of the organization you can access."
+                            : view === "templates"
+                              ? "Define the fields that matter, then keep their history intact."
+                              : "Follow the people and changes behind your documentation."}
               </p>
             </div>
           </div>
@@ -742,32 +823,22 @@ export default function Workspace() {
               organizationId={organizationId}
               disabled={busy}
               onBusyChange={setBusy}
-              onDenied={(message) => {
-                if (
-                  organizationContext.current.tenant !== session.tenantId ||
-                  organizationContext.current.id !== organizationId
-                )
-                  return;
-                setOrganizations([]);
-                setOrganizationCursor(null);
-                setOrganizationId("");
-                setAssets([]);
-                setAssetId("");
-                setAssetCursor(null);
-                setDocuments([]);
-                setDocument(null);
-                setDocumentCursor(null);
-                setRevisions([]);
-                setRevisionCursor(null);
-                setRevisionSelection(null);
-                setEvents([]);
-                setAuditCursor(null);
-                setEditing(false);
-                setTitle("");
-                setContent("");
-                setError(message);
-                setNotice("");
-              }}
+              onDenied={(message) =>
+                denyOrganization(message, session.tenantId, organizationId)
+              }
+            />
+          )}
+          {organizationId && view === "library" && (
+            <DocumentLibrary
+              key={`${session.tenantId}:${organizationId}`}
+              organizationId={organizationId}
+              canEdit={canEdit}
+              disabled={busy}
+              onBusyChange={setBusy}
+              onDenied={(message) =>
+                denyOrganization(message, session.tenantId, organizationId)
+              }
+              onOpen={openLibraryDocument}
             />
           )}
           {organizationId && view === "workspace" && (

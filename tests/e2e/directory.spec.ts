@@ -3,6 +3,7 @@ import {
   expect,
   type Page,
   type APIRequestContext,
+  type Locator,
 } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { reserveDevelopmentLogin } from "./helpers/development-login";
@@ -22,6 +23,25 @@ async function put(request: APIRequestContext, path: string, data: object) {
     headers: { "X-CSRF-TOKEN": csrf.token },
   });
 }
+async function locationRow(directory: Locator, name: string) {
+  await expect(directory).toHaveAttribute("aria-busy", "false");
+  const list = directory.getByRole("list"),
+    target = directory.getByRole("button", {
+      name: `Edit location ${name}`,
+      exact: true,
+    });
+  for (let i = 0; i < 32 && !(await target.count()); i++) {
+    const before = await list.getByRole("listitem").count();
+    await directory
+      .getByRole("button", { name: "Load more locations", exact: true })
+      .click();
+    await expect
+      .poll(() => list.getByRole("listitem").count())
+      .toBeGreaterThan(before);
+  }
+  await expect(target).toBeVisible();
+  return target;
+}
 
 test("create locations and contacts, place an asset, inspect history and restore its metadata", async ({
   page,
@@ -40,16 +60,18 @@ test("create locations and contacts, place an asset, inspect history and restore
   await directory
     .getByRole("textbox", { name: "Address", exact: true })
     .fill("123 Synthetic Street");
+  const createdLocation = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/organizations/${org}/locations`),
+  );
   await directory
     .getByRole("button", { name: "Save location", exact: true })
     .click();
   await expect(directory.getByRole("status")).toContainText("version 1");
-  const locations = await (
-    await page.request.get(`/api/v1/organizations/${org}/locations`)
-  ).json();
-  const location = locations.items.find(
-    (item: { name: string }) => item.name === name,
-  );
+  const locationResponse = await createdLocation;
+  expect(locationResponse.status()).toBe(201);
+  const location = await locationResponse.json();
   await directory
     .getByRole("combobox", { name: "Directory", exact: true })
     .selectOption("contacts");
@@ -92,12 +114,27 @@ test("create locations and contacts, place an asset, inspect history and restore
   const metadata = page.getByRole("region", {
     name: "Asset placement and history",
   });
+
   await metadata
     .getByRole("button", { name: "Edit asset details", exact: true })
     .click();
   await metadata
     .getByRole("textbox", { name: "Asset type", exact: true })
     .fill("Server");
+  const picker = metadata.getByRole("combobox", { name: "Asset location" });
+  for (
+    let i = 0;
+    i < 32 && !(await picker.locator(`option[value="${location.id}"]`).count());
+    i++
+  ) {
+    const before = await picker.getByRole("option").count();
+    await metadata
+      .getByRole("button", { name: "Load more locations", exact: true })
+      .click();
+    await expect
+      .poll(() => picker.getByRole("option").count())
+      .toBeGreaterThan(before);
+  }
   await metadata
     .getByRole("combobox", { name: "Asset location" })
     .selectOption(location.id);
@@ -179,12 +216,18 @@ test("archive, reactivate and resolve directory edit conflicts without silently 
   });
   await directory.getByRole("button", { name: "New location" }).click();
   await directory.getByRole("textbox", { name: "Location name" }).fill(name);
+  const createdLocation = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/organizations/${org}/locations`),
+  );
   await directory
     .getByRole("button", { name: "Save location", exact: true })
     .click();
-  await directory
-    .getByRole("button", { name: `Edit location ${name}`, exact: true })
-    .click();
+  const createdResponse = await createdLocation;
+  expect(createdResponse.status()).toBe(201);
+  const created = await createdResponse.json();
+  await (await locationRow(directory, name)).click();
   await directory
     .getByRole("checkbox", { name: /Archived — retained/ })
     .check();
@@ -192,12 +235,18 @@ test("archive, reactivate and resolve directory edit conflicts without silently 
     .getByRole("button", { name: "Save location", exact: true })
     .click();
   await expect(directory.getByRole("list")).not.toContainText(name);
+  const archivedPage = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      response
+        .url()
+        .endsWith(`/organizations/${org}/locations?includeArchived=true`),
+  );
   await directory
     .getByRole("checkbox", { name: "Include archived records" })
     .check();
-  await directory
-    .getByRole("button", { name: `Edit location ${name}`, exact: true })
-    .click();
+  await archivedPage;
+  await (await locationRow(directory, name)).click();
   await directory
     .getByRole("checkbox", { name: /Archived — retained/ })
     .uncheck();
@@ -205,15 +254,12 @@ test("archive, reactivate and resolve directory edit conflicts without silently 
     .getByRole("button", { name: "Save location", exact: true })
     .click();
   await expect(directory.getByRole("status")).toContainText("version 3");
-  const rows = await (
+  const row = await (
     await page.request.get(
-      `/api/v1/organizations/${org}/locations?includeArchived=true`,
+      `/api/v1/organizations/${org}/locations/${created.id}`,
     )
   ).json();
-  const row = rows.items.find((item: { name: string }) => item.name === name);
-  await directory
-    .getByRole("button", { name: `Edit location ${name}`, exact: true })
-    .click();
+  await (await locationRow(directory, name)).click();
   await directory
     .getByRole("textbox", { name: "Notes", exact: true })
     .fill("My unsaved notes");
@@ -233,7 +279,16 @@ test("archive, reactivate and resolve directory edit conflicts without silently 
   await expect(
     directory.getByRole("textbox", { name: "Notes", exact: true }),
   ).toHaveValue("My unsaved notes");
+  const reloadedPage = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      response
+        .url()
+        .endsWith(`/organizations/${org}/locations?includeArchived=true`),
+  );
   await directory.getByRole("button", { name: "Reload directory" }).click();
+  await reloadedPage;
+  await locationRow(directory, name);
   await expect(directory.getByRole("list")).toContainText(
     "Another editor's notes",
   );

@@ -1666,3 +1666,57 @@ td strong {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.document-library {
+  min-width: 0;
+}
+.document-library h3,
+.document-library strong {
+  overflow-wrap: anywhere;
+}
+.folder-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.folder-list li {
+  min-width: 0;
+}
+.folder-list button,
+.folder-breadcrumbs button,
+.document-library .actions button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.folder-breadcrumbs,
+.document-library .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.folder-edit {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+.folder-edit label {
+  display: grid;
+  gap: 8px;
+}
+.folder-destination {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.folder-current-review {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.document-library .panel-top {
+  flex-wrap: wrap;
+}

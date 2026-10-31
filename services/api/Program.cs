@@ -129,6 +129,7 @@ app.MapPost("/api/v1/logout", async (HttpContext c) => { await c.SignOutAsync();
 app.MapSaveItEndpoints();
 app.MapSearchEndpoints();
 app.MapDocumentHistoryEndpoints();
+app.MapFolderEndpoints();
 app.MapAssetRelationshipEndpoints();
 app.MapDirectoryEndpoints();
 app.MapOrganizationEndpoints();

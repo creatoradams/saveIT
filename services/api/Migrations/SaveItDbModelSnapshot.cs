@@ -519,6 +519,77 @@ namespace SaveIT.Api.Migrations
                     b.ToTable("Documents", (string)null);
                 });
 
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentFolder", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "OrganizationId", "Id");
+
+                    b.HasIndex("TenantId", "OrganizationId", "ParentId", "Id");
+
+                    b.ToTable("DocumentFolders", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DocumentFolder_Name", "length(btrim(\"Name\")) BETWEEN 1 AND 160");
+
+                            t.HasCheckConstraint("CK_DocumentFolder_Parent", "\"ParentId\" IS NULL OR \"ParentId\" <> \"Id\"");
+
+                            t.HasCheckConstraint("CK_DocumentFolder_Version", "\"Version\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentPlacement", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "OrganizationId", "DocumentId");
+
+                    b.HasIndex("TenantId", "OrganizationId", "FolderId", "DocumentId");
+
+                    b.ToTable("DocumentPlacements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DocumentPlacement_Version", "\"Version\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("SaveIT.Api.Data.DocumentRevision", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -1148,6 +1219,48 @@ namespace SaveIT.Api.Migrations
                         .HasPrincipalKey("TenantId", "OrganizationId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentFolder", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.DocumentFolder", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentPlacement", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Document", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "DocumentId")
+                        .HasPrincipalKey("TenantId", "OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.DocumentFolder", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "FolderId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SaveIT.Api.Data.DocumentRevision", b =>

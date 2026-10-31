@@ -29,6 +29,8 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
     public DbSet<AssetRevision> AssetRevisions => Set<AssetRevision>();
     public DbSet<AssetRelationship> AssetRelationships => Set<AssetRelationship>();
     public DbSet<Document> Documents => Set<Document>();
+    public DbSet<DocumentFolder> DocumentFolders => Set<DocumentFolder>();
+    public DbSet<DocumentPlacement> DocumentPlacements => Set<DocumentPlacement>();
     public DbSet<DocumentRevision> DocumentRevisions => Set<DocumentRevision>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
@@ -193,6 +195,25 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<Document>().Property(x => x.Content).HasMaxLength(50000);
         m.Entity<Document>().Property(x => x.Version).IsConcurrencyToken();
         m.Entity<Document>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.AssetId, x.Id });
+        TenantEntity<DocumentFolder>(m, "DocumentFolders");
+        m.Entity<DocumentFolder>().HasKey(x => new { x.TenantId, x.OrganizationId, x.Id });
+        m.Entity<DocumentFolder>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentFolder>().HasOne<DocumentFolder>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.ParentId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentFolder>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<DocumentFolder>().Property(x => x.Version).IsConcurrencyToken();
+        m.Entity<DocumentFolder>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.ParentId, x.Id });
+        m.Entity<DocumentFolder>().ToTable(t => {
+            t.HasCheckConstraint("CK_DocumentFolder_Version", "\"Version\" > 0");
+            t.HasCheckConstraint("CK_DocumentFolder_Name", "length(btrim(\"Name\")) BETWEEN 1 AND 160");
+            t.HasCheckConstraint("CK_DocumentFolder_Parent", "\"ParentId\" IS NULL OR \"ParentId\" <> \"Id\"");
+        });
+        TenantEntity<DocumentPlacement>(m, "DocumentPlacements");
+        m.Entity<DocumentPlacement>().HasKey(x => new { x.TenantId, x.OrganizationId, x.DocumentId });
+        m.Entity<DocumentPlacement>().HasOne<Document>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.DocumentId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentPlacement>().HasOne<DocumentFolder>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.FolderId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentPlacement>().Property(x => x.Version).IsConcurrencyToken();
+        m.Entity<DocumentPlacement>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.FolderId, x.DocumentId });
+        m.Entity<DocumentPlacement>().ToTable(t => t.HasCheckConstraint("CK_DocumentPlacement_Version", "\"Version\" > 0"));
         TenantEntity<DocumentRevision>(m, "DocumentRevisions");
         m.Entity<DocumentRevision>().HasKey(x => new { x.TenantId, x.DocumentId, x.Version });
         m.Entity<DocumentRevision>().HasOne<Document>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.DocumentId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);

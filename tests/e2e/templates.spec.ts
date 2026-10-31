@@ -260,9 +260,26 @@ test("publish a template, create typed inventory, upgrade explicitly and restore
   await expect(fields).toContainText("schema v1");
   await expect(fields).toContainText(marker);
   await fields.getByRole("button", { name: "Edit custom fields" }).click();
-  await fields
-    .getByRole("combobox", { name: "Assign or upgrade template", exact: true })
-    .selectOption(type.id);
+  const templateChoices = fields.getByRole("combobox", {
+    name: "Assign or upgrade template",
+    exact: true,
+  });
+  await expect(templateChoices).toBeVisible();
+  for (
+    let i = 0;
+    i < 32 &&
+    !(await templateChoices.locator(`option[value="${type.id}"]`).count());
+    i++
+  ) {
+    const before = await templateChoices.getByRole("option").count();
+    await fields
+      .getByRole("button", { name: "Load more field templates", exact: true })
+      .click();
+    await expect
+      .poll(() => templateChoices.getByRole("option").count())
+      .toBeGreaterThan(before);
+  }
+  await templateChoices.selectOption(type.id);
   await fields
     .getByLabel(
       "Review this schema change; remove keys absent from the selected schema.",

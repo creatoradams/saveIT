@@ -41,6 +41,13 @@ Source of truth: [OpenAPI](../contracts/openapi.json); generated TypeScript: `ap
 | GET /organizations/{org}/documents/{doc}/revisions?before={integer} | Viewer/Editor | Latest-first body snapshots; audited read |
 | GET /organizations/{org}/documents/{doc}/compare?fromVersion={int}&toVersion={int}&offset={int} | Viewer/Editor | Audited plain-text comparison; at most 200 rows |
 | POST /organizations/{org}/documents/{doc}/restore | Editor + CSRF | Earlier snapshot as a new revision, audit/outbox; 409 on conflict |
+| GET /organizations/{org}/folders?parentId={uuid}&after={uuid} | Viewer/Editor | Audited child folder page; omit parentId for root, max 50 |
+| GET /organizations/{org}/folders/{folder} | Viewer/Editor | Audited current folder and root-first path, max eight nodes |
+| POST /organizations/{org}/folders | Editor + CSRF | Create scoped folder/audit/outbox/queue; 201 |
+| PUT /organizations/{org}/folders/{folder} | Editor + CSRF | Expected-version rename/reparent, bounded hierarchy; 409 on stale version |
+| GET /organizations/{org}/library/documents?folderId={uuid}&after={uuid} | Viewer/Editor | Audited current document metadata; omit folderId for unfiled, max 50 |
+| GET /organizations/{org}/documents/{doc}/placement | Viewer/Editor | Audited independent folder placement/version; absent row is unfiled version zero |
+| PUT /organizations/{org}/documents/{doc}/placement | Editor + CSRF | Expected-placement-version filing without content revision changes |
 | GET /organizations/{org}/audit?before={long} | Editor | Latest-first organization audit |
 | GET /search?q={text}&organizationId={uuid}&type={asset or document}&after={cursor} | Active membership, per-result current Viewer/Editor grants | Ranked, audited asset/document previews; all optional filters except q |
 
@@ -109,3 +116,11 @@ Every page rechecks the current tenant membership/organization grant and commits
 ## Organization name history
 
 `GET /organizations/{org}/revisions?before={positive integer}` returns `{ items, nextCursor }` with up to 50 newest-first `{ version, name, actor, createdAt, origin }` snapshots. Origin is `Created`, `Renamed`, `Migration` or `Seed`, assigned by trusted write paths. Names/time reflect exact saved heads; migration starts at the actual current version and earlier history can be unavailable. Each page rechecks current membership/Viewer-or-Editor grant and current organization existence, then commits `Organization.RevisionsRead` audit before serialization. Nonpositive/malformed cursors return 400, inaccessible organizations 404 and inactive membership 401; source/audit failures return no names/cursor. Reads emit no outbox event. API history privileges are SELECT only; checked create/rename functions append snapshots in the business transaction. History is not rename/restore authority. See ADR 018.
+
+## Document folders and filing
+
+Folder create accepts `{ "name": "Runbooks", "parentId": null, "expectedVersion": 0 }`; update supplies the current positive version and complete name/parent. Names are trimmed 1–160-character plain text. IDs are server-generated, parents must be in the current tenant/organization, and the tree is limited to eight levels/1,000 retained nodes. Current Editors mutate with CSRF; Viewers read. Cycles, depth/capacity or invalid values return 400, stale versions 409 and inaccessible scopes 404. Hierarchy writes serialize under a transaction advisory lock; storage rejects other mutation isolation levels. No archive/delete or folder permission administration is exposed.
+
+Child/document pages use nullable UUID continuations. GET folder returns `{ folder, path }` with at most eight root-first current nodes. Library documents return metadata `{ id, assetId, title, version, updatedAt, folderId, placementVersion }` without bodies. Every page/path/placement requires current authority and durable read audit before serialization; source/audit failure returns no fields/cursor and no fallback. Lists and paths describe current state, not historical locations.
+
+Placement PUT accepts `{ "folderId": "<scoped UUID or null>", "expectedVersion": 0 }`. A legacy unfiled document has no placement row and version zero; its first move inserts version one, subsequent filing/unfiling increments only the placement version. Response `{ documentId, folderId, version, updatedAt }` is separate from DocumentDto.version. Filing preserves content/asset/time/revisions and search version; content edits/restoration preserve current placement. Identical placement is 400, concurrent first/later moves 409. Snapshot-free folder/placement writes still commit audit/outbox/queue atomically. Audit/outbox contain numeric/opaque metadata, and known schema-v1 folder/filing events are explicit worker no-ops. Folder history/lifecycle, partial ACLs and bulk changes remain unimplemented; see ADR 019.
