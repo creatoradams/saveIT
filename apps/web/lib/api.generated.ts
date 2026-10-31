@@ -1725,6 +1725,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/organizations/{organizationId}/revisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          before?: number | string;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CursorPageOfOrganizationRevisionDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/organizations": {
     parameters: {
       query?: never;
@@ -2556,6 +2604,10 @@ export interface components {
       items: components["schemas"]["OrganizationDto"][];
       nextCursor: null | string;
     };
+    CursorPageOfOrganizationRevisionDto: {
+      items: components["schemas"]["OrganizationRevisionDto"][];
+      nextCursor: null | string;
+    };
     CursorPageOfRevisionDto: {
       items: components["schemas"]["RevisionDto"][];
       nextCursor: null | string;
@@ -2701,6 +2753,15 @@ export interface components {
       version: number | string;
       /** Format: date-time */
       updatedAt: string;
+    };
+    OrganizationRevisionDto: {
+      /** Format: int32 */
+      version: number | string;
+      name: string;
+      actor: string;
+      /** Format: date-time */
+      createdAt: string;
+      origin: string;
     };
     ProblemDetails: {
       type?: null | string;

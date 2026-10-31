@@ -7,6 +7,7 @@ import AssetRelationships from "./asset-relationships";
 import DirectoryPanel from "./directory-panel";
 import AssetMetadata from "./asset-metadata";
 import OrganizationPanel from "./organization-panel";
+import OrganizationHistory from "./organization-history";
 import AssetTemplates from "./asset-templates";
 import AssetFieldsPanel from "./asset-fields";
 import {
@@ -65,6 +66,7 @@ export default function Workspace() {
     | "search"
     | "directory"
     | "organizations"
+    | "organization-history"
     | "templates"
   >("workspace");
   const searchSelection = useRef<SearchHit | null>(null);
@@ -84,6 +86,14 @@ export default function Workspace() {
   const selectedAsset = assets.find((x) => x.id === assetId);
   const canEdit = organization?.role === "Editor";
   const base = `/organizations/${organizationId}`;
+  const organizationContext = useRef({
+    tenant: session?.tenantId,
+    id: organizationId,
+  });
+  organizationContext.current = {
+    tenant: session?.tenantId,
+    id: organizationId,
+  };
 
   useEffect(() => {
     setRevisionSelection(null);
@@ -538,6 +548,15 @@ export default function Workspace() {
           >
             <span aria-hidden="true">▦</span> Asset templates
           </button>
+          <button
+            className={
+              view === "organization-history" ? "nav-item active" : "nav-item"
+            }
+            disabled={busy}
+            onClick={() => setView("organization-history")}
+          >
+            Organization history
+          </button>
           {session.canManageOrganizations && (
             <button
               className={
@@ -588,9 +607,11 @@ export default function Workspace() {
                     ? "Locations & contacts"
                     : view === "organizations"
                       ? "Manage organizations"
-                      : view === "templates"
-                        ? "Asset templates"
-                        : "Audit history"}
+                      : view === "organization-history"
+                        ? "Organization history"
+                        : view === "templates"
+                          ? "Asset templates"
+                          : "Audit history"}
             </strong>
           </div>
           <span className="development">
@@ -615,9 +636,11 @@ export default function Workspace() {
                       ? "People and places, connected."
                       : view === "organizations"
                         ? "Make room for what comes next."
-                        : view === "templates"
-                          ? "A consistent starting point."
-                          : "Every change leaves a trail."}
+                        : view === "organization-history"
+                          ? "A name for every chapter."
+                          : view === "templates"
+                            ? "A consistent starting point."
+                            : "Every change leaves a trail."}
               </h1>
               <p>
                 {view === "workspace"
@@ -628,9 +651,11 @@ export default function Workspace() {
                       ? "Keep location and contact records inside their organization."
                       : view === "organizations"
                         ? "Create and name the organizations your team documents."
-                        : view === "templates"
-                          ? "Define the fields that matter, then keep their history intact."
-                          : "Follow the people and changes behind your documentation."}
+                        : view === "organization-history"
+                          ? "Inspect the saved names of the organization you can access."
+                          : view === "templates"
+                            ? "Define the fields that matter, then keep their history intact."
+                            : "Follow the people and changes behind your documentation."}
               </p>
             </div>
           </div>
@@ -702,7 +727,48 @@ export default function Workspace() {
                 Your membership has no organization grants. Ask your
                 administrator for access.
               </p>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => void reloadOrganizations()}
+              >
+                Reload organization choices
+              </button>
             </div>
+          )}
+          {organizationId && view === "organization-history" && (
+            <OrganizationHistory
+              key={`${session.tenantId}:${organizationId}`}
+              organizationId={organizationId}
+              disabled={busy}
+              onBusyChange={setBusy}
+              onDenied={(message) => {
+                if (
+                  organizationContext.current.tenant !== session.tenantId ||
+                  organizationContext.current.id !== organizationId
+                )
+                  return;
+                setOrganizations([]);
+                setOrganizationCursor(null);
+                setOrganizationId("");
+                setAssets([]);
+                setAssetId("");
+                setAssetCursor(null);
+                setDocuments([]);
+                setDocument(null);
+                setDocumentCursor(null);
+                setRevisions([]);
+                setRevisionCursor(null);
+                setRevisionSelection(null);
+                setEvents([]);
+                setAuditCursor(null);
+                setEditing(false);
+                setTitle("");
+                setContent("");
+                setError(message);
+                setNotice("");
+              }}
+            />
           )}
           {organizationId && view === "workspace" && (
             <>

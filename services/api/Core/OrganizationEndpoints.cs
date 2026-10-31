@@ -15,6 +15,18 @@ public static class OrganizationEndpoints
     public static void MapOrganizationEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/v1/organizations").RequireAuthorization().AddEndpointFilter<TenantFilter>();
+        group.MapGet("/{organizationId:guid}/revisions", async (Guid organizationId, int? before, SaveItDb db, TenantScope scope, HttpContext context) =>
+        {
+            if (await Permissions.RoleAsync(db, scope, organizationId) is null
+                || !await db.Organizations.AnyAsync(x => x.Id == organizationId, context.RequestAborted)) return Results.NotFound();
+            if (before is < 1) return Results.Problem(statusCode: 400, title: "Choose a positive organization history cursor.");
+            var rows = await db.OrganizationRevisions.AsNoTracking().Where(x => x.OrganizationId == organizationId && (before == null || x.Version < before))
+                .OrderByDescending(x => x.Version).Take(51)
+                .Select(x => new OrganizationRevisionDto(x.Version, x.Name, x.Actor, x.CreatedAt, x.Origin)).ToListAsync(context.RequestAborted);
+            ChangeLog.Add(db, scope, context, organizationId, organizationId, "Organization.RevisionsRead", false);
+            await db.SaveChangesAsync(context.RequestAborted);
+            return Results.Ok(new CursorPage<OrganizationRevisionDto>(rows.Take(50).ToList(), rows.Count > 50 ? rows[49].Version.ToString() : null));
+        }).Produces<CursorPage<OrganizationRevisionDto>>().ProducesProblem(400);
         group.MapGet("", async (string? after, SaveItDb db, TenantScope scope, IDataProtectionProvider provider, HttpContext context) =>
         {
             Cursor? cursor = null;

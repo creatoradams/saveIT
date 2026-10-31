@@ -21,6 +21,16 @@ public sealed class Organization : ITenantOwned
     public int Version { get; set; } = 1;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
+public sealed class OrganizationRevision : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public int Version { get; set; }
+    public string Name { get; set; } = "";
+    public string Actor { get; set; } = "";
+    public string Origin { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+}
 public sealed class OrganizationGrant : ITenantOwned
 {
     public Guid TenantId { get; set; }

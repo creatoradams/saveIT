@@ -17,6 +17,7 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Membership> Memberships => Set<Membership>();
     public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<OrganizationRevision> OrganizationRevisions => Set<OrganizationRevision>();
     public DbSet<OrganizationGrant> OrganizationGrants => Set<OrganizationGrant>();
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<AssetType> AssetTypes => Set<AssetType>();
@@ -54,6 +55,17 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<Organization>().Property(x => x.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         m.Entity<Organization>().HasIndex(x => new { x.TenantId, x.Name, x.Id });
         m.Entity<Organization>().ToTable(t => t.HasCheckConstraint("CK_Organization_Version", "\"Version\" > 0"));
+        TenantEntity<OrganizationRevision>(m, "OrganizationRevisions");
+        m.Entity<OrganizationRevision>().HasKey(x => new { x.TenantId, x.OrganizationId, x.Version });
+        m.Entity<OrganizationRevision>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<OrganizationRevision>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<OrganizationRevision>().Property(x => x.Origin).HasMaxLength(16);
+        m.Entity<OrganizationRevision>().ToTable(t => {
+            t.HasCheckConstraint("CK_OrganizationRevision_Version", "\"Version\" > 0");
+            t.HasCheckConstraint("CK_OrganizationRevision_Name", "length(btrim(\"Name\")) BETWEEN 1 AND 160");
+            t.HasCheckConstraint("CK_OrganizationRevision_Actor", "length(btrim(\"Actor\")) > 0");
+            t.HasCheckConstraint("CK_OrganizationRevision_Origin", "\"Origin\" IN ('Created','Renamed','Migration','Seed')");
+        });
         TenantEntity<OrganizationGrant>(m, "OrganizationGrants");
         m.Entity<OrganizationGrant>().HasKey(x => new { x.TenantId, x.MembershipId, x.OrganizationId });
         m.Entity<OrganizationGrant>().HasOne<Membership>().WithMany().HasForeignKey(x => new { x.TenantId, x.MembershipId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);

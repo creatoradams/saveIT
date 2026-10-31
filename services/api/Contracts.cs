@@ -8,6 +8,7 @@ public sealed record SessionDto(string Name, Guid TenantId, string TenantName, b
 public sealed record OrganizationDto(Guid Id, string Name, string Role, int Version, DateTimeOffset UpdatedAt);
 public sealed record CreateOrganizationRequest(string Name);
 public sealed record ReviseOrganizationRequest(string Name, int ExpectedVersion);
+public sealed record OrganizationRevisionDto(int Version, string Name, string Actor, DateTimeOffset CreatedAt, string Origin);
 public sealed record CreateAssetRequest(string Name, string Kind, Guid? AssetTypeId = null, int? AssetTypeVersion = null, JsonElement? Fields = null);
 public sealed record AssetDto(Guid Id, Guid OrganizationId, string Name, string Kind, DateTimeOffset CreatedAt, int Version = 1, Guid? LocationId = null, Guid? AssetTypeId = null, int? AssetTypeVersion = null);
 public sealed record ReviseAssetRequest(string Name, string Kind, Guid? LocationId, int ExpectedVersion);

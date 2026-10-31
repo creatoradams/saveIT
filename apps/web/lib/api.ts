@@ -18,6 +18,8 @@ export type AssetComparisonSide =
 export type AssetRelationship = components["schemas"]["AssetRelationshipDto"];
 export type Doc = components["schemas"]["DocumentDto"];
 export type Organization = components["schemas"]["OrganizationDto"];
+export type OrganizationRevision =
+  components["schemas"]["OrganizationRevisionDto"];
 export type Session = components["schemas"]["SessionDto"];
 export type Profile = components["schemas"]["ProfileDto"];
 export type Revision = components["schemas"]["RevisionDto"];

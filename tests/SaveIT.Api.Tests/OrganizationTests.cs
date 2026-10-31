@@ -204,6 +204,6 @@ public sealed class OrganizationTests(DatabaseFixture fixture) : IAsyncLifetime
     {
         await factory.DisposeAsync();
         foreach(var id in created)
-            await fixture.Execute($"DELETE FROM \"SearchDeliveries\" WHERE \"EventId\" IN (SELECT \"Id\" FROM \"OutboxEvents\" WHERE \"OrganizationId\"='{id}'); DELETE FROM \"OutboxEvents\" WHERE \"OrganizationId\"='{id}'; DELETE FROM \"AuditEvents\" WHERE \"OrganizationId\"='{id}'; DELETE FROM \"OrganizationGrants\" WHERE \"OrganizationId\"='{id}'; DELETE FROM \"Organizations\" WHERE \"Id\"='{id}'");
+            await fixture.Execute($"DELETE FROM \"SearchDeliveries\" WHERE \"EventId\" IN (SELECT \"Id\" FROM \"OutboxEvents\" WHERE \"OrganizationId\"='{id}'); DELETE FROM \"OutboxEvents\" WHERE \"OrganizationId\"='{id}'; DELETE FROM \"AuditEvents\" WHERE \"OrganizationId\"='{id}'; DELETE FROM \"OrganizationGrants\" WHERE \"OrganizationId\"='{id}'; DELETE FROM \"OrganizationRevisions\" WHERE \"OrganizationId\"='{id}'; DELETE FROM \"Organizations\" WHERE \"Id\"='{id}'");
     }
 }

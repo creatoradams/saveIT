@@ -779,6 +779,48 @@ namespace SaveIT.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SaveIT.Api.Data.OrganizationRevision", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("TenantId", "OrganizationId", "Version");
+
+                    b.ToTable("OrganizationRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OrganizationRevision_Actor", "length(btrim(\"Actor\")) > 0");
+
+                            t.HasCheckConstraint("CK_OrganizationRevision_Name", "length(btrim(\"Name\")) BETWEEN 1 AND 160");
+
+                            t.HasCheckConstraint("CK_OrganizationRevision_Origin", "\"Origin\" IN ('Created','Renamed','Migration','Seed')");
+
+                            t.HasCheckConstraint("CK_OrganizationRevision_Version", "\"Version\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("SaveIT.Api.Data.OutboxEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1196,6 +1238,22 @@ namespace SaveIT.Api.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId", "MembershipId")
                         .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.OrganizationRevision", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

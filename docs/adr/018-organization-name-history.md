@@ -1,0 +1,23 @@
+# ADR 018: immutable organization name history
+
+Accepted for the local core, 2026-10-30. Extends ADR 012's checked administration functions without adding permission-administration or restore authority.
+
+## Storage and atomic writes
+
+`OrganizationRevisions` records tenant/organization/version, exact persisted name and update time, actor and origin. Its scoped composite parent FK, positive version, bounded nonempty name, nonempty actor and fixed `Created|Renamed|Migration|Seed` origin CHECKs supplement forced RLS. This is the twentieth tenant table. The application has SELECT only; it cannot insert, update or delete snapshots directly. Database owners remain privileged, so this is not an immutable archive.
+
+CREATE OR REPLACE retains the existing administration function owners. Both SECURITY DEFINER functions keep a fixed `pg_catalog,pg_temp` search path, fully qualified tables, tenant/member context validation, locked active membership/capability checks and existing plain-create/creator-only-grant or current-Editor/expected-version rules. They derive actor from the locked membership Subject and origin from a function constant, then copy the actual persisted organization head into history. No request actor, timestamp, origin, tenant or historical fields are trusted. History failure aborts the same transaction as organization/grant changes. API audit/outbox and trigger-enqueued search receipt commit in that outer request transaction; failure of any component rolls everything back. No direct organization/grant write permission is added.
+
+The migration backfills only each organization's actual current version/name/update time with actor `migration` and origin `Migration`. Earlier names are unavailable, not reconstructed from audit or current data. Fresh synthetic seeds use origin `Seed`; rerunning seed on existing tenants appends nothing. Down restores the predecessor function behavior before dropping history. Downgrade discards the history table; local upgrade/downgrade tests are not production rollback or recovery assurance. Production definer ownership, forced-RLS access and cross-tenant migration/backfill authority remain reviewed external release prerequisites, as in ADRs 011–012.
+
+## Current-authorized bounded reads
+
+`GET /organizations/{org}/revisions?before={positive integer}` uses the existing authenticated tenant transaction, live membership, current organization Viewer/Editor grant and scoped current organization existence check. It filters the tenant/organization before selecting at most 51 rows from the scoped primary key, returns at most 50 newest-first DTOs and a nullable version cursor. Each page independently rechecks authority. Invalid cursors are 400; inaccessible organizations are 404; inactive membership is 401. Missing earlier history is an empty page, never invented content.
+
+Every successful page, including an empty page, commits `Organization.RevisionsRead` audit before serialization. Read/source/audit failures withhold names and cursor. Audit/outbox contain no historical names; reads publish no business event. Existing schema-v1 create/rename events remain search no-ops. Worker startup rejects history ownership, reachable core/column writes and any history column SELECT through direct, PUBLIC or reachable NOINHERIT roles. No indexing or worker source authority is added.
+
+## Browser behavior and limits
+
+All current readers can open Organization history, inspect literal names/actor/time/origin and load older 50-row pages. Refresh/retry starts at the head; failures clear rows/cursor, and version-based deduplication protects accumulated pages. There is no rename, restore or grant control in history. Explicit reads coordinate the existing global busy state and release only their owned request. Initial reads stay cancellable while switching organization; unmount aborts them, and a parent tenant/organization context check prevents a late denial clearing a new context. Current-context 401/403/404 clears organization and record state. Reload organization choices rechecks session/current grants and provides recovery for Viewers as well as administrators.
+
+History does not confer rename or restore authority. Organization restoration, single-field comparison, archive/delete, merges and permission/capability administration remain unimplemented. Subsequent requests observe revocation; this adds no in-flight revocation barrier. There are no new dependencies or external-account requirements. Tests and agent reviews cover this local slice, not production security, measured performance, complete accessibility or enterprise parity.
