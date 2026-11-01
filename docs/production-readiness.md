@@ -1,0 +1,73 @@
+# SaveIT production-readiness reassessment
+
+Assessed 2026-10-31 against `d35f04f` and its tested code commit `68dc8cbe2f0371877e9487b8777abcb06bcf5864`. This is a source/evidence assessment and revised delivery plan, not a deployment, penetration test or production approval.
+
+## Decision
+
+SaveIT is a tested local core preview. It is not ready for customer production data. Prioritize a deployable, observable, recoverable staging system and verified identity/access operations before more history/template features. Template restoration remains in the backlog; no enterprise capability is removed.
+
+Recommended first release milestone: an invitation-only documentation/inventory pilot with one real Okta connection and its server-selected SaveIT tenant, multiple authorized organizations and a small explicitly approved user/data set. This is a proposal, not an accepted scope change. Confidential IT documentation still requires every applicable security/recovery gate below. Staging uses synthetic data until the gates pass. Password/OTP/vault storage, uploads, connectors and other absent capabilities must not be advertised as working.
+
+The current Okta adapter configures one issuer and one SaveIT tenant. Tenant-isolated storage is implemented, but live multi-customer/multi-connection identity and customer onboarding are not. A broader SaaS launch needs those capabilities and their isolation/revocation evidence. Full enterprise parity is a later milestone tracked by all 146 inventory entries; vendor parity remains unverified. A percentage-complete or firm launch date is not supported by current evidence.
+
+## Current evidence
+
+| Area | What exists | Limit on the conclusion |
+| --- | --- | --- |
+| Core product | Organizations, assets/typed fields, locations/contacts, linked plain-text documents, folders/independent placement, relationships, immutable history/recovery, reviewed document templates/origins and comparisons | Rich editing/files, broader administration, workflows/integrations, vault and companion capabilities remain absent |
+| Tenant controls | Protected session authority, live membership/org checks, scoped FKs, transaction-local context, 25 forced-RLS tenant tables, non-owner runtime/worker guards | Local and CI PostgreSQL evidence; managed-database role/bootstrap behavior is not evidenced |
+| Verification | [Exact-commit CI run 41262435320](https://github.com/creatoradams/saveIT/actions/runs/41262435320): 347 backend tests, zero skipped, 61 Chromium checks, builds/contracts/ignore/audit/Terraform scaffold gates | Functional/regression evidence does not establish deployment safety, availability, load capacity or independent security assurance |
+| Reviews | Separate efficiency/security agents reviewed source and fixes | Read-only agent reviews are not an independent penetration test |
+| Identity | Okta OIDC/PKCE adapter and signed synthetic protocol tests; Production refuses development identity/unconfigured identity and missing protected key configuration | No actual Okta sign-in, MFA/assignment/offboarding or deployed key lifecycle evidence |
+| Search | Restricted real PostgreSQL projection/consumer with retry/replay/dead-letter/rebuild tests | No measured scale or production operator controls; OpenSearch is still planned |
+| Dependencies | Fresh npm high-severity gate passes with the same three moderate minimatch/Redocly/generator reports; last verified CI NuGet audit reports no vulnerable packages | No clean npm audit claim; release-time dependency/image patching and supply-chain controls are still needed |
+| Infrastructure | Terraform formatting/init/validation succeeds | `infra/terraform/main.tf` has no provider, remote backend or cloud resources; no deployment exists |
+
+## Concrete release blockers found in the repository
+
+| Evidence | Gap | Required outcome |
+| --- | --- | --- |
+| No Dockerfile/container deployment definitions; [development launcher](../scripts/dev.mjs), [web package](../apps/web/package.json) | Local development is the only integrated startup path; web start is loopback-bound | Build and run non-root production web/API/worker artifacts with explicit bind/configuration, pinned bases and safe shutdown; embedded PostgreSQL/synthetic identities are excluded |
+| [Program.cs](../services/api/Program.cs), `--migrate`; [database launcher](../scripts/database.mjs) | The existing command requires development identity and migrates/seeds synthetic data; roles are bootstrapped by local owner scripts | Separate reviewed migration artifact/job, production role/bootstrap and explicit tenant/member provisioning; no synthetic seed or runtime DDL authority |
+| [PendingSearchQueue migration](../services/api/Migrations/20261029130805_PendingSearchQueue.cs), [organization functions](../services/api/Migrations/OrganizationHistorySql.cs) | Definer ownership, all-tenant backfills and privileged deployment assumptions are tested locally, not on managed PostgreSQL | Prove migration/function/backfill ownership and grants on the target service with runtime guards intact; API/worker must never inherit owner/BYPASSRLS authority |
+| [Program.cs](../services/api/Program.cs), `/health` and rate-limiter registration | Health reports static process success; the only registered rate limit is for development login | Distinct liveness/readiness, protected worker/queue metrics, real dependency failure handling and production API/tenant/workload limits |
+| [Next configuration](../apps/web/next.config.ts), [Okta key setup](../services/api/Security/OktaIdentity.cs) | CSP permits inline scripts; deployed TLS/Host/proxy behavior and persistent/shared protected key lifecycle have not been verified | Trusted ingress/forwarded headers and Host rules, HTTPS/HSTS, hardened CSP compatible with the production build, environment-isolated persistent keys and tested rotation/recovery |
+| [ADR 002](adr/002-authorization-consistency.md), [ADR 010](adr/010-okta-identity.md) | No product membership/grant provisioning/offboarding flow or in-flight revocation barrier; Okta removal alone does not deactivate the local session | Audited restricted operator onboarding/offboarding, explicit session/access revocation semantics and concurrency tests; live Okta assignment/MFA/subject mapping evidence |
+| [CI workflow](../.github/workflows/ci.yml) | CI verifies code but does not build/promote deployment images, scan source/secrets/images, generate SBOMs/sign provenance or deploy | Protected least-privilege release pipeline, immutable artifacts, automated staging smoke tests and demonstrated rollback |
+| [Threat/risk register](threat-model.md) and [completion register](completion-register.md) | No operational audit archive/retention, complete denied/auth/admin audit, incident monitoring, measured load or actual backup restore | Evidence-backed operating/security/recovery gates before customer data |
+
+These are observed missing controls and evidence, not claims that every listed gap is an exploitable vulnerability.
+
+## Production critical path
+
+| Order | Deliverable | Exit evidence |
+| --- | --- | --- |
+| 1 — release foundation | Production container builds for web/API/worker; separate migration and role/tenant bootstrap paths; configuration validation; liveness/readiness; container smoke tests | CI runs packaged artifacts in Production mode against real PostgreSQL, with synthetic test identities injected through an appropriate test-only external provider; dev routes/seed are unavailable, all 25 RLS tables/role guards remain enforced, and missing identity/keys fail startup |
+| 2 — isolated staging | Authorized AWS account/region/budget; reviewed Terraform state/access; ECS/Fargate services, private managed PostgreSQL, TLS ingress, restricted egress, workload secrets and protected key storage | Reproducible reviewed plan/apply, no public database/API bypass path, restricted runtime roles, secret/key isolation, monitored costs and successful packaged-app deployment. No resources are provisioned by this plan |
+| 3 — real identity and tenant operations | One live Okta pilot connection, verified MFA/assignments, exact subject mapping; audited onboarding/offboarding and operator access; revocation protocol | Real browser success/denial, existing-cookie offboarding, concurrent protected-read revocation, restart/replica/key-rotation tests; spoofed tenant/role claims never grant access. Additional live tenant connections require a separate tested design |
+| 4 — operations and resilience | Redacted telemetry/alerts, API quotas, worker lag/dead-letter/replay operations, authentication/denial/admin auditing, protected audit exports/retention; DB/config/key backups | Injected API/DB/worker/audit failures produce actionable alerts without confidential content; restore to an isolated environment and verify tenant/grant/history/queue/key integrity; measure RPO/RTO and exercise rollback |
+| 5 — release validation | Representative load/capacity tests, independent tenant/auth/deployment penetration review, accessibility/user checks, remediation and dependency/image review | Agreed performance/error/queue thresholds hold under recorded workloads; no unresolved launch-blocking findings; documented ownership of remaining risks, operating runbooks and support/incident contacts |
+| 6 — controlled pilot, then broader launch | Approved small pilot with monitoring, capacity limits, recovery and incident response; gradual expansion | All applicable gates above pass before customer data; successful operational observation and tested support/offboarding. Commercial multi-customer launch adds identity/onboarding/lifecycle requirements; full enterprise parity still follows the complete backlog |
+
+Keep the current PostgreSQL search implementation for the proposed pilot unless measurements show it cannot meet the agreed workload. OpenSearch, Redis, Temporal and other services stay in the roadmap; adding them is not a substitute for testing the current deployment. Each later capability gets its own authority, data, operational and verification gates.
+
+## Next engineering batch
+
+Implement order 1 first. Start with separate production migration/bootstrap design and tests, then package the three processes, add dependency-aware readiness/worker health and exercise the exact release artifacts in CI. API/worker roles must not gain schema ownership, direct general membership/grant administration or owner-role reachability; preserve the narrowly checked organization-create/rename functions. Test managed-PostgreSQL compatibility as soon as staging access exists; do not assume the local owner-based bootstrap transfers unchanged. Commit `.terraform.lock.hcl` when providers are introduced; keep state/plans/secrets excluded.
+
+This batch can proceed without an AWS account. Infrastructure apply, real Okta verification and production rollout depend on authorized accounts/configuration. Before provisioning, settle first-pilot scope/data classification, region/residency, budget owner, DNS/TLS, retention/recovery targets and operating/support ownership. Use protected configuration for secrets. Do not create a paid account or deploy from this assessment.
+
+Resolve the three moderate development-tool reports with a compatible tested update, or document an explicit owner, exposure assessment and expiry for any accepted release risk. Preserve the audit gate; do not apply an incompatible forced downgrade or silence the report. Repeat dependency/runtime/base-image checks at release time.
+
+The original p95/availability/RPO/RTO numbers are proposed targets, not achieved service commitments. A backup setting, healthy process, passing tests or green Terraform validation alone does not satisfy the corresponding operational gate. Application rollback must be compatible with the deployed schema; destructive migration reversal is not the default recovery path.
+
+## Current guidance checked
+
+- [Next.js self-hosting](https://nextjs.org/docs/app/guides/self-hosting): put a reverse proxy in front of the server and verify consistent builds/cache behavior when using multiple instances. SaveIT's protected responses must retain their no-store behavior.
+- [ASP.NET Core Data Protection](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0): protect key-store access and persist keys beyond container replacement; verify any shared-instance configuration.
+- [EF Core applying migrations](https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/applying): review/test migrations and use a separate deployment identity; bundles or reviewed SQL are deployment artifacts.
+- [ECS deployment failure detection](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-failure-detection.html): deployment rollback can be driven by circuit breakers/alarms; demonstrate the configured behavior and its limits in staging.
+- [RDS point-in-time restoration](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIT.html): restoration creates a new instance; test restored connectivity, parameters/access and application recovery rather than assuming backup configuration proves recovery.
+- [Okta application and IdP sessions](https://developer.okta.com/docs/concepts/session/): application session lifecycle requires explicit treatment alongside provider sessions. That page is Classic Engine guidance; confirm the actual tenant engine and applicable policy/session behavior during live setup.
+
+These sources inform the plan; they do not prove SaveIT has implemented or exercised the documented controls. Only documentation changes were made for this reassessment. Existing CI evidence is cited above; the application test suites were not rerun as new production evidence.

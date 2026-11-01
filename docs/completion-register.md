@@ -21,12 +21,14 @@ Updated 2026-10-31. The original brief and all 145 prior capability entries rema
 - Nonproduction AWS account and initial integration service: **none yet**. No account, infrastructure, paid service, connector or public application was created. Terraform remains a scaffold.
 - Licensing/entitlements, budget, target regions/residency, regulated-data scope, support commitments and actual connector priorities remain product decisions. They do not prevent implementing the next local core features.
 
-## Next implementation sequence
+## Production-first implementation sequence
 
-1. Add append-only document-template history restoration with exact-source review, current Editor/expected-version checks, reason provenance, atomic revision/audit/outbox and preserved document origins/placement. Reapplication to existing documents, dynamic variables and bulk generation remain separate work. Preserve ADRs 013–021's typed schemas, content/placement version separation, hierarchy bounds/concurrency, history/restore/comparison, scoped FKs, worker exclusions and denial/atomicity tests. Folder history/lifecycle, organization restore/permissions, directory merges and bulk operations remain separate unfinished work.
-2. Expand identity administration/lifecycle and audited action-level grants, while configuring and testing actual Okta in an isolated authorized environment. Define an in-flight revocation protocol before permission administration is exposed.
-3. Add rich documentation/private attachments with quarantine, isolated parsers, authorized delivery and retention; add deletion recovery with tested access semantics.
-4. Establish an AWS nonproduction environment and operational controls before connecting external systems. Implement one selected connector with real credentials, checkpoint/reconciliation and uncertain-outcome recovery; then expand workflows and each inventory item independently.
-5. Complete the separately reviewed vault/key/recovery design before any real secrets, followed by broader companion capabilities and measured enterprise readiness gates.
+The [production-readiness reassessment](production-readiness.md) supersedes the previous feature-first ordering. SaveIT is a tested local preview, with no live deployment/Okta or operational recovery evidence. A small documentation/inventory pilot is proposed; confidential customer data still requires the applicable gates.
+
+1. Build the release foundation: separate seed-free migration/role/tenant bootstrap, production web/API/worker artifacts, configuration validation, liveness/readiness and packaged Production-mode CI. Preserve all current authority/RLS/atomicity/worker boundaries.
+2. Establish authorized isolated AWS staging and verify target managed-PostgreSQL role/function/backfill behavior, TLS/private networking, secrets/persisted keys, immutable artifact deployment and rollback. No resources are provisioned by this plan.
+3. Verify real Okta/MFA/assignment/session behavior and implement audited restricted onboarding/offboarding plus in-flight revocation. The current live adapter maps one configured issuer to one SaveIT tenant; multi-customer connections and lifecycle require further implementation.
+4. Add production telemetry/quotas/authentication-denial-admin audit/archives and worker operations; exercise actual DB/config/key recovery, load tests, independent security/accessibility assessment and incident/support runbooks. Use the evidence to gate a controlled pilot and later broader launch.
+5. Continue unfinished product scope, including append-only template restoration, richer documentation/private attachments and deletion recovery, followed by real connectors/workflows and the separately reviewed vault/key/recovery design. Dynamic/bulk/cross-organization templates, companion capabilities and verified enterprise parity remain in the full backlog.
 
 The full [backlog](backlog.md) specifies every remaining area. Missing code is not described as blocked merely because no AWS account exists. The current work completes additional local features and review remediation; it does not complete the full enterprise request.

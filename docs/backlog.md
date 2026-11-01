@@ -1,6 +1,18 @@
 # SaveIT enterprise backlog
 
-Updated 2026-10-30. Preserve all scope in the [original brief](project-brief.md) and [capability inventory](feature-parity.md). A local slice is not feature parity or enterprise readiness. Each item requires persisted behavior, server authorization, appropriate audit, contracts/migrations, success/denial/recovery tests, accessible loading/empty/error/conflict UX, and updated evidence before being marked done. See the [completion register](completion-register.md) for implemented code, external prerequisites and next delivery dependencies.
+Updated 2026-10-31. Preserve all scope in the [original brief](project-brief.md) and [capability inventory](feature-parity.md). A local slice is not feature parity or enterprise readiness. Each item requires persisted behavior, server authorization, appropriate audit, contracts/migrations, success/denial/recovery tests, accessible loading/empty/error/conflict UX, and updated evidence before being marked done. See the [completion register](completion-register.md) for implemented code, external prerequisites and next delivery dependencies.
+
+## Production critical path — reassessed 2026-10-31
+
+The [production-readiness assessment](production-readiness.md) now controls release priority. The local core is tested, but customer production use is not approved. These gates add operational dependencies without removing any of the 146 enterprise inventory entries or marking the full program complete.
+
+- [ ] Production web/API/worker artifacts, seed-free migration and restricted role/tenant bootstrap, validated configuration, liveness/readiness and packaged Production-mode CI smoke tests.
+- [ ] Authorized isolated AWS staging, reviewed remote state/networking/secrets/keys, managed-PostgreSQL role/function/backfill verification and tested deployment/rollback.
+- [ ] Live Okta/MFA/assignment/session behavior, audited onboarding/offboarding/operator access and an in-flight revocation protocol. The current adapter supports one configured issuer/SaveIT tenant; broader SaaS identity remains separate work.
+- [ ] Redacted telemetry/alerts, production quotas, complete auth/denial/admin audit, protected archive/retention and worker operations; actual isolated database/config/key recovery with measured results.
+- [ ] Recorded load/capacity evidence, independent security/accessibility validation, remediation and an owned patch/release/incident/support process before an approved pilot; then expand to broader SaaS and full enterprise scope.
+
+The next engineering batch is the release foundation above. Template restoration is still an unfinished core feature, but is no longer the next release-priority task. Cloud provisioning and real-provider checks await authorized accounts; release-foundation code can proceed now.
 
 ## Phase 0 — specification and inventory
 
@@ -47,7 +59,7 @@ Updated 2026-10-30. Preserve all scope in the [original brief](project-brief.md)
 - [ ] Folder history/restore, archive/delete/retention, folder-specific permissions, deeper/larger/bulk hierarchies and measured root/unfiled scaling. Current limit: eight levels and 1,000 retained folders per organization.
 - [x] Versioned document templates and reviewed SOP/incident starters: scoped immutable publication/archive/reactivate, exact audited history, reviewed document creation with immutable provenance, metadata-only pages, observed races, atomicity, role/worker isolation and browser recovery (ADR 020). 43 added backend tests and seven added browser flows pass; exact-commit CI is recorded in progress.
 - [x] Audited bounded document-template revision comparison (ADR 021): exact immutable metadata/lifecycle and filtered 200-line pages, current-version-only projection, numeric read audits and source/current/audit/commit failure withholding; 12 new PostgreSQL tests and four focused browser flows pass. Full regression/CI results are recorded in progress.
-- [ ] **Next core task: append-only document-template history restoration**, with exact-source review, current Editor/expected-version checks, reason provenance, atomic revision/audit/outbox and preserved document origins/placement. Reapply to existing documents, executable variables, cross-organization and bulk generation remain separate unfinished work.
+- [ ] **Remaining core feature: append-only document-template history restoration**, with exact-source review, current Editor/expected-version checks, reason provenance, atomic revision/audit/outbox and preserved document origins/placement. Reapply to existing documents, executable variables, cross-organization and bulk generation remain separate unfinished work.
 - [ ] Rich Tiptap/ProseMirror content with sanitization/isolation, knowledge base, richer SOP/workflow behavior, flags, ownership/freshness/review dates, approvals and collaboration; verify commercial licensing before adding extensions.
 - [ ] Richer document comparison/merges, deletion recovery and retention, audit coverage for all remaining metadata access as required by policy. Asset/directory scalar comparison, metadata/typed-field/directory history/restore and plain-text document comparison/restore as new versions are implemented; generalized rollback and backup recovery remain absent.
 - [ ] Private/versioned attachments, scan/quarantine, isolated parsing/OCR, authorized delivery, safe file references, SSRF defenses and permission-aware file indexing.
