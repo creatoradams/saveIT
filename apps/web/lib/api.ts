@@ -18,6 +18,8 @@ export type AssetComparisonSide =
 export type AssetRelationship = components["schemas"]["AssetRelationshipDto"];
 export type Doc = components["schemas"]["DocumentDto"];
 export type DocumentTemplate = components["schemas"]["DocumentTemplateDto"];
+export type DocumentTemplateComparison =
+  components["schemas"]["DocumentTemplateComparisonDto"];
 export type DocumentTemplateRevision =
   components["schemas"]["DocumentTemplateRevisionDto"];
 export type DocumentTemplateSummary =

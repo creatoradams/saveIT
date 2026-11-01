@@ -11,6 +11,7 @@ public static class DocumentTemplateEndpoints
     {
         var group = app.MapGroup("/api/v1/organizations/{organizationId:guid}/document-templates")
             .RequireAuthorization().AddEndpointFilter<TenantFilter>();
+        DocumentTemplateComparisonEndpoints.Map(group);
         group.MapGet("", async (Guid organizationId, Guid? after, bool? includeArchived, SaveItDb db, TenantScope scope, HttpContext c) =>
         {
             if (await Permissions.RoleAsync(db, scope, organizationId) is null) return Results.NotFound();

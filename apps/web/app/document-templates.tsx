@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import DocumentTemplateComparisonPanel from "./document-template-comparison";
 import {
   api,
   ApiError,
@@ -101,6 +102,8 @@ export default function DocumentTemplates({
   const heading = useRef<HTMLHeadingElement>(null),
     opener = useRef<HTMLButtonElement | null>(null);
   const historyFocus = useRef<HTMLButtonElement | null>(null);
+  const comparisonOpener = useRef<HTMLButtonElement | null>(null);
+  const [comparing, setComparing] = useState(false);
   const callbacks = useRef({ onDenied, onCreated });
   callbacks.current = { onDenied, onCreated };
   const { busy, run } = useOwnedRequest(onBusyChange),
@@ -117,6 +120,7 @@ export default function DocumentTemplates({
     if (denied(e)) callbacks.current.onDenied(message(e));
   }
   function clearDetail() {
+    setComparing(false);
     historyFocus.current = null;
     setSelected(null);
     setPreview(null);
@@ -189,6 +193,7 @@ export default function DocumentTemplates({
     fresh = false,
   ) {
     opener.current = button;
+    setComparing(false);
     setError("");
     setNotice("");
     setCurrent(null);
@@ -402,6 +407,30 @@ export default function DocumentTemplates({
               Current publication v{selected.version}
               {selected.isArchived ? " · Archived" : ""}
             </p>
+            <button
+              className="secondary"
+              ref={comparisonOpener}
+              disabled={locked}
+              onClick={() => setComparing(true)}
+            >
+              Compare template revisions
+            </button>
+            {comparing && (
+              <DocumentTemplateComparisonPanel
+                key={selected.id}
+                path={`${path}/${selected.id}`}
+                currentVersion={Number(selected.version)}
+                disabled={locked}
+                onBusyChange={onBusyChange}
+                onDenied={onDenied}
+                onClose={() => {
+                  setComparing(false);
+                  requestAnimationFrame(() =>
+                    comparisonOpener.current?.focus(),
+                  );
+                }}
+              />
+            )}
             {canEdit && (
               <div className="actions">
                 <button

@@ -1305,6 +1305,100 @@
         }
       }
     },
+    "/api/v1/organizations/{organizationId}/document-templates/{templateId}/compare": {
+      "get": {
+        "tags": [
+          "SaveIT.Api"
+        ],
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fromVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "toVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "changesOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentTemplateComparisonDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/{organizationId}/document-templates": {
       "get": {
         "tags": [
@@ -5194,6 +5288,153 @@
               "null",
               "string"
             ],
+            "format": "date-time"
+          }
+        }
+      },
+      "DocumentTemplateComparisonDto": {
+        "required": [
+          "templateId",
+          "from",
+          "to",
+          "currentVersion",
+          "nameChanged",
+          "titleChanged",
+          "lifecycleChanged",
+          "contentChanged",
+          "lineEndingsOnly",
+          "changesOnly",
+          "simplified",
+          "addedLines",
+          "removedLines",
+          "totalRows",
+          "offset",
+          "lines",
+          "nextOffset"
+        ],
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "$ref": "#/components/schemas/DocumentTemplateComparisonRevisionDto"
+          },
+          "to": {
+            "$ref": "#/components/schemas/DocumentTemplateComparisonRevisionDto"
+          },
+          "currentVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nameChanged": {
+            "type": "boolean"
+          },
+          "titleChanged": {
+            "type": "boolean"
+          },
+          "lifecycleChanged": {
+            "type": "boolean"
+          },
+          "contentChanged": {
+            "type": "boolean"
+          },
+          "lineEndingsOnly": {
+            "type": "boolean"
+          },
+          "changesOnly": {
+            "type": "boolean"
+          },
+          "simplified": {
+            "type": "boolean"
+          },
+          "addedLines": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "removedLines": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "totalRows": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "offset": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiffLineDto"
+            }
+          },
+          "nextOffset": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "DocumentTemplateComparisonRevisionDto": {
+        "required": [
+          "version",
+          "name",
+          "title",
+          "isArchived",
+          "actor",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
             "format": "date-time"
           }
         }

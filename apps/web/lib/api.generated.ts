@@ -1177,6 +1177,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/organizations/{organizationId}/document-templates/{templateId}/compare": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query: {
+          fromVersion: number | string;
+          toVersion: number | string;
+          offset?: number | string;
+          changesOnly?: boolean;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+          templateId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentTemplateComparisonDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/organizations/{organizationId}/document-templates": {
     parameters: {
       query?: never;
@@ -3393,6 +3445,42 @@ export interface components {
       version: number | string;
       /** Format: date-time */
       updatedAt: null | string;
+    };
+    DocumentTemplateComparisonDto: {
+      /** Format: uuid */
+      templateId: string;
+      from: components["schemas"]["DocumentTemplateComparisonRevisionDto"];
+      to: components["schemas"]["DocumentTemplateComparisonRevisionDto"];
+      /** Format: int32 */
+      currentVersion: number | string;
+      nameChanged: boolean;
+      titleChanged: boolean;
+      lifecycleChanged: boolean;
+      contentChanged: boolean;
+      lineEndingsOnly: boolean;
+      changesOnly: boolean;
+      simplified: boolean;
+      /** Format: int32 */
+      addedLines: number | string;
+      /** Format: int32 */
+      removedLines: number | string;
+      /** Format: int32 */
+      totalRows: number | string;
+      /** Format: int32 */
+      offset: number | string;
+      lines: components["schemas"]["DiffLineDto"][];
+      /** Format: int32 */
+      nextOffset: null | number | string;
+    };
+    DocumentTemplateComparisonRevisionDto: {
+      /** Format: int32 */
+      version: number | string;
+      name: string;
+      title: string;
+      isArchived: boolean;
+      actor: string;
+      /** Format: date-time */
+      createdAt: string;
     };
     DocumentTemplateDto: {
       /** Format: uuid */

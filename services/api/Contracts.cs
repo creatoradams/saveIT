@@ -42,6 +42,10 @@ public sealed record DocumentTemplateRequest(string Name, string Title, string C
 public sealed record DocumentTemplateDto(Guid Id, Guid OrganizationId, string Name, int Version, bool IsArchived, DateTimeOffset UpdatedAt);
 public sealed record DocumentTemplateRevisionSummaryDto(int Version, string Name, bool IsArchived, string Actor, DateTimeOffset CreatedAt);
 public sealed record DocumentTemplateRevisionDto(Guid TemplateId, int Version, string Name, string Title, string Content, bool IsArchived, string Actor, DateTimeOffset CreatedAt);
+public sealed record DocumentTemplateComparisonRevisionDto(int Version, string Name, string Title, bool IsArchived, string Actor, DateTimeOffset CreatedAt);
+public sealed record DocumentTemplateComparisonDto(Guid TemplateId, DocumentTemplateComparisonRevisionDto From, DocumentTemplateComparisonRevisionDto To,
+    int CurrentVersion, bool NameChanged, bool TitleChanged, bool LifecycleChanged, bool ContentChanged, bool LineEndingsOnly,
+    bool ChangesOnly, bool Simplified, int AddedLines, int RemovedLines, int TotalRows, int Offset, IReadOnlyList<DiffLineDto> Lines, int? NextOffset);
 public sealed record CreateTemplateDocumentRequest(Guid AssetId, int TemplateVersion, string Title, string Content);
 public sealed record DocumentTemplateOriginDto(Guid DocumentId, Guid? TemplateId, int? TemplateVersion, string? TemplateName);
 public sealed record FolderRequest(string Name, Guid? ParentId, int ExpectedVersion = 0);
