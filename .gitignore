@@ -457,6 +457,7 @@ blob-report/
 *.tfplan
 *.tfvars
 *.tfvars.json
+*.backend.hcl
 crash.log
 crash.*.log
 override.tf
@@ -482,4 +483,5 @@ terraform.rc
 !.env.*.example
 !*.env.example
 !*.tfvars.example
+!*.backend.hcl.example
 # EF migrations live in services/api/Migrations and remain tracked.

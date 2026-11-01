@@ -224,6 +224,32 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         Assert.Equal(connect, development.Timeout); Assert.Equal(command, development.CommandTimeout); Assert.Equal(cancel, development.CancellationTimeout);
     }
 
+    [Fact]
+    public void Certificate_tls_cannot_be_replaced_by_explicit_or_ambient_gss_transport()
+    {
+        var previous = Environment.GetEnvironmentVariable("PGGSSENCMODE");
+        try
+        {
+            Environment.SetEnvironmentVariable("PGGSSENCMODE", "require");
+            foreach (var mode in new[] { "Prefer", "Disable" })
+            {
+                var input = "Host=synthetic.example;SSL Mode=VerifyFull;GSS Encryption Mode=" + mode;
+                var normalized = new NpgsqlConnectionStringBuilder(ConnectionPolicy.RuntimeConnection(input));
+                Assert.True(normalized.ContainsKey("GSS Encryption Mode")); Assert.Equal(GssEncryptionMode.Disable, normalized.GssEncryptionMode);
+                ConnectionPolicy.Validate(normalized.ConnectionString);
+            }
+            var ambient = new NpgsqlConnectionStringBuilder(ConnectionPolicy.RuntimeConnection("Host=synthetic.example;SSL Mode=VerifyFull"));
+            Assert.True(ambient.ContainsKey("GSS Encryption Mode")); Assert.Equal(GssEncryptionMode.Disable, ambient.GssEncryptionMode);
+            foreach (var host in new[] { "synthetic.example", "127.0.0.1" })
+            {
+                var required = $"Host={host};SSL Mode=VerifyFull;GSS Encryption Mode=Require";
+                Assert.Throws<InvalidOperationException>(() => ConnectionPolicy.RuntimeConnection(required));
+                Assert.Throws<InvalidOperationException>(() => ConnectionPolicy.Validate(required, true));
+            }
+        }
+        finally { Environment.SetEnvironmentVariable("PGGSSENCMODE", previous); }
+    }
+
     private sealed class DeadlineClock : TimeProvider
     {
         public sealed class Timer(TimerCallback callback, object? state) : ITimer

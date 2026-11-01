@@ -9,6 +9,10 @@ public static class ConnectionPolicy
     {
         var c = new NpgsqlConnectionStringBuilder(connection);
         if (!string.IsNullOrEmpty(c.Options)) throw new InvalidOperationException("Arbitrary database startup options are unsupported.");
+        RejectRequiredGss(c);
+        // Npgsql attempts GSS before TLS and may return before VerifyFull is reached.
+        // SaveIT supports certificate TLS, not an alternative ambient GSS transport.
+        c.GssEncryptionMode = GssEncryptionMode.Disable;
         c.SearchPath = "public";
         return c.ConnectionString;
     }
@@ -27,9 +31,15 @@ public static class ConnectionPolicy
     public static void Validate(string connection, bool allowLoopback = false)
     {
         var c = new NpgsqlConnectionStringBuilder(connection);
+        RejectRequiredGss(c);
         var local = c.Host == "localhost" || (IPAddress.TryParse(c.Host, out var address) && IPAddress.IsLoopback(address));
         if (allowLoopback && local) return;
         if (c.SslMode != SslMode.VerifyFull)
             throw new InvalidOperationException("Deployment database connections require TLS certificate and hostname verification.");
+    }
+    private static void RejectRequiredGss(NpgsqlConnectionStringBuilder connection)
+    {
+        if (connection.ContainsKey("GSS Encryption Mode") && connection.GssEncryptionMode == GssEncryptionMode.Require)
+            throw new InvalidOperationException("Required GSS transport is unsupported; configure certificate-verified TLS.");
     }
 }

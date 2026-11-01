@@ -4,7 +4,7 @@ Assessed 2026-10-31 against `d35f04f` and its tested code commit `68dc8cbe2f0371
 
 ## Current engineering delta — 2026-11-01
 
-The release-foundation code in ADR 022 now implements separate seed-free migrations/insert-only provisioning, isolated owner/runtime roles, runtime TLS/schema/namespace guards, nonroot image definitions, runtime web origins/nonce CSP/trusted ingress and dependency-aware health. Local regression and packaged CI status are recorded in [progress](progress.md). Linux image execution is still pending; these additions do not prove cloud deployment, live identity or recovery. The tables below retain the historical baseline and its remaining operational gates.
+The release-foundation code in ADR 022 now implements separate seed-free migrations/insert-only provisioning, isolated owner/runtime roles, runtime TLS/schema/namespace guards, nonroot image definitions, runtime web origins/nonce CSP/trusted ingress and dependency-aware health. Local regression and packaged CI status are recorded in [progress](progress.md). Packaged Linux execution now passes, including real synthetic OIDC/PKCE and an isolated same-cluster logical database/key recovery drill (ADR 023). ADR 024 adds an unapplied state bootstrap with mocked AWS tests; the application cell remains a scaffold. These additions do not prove cloud deployment, live identity, managed/offsite recovery or achieved RPO/RTO. The tables below retain the historical baseline and its remaining operational gates.
 
 Account-free work continues after artifact verification: tested infrastructure definitions, isolated recovery rehearsal, supply-chain gates and audited operator/revocation implementation. Only actual cloud/provider deployment/verification requires official accounts. Do not conflate those external prerequisites with missing code.
 
@@ -57,7 +57,7 @@ These are observed missing controls and evidence, not claims that every listed g
 
 Keep the current PostgreSQL search implementation for the proposed pilot unless measurements show it cannot meet the agreed workload. OpenSearch, Redis, Temporal and other services stay in the roadmap; adding them is not a substitute for testing the current deployment. Each later capability gets its own authority, data, operational and verification gates.
 
-## Next engineering batch
+## Original next engineering batch (historical baseline)
 
 Implement order 1 first. Start with separate production migration/bootstrap design and tests, then package the three processes, add dependency-aware readiness/worker health and exercise the exact release artifacts in CI. API/worker roles must not gain schema ownership, direct general membership/grant administration or owner-role reachability; preserve the narrowly checked organization-create/rename functions. Test managed-PostgreSQL compatibility as soon as staging access exists; do not assume the local owner-based bootstrap transfers unchanged. Commit `.terraform.lock.hcl` when providers are introduced; keep state/plans/secrets excluded.
 

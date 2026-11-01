@@ -88,7 +88,7 @@ Local sign-in requires both the Development environment and explicit identity op
 
 The default deployment direction is AWS regional cells on ECS/Fargate with private RDS, OpenSearch, Redis, S3, KMS, least-privilege identities, and Terraform. No active-active writes. Dedicated deployment/residency options stay on the roadmap. The user chose Okta and has no nonproduction AWS/integration account yet. Self-hosting, licensing, budget, regions, regulated data and support commitments remain unresolved.
 
-Targets remain proposals: API p95 <300 ms, search p95 <700 ms, usable main screen <2 s on a defined client/network, availability 99.95%, regional RPO <=15 min and RTO <=4 h. No load, availability, backup restore, or disaster recovery results are claimed. Record tenant sizes, concurrency, cold/warm state, region, and measurement boundaries when testing them.
+Targets remain proposals: API p95 <300 ms, search p95 <700 ms, usable main screen <2 s on a defined client/network, availability 99.95%, regional RPO <=15 min and RTO <=4 h. A same-cluster synthetic logical database/key-ring recovery drill is verified under ADR 023. No load, availability, managed point-in-time restore, regional disaster recovery or achieved RPO/RTO results are claimed. Record tenant sizes, concurrency, cold/warm state, region, and measurement boundaries when testing them.
 
 ## Versioned typed assets
 
