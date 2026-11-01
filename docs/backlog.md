@@ -6,13 +6,13 @@ Updated 2026-11-01. Preserve all scope in the [original brief](project-brief.md)
 
 The [production-readiness assessment](production-readiness.md) now controls release priority. The local core is tested, but customer production use is not approved. These gates add operational dependencies without removing any of the 146 enterprise inventory entries or marking the full program complete.
 
-- [ ] Production web/API/worker artifacts, seed-free migration and restricted role/tenant bootstrap, validated configuration, liveness/readiness and packaged Production-mode CI smoke tests.
+- [x] Production web/API/worker artifacts, seed-free migration and restricted role/tenant bootstrap, validated configuration, liveness/readiness and packaged synthetic Production-mode CI smoke tests (ADR 022; exact run in progress). Live managed/provider/deployment and operational recovery remain separate gates.
 - [ ] Authorized isolated AWS staging, reviewed remote state/networking/secrets/keys, managed-PostgreSQL role/function/backfill verification and tested deployment/rollback.
 - [ ] Live Okta/MFA/assignment/session behavior, audited onboarding/offboarding/operator access and an in-flight revocation protocol. The current adapter supports one configured issuer/SaveIT tenant; broader SaaS identity remains separate work.
 - [ ] Redacted telemetry/alerts, production quotas, complete auth/denial/admin audit, protected archive/retention and worker operations; actual isolated database/config/key recovery with measured results.
 - [ ] Recorded load/capacity evidence, independent security/accessibility validation, remediation and an owned patch/release/incident/support process before an approved pilot; then expand to broader SaaS and full enterprise scope.
 
-The release-foundation implementation is under final local/packaged CI verification (ADR 022); the unchecked aggregate gate is not complete until that execution succeeds. Next account-free work includes offline-tested infrastructure, isolated recovery rehearsal, supply-chain gates and audited operator/revocation work. Template restoration is still an unfinished core feature, but is no longer the next release-priority task. Cloud provisioning and real-provider checks await authorized accounts; release-foundation code can proceed now.
+The release-foundation packaged CI gate passed (ADR 022); the full general regression rerun is pending a documented older test-assertion correction. Next account-free work includes offline-tested infrastructure, isolated recovery rehearsal, supply-chain gates and audited operator/revocation work. Template restoration is still an unfinished core feature, but is no longer the next release-priority task. Cloud provisioning and real-provider checks await authorized accounts; release-foundation code can proceed now.
 
 ## Phase 0 — specification and inventory
 

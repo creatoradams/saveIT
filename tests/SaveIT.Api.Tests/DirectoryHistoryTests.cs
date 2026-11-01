@@ -43,7 +43,9 @@ public sealed class DirectoryHistoryTests(DatabaseFixture fixture) : IDisposable
     }
     private static void NoContent(string text)
     {
-        foreach (var privateValue in new[] { "Historical", "Exact", "synthetic@example.invalid", "555", "private restore reason", "nextCursor", "items", "notes" })
+        // Match the complete synthetic phone and its field: short digit fragments can occur
+        // legitimately in random diagnostic trace IDs and do not establish a content leak.
+        foreach (var privateValue in new[] { "Historical", "Exact", "synthetic@example.invalid", "+1 555 0100", "\"phone\"", "\"email\"", "\"details\"", "\"name\"", "private restore reason", "nextCursor", "items", "notes" })
             Assert.DoesNotContain(privateValue, text, StringComparison.OrdinalIgnoreCase);
     }
 
