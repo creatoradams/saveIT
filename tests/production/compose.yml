@@ -80,6 +80,7 @@ services:
     read_only: true
     tmpfs: ["/tmp:uid=1654,gid=1654,mode=0700"]
     environment:
+      AllowedHosts: idp.localhost;identity;localhost;127.0.0.1
       Fixture__Issuer: https://idp.localhost:8443
       Fixture__PublicOrigin: https://saveit.localhost:8443
   edge:

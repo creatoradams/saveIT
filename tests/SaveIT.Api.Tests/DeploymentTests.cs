@@ -243,9 +243,10 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Selected_event_deadlines_back_off_dead_letter_and_allow_later_work_but_host_shutdown_does_not_record_failure(bool shutdown)
+    [InlineData(false, 2000)]
+    [InlineData(false, -1)]
+    [InlineData(true, 2000)]
+    public async Task Selected_event_deadlines_back_off_dead_letter_and_allow_later_work_but_host_shutdown_does_not_record_failure(bool shutdown, int cancellationTimeout)
     {
         await using var d = await Database(); await DeploymentRunner.MigrateAsync(d.Connection, true);
         var p = Manifest(); await DeploymentRunner.ProvisionAsync(d.Connection, JsonSerializer.Serialize(p), true);
@@ -256,7 +257,7 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         await using var blocker = new NpgsqlConnection(d.Admin); await blocker.OpenAsync();
         await using (var command = new NpgsqlCommand($"SELECT pg_advisory_lock({lockKey})", blocker)) await command.ExecuteNonQueryAsync();
         var appName = "saveit-deadline-" + Guid.NewGuid().ToString("N");
-        var worker = new NpgsqlConnectionStringBuilder(d.Worker) { ApplicationName = appName }.ConnectionString;
+        var worker = new NpgsqlConnectionStringBuilder(d.Worker) { ApplicationName = appName, CancellationTimeout = cancellationTimeout, MaxPoolSize = 1 }.ConnectionString;
         for (var attempt = 1; attempt <= (shutdown ? 1 : 5); attempt++)
         {
             var clock = new DeadlineClock(); using var stop = new CancellationTokenSource();
@@ -307,5 +308,19 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         await fixture.Execute("ALTER TABLE \"DocumentTemplates\" NO FORCE ROW LEVEL SECURITY");
         try { var r = await c.GetAsync("/health/ready"); Assert.Equal(HttpStatusCode.ServiceUnavailable, r.StatusCode); Assert.Equal("{\"status\":\"unavailable\"}", await r.Content.ReadAsStringAsync()); Assert.Equal(HttpStatusCode.OK, (await c.GetAsync("/health/live")).StatusCode); }
         finally { await fixture.Execute("ALTER TABLE \"DocumentTemplates\" FORCE ROW LEVEL SECURITY"); }
+    }
+
+    [Fact]
+    public async Task Deferred_receipt_commit_failure_records_backoff_on_single_connection_pool_and_recovers()
+    {
+        await using var d = await Database(); await DeploymentRunner.MigrateAsync(d.Connection, true);
+        var p = Manifest(); await DeploymentRunner.ProvisionAsync(d.Connection, JsonSerializer.Serialize(p), true);
+        await d.Execute("CREATE FUNCTION fail_completion_commit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.\"CompletedAt\" IS NOT NULL THEN RAISE EXCEPTION 'Synthetic deferred receipt failure'; END IF; RETURN NEW; END $$; CREATE CONSTRAINT TRIGGER fail_completion_commit AFTER INSERT OR UPDATE ON \"SearchDeliveries\" DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION fail_completion_commit()");
+        var worker = new NpgsqlConnectionStringBuilder(d.Worker) { MaxPoolSize = 1, ApplicationName = "saveit-deferred-" + Guid.NewGuid().ToString("N") }.ConnectionString;
+        var processor = new SearchProcessor(worker, requireSchema: true);
+        Assert.Equal(1, (await processor.ProcessBatchAsync(p.TenantId).WaitAsync(TimeSpan.FromSeconds(10))).Retried);
+        Assert.True(await d.Scalar<bool>("SELECT \"Attempts\"=1 AND \"CompletedAt\" IS NULL AND \"NextAttemptAt\">now() AND \"ErrorCode\"='projection_database_failure' FROM \"SearchDeliveries\""));
+        await d.Execute("DROP TRIGGER fail_completion_commit ON \"SearchDeliveries\"; DROP FUNCTION fail_completion_commit(); UPDATE \"SearchDeliveries\" SET \"NextAttemptAt\"=now()-interval '1 second'");
+        Assert.Equal(1, (await processor.ProcessBatchAsync(p.TenantId)).Completed);
     }
 }

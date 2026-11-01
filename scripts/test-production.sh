@@ -66,6 +66,14 @@ for attempt in $(seq 1 60); do
   if [[ "$attempt" == 60 ]]; then echo 'Production readiness did not become healthy.' >&2; exit 1; fi
   sleep 2
 done
+for attempt in $(seq 1 30); do
+  if curl --silent --fail --cacert "$fixture/ca.crt" --resolve idp.localhost:8443:127.0.0.1 https://idp.localhost:8443/.well-known/openid-configuration > "$fixture/discovery.json"; then
+    node --input-type=module -e "import fs from 'node:fs'; import assert from 'node:assert/strict'; assert.equal(JSON.parse(fs.readFileSync('.local/container-fixture/discovery.json','utf8')).issuer,'https://idp.localhost:8443');"
+    break
+  fi
+  if [[ "$attempt" == 30 ]]; then echo 'Synthetic HTTPS discovery did not become available.' >&2; exit 1; fi
+  sleep 1
+done
 for attempt in $(seq 1 35); do
   if "${compose[@]}" exec -T worker dotnet SaveIT.Workers.dll --healthcheck >/dev/null 2>&1; then break; fi
   if [[ "$attempt" == 35 ]]; then echo 'Worker readiness never became healthy.' >&2; exit 1; fi

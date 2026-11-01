@@ -91,14 +91,14 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
             catch (Exception error) when (!cancellationToken.IsCancellationRequested &&
                 (error is NpgsqlException || error is OperationCanceledException && deadline.IsCancellationRequested))
             {
-                // An expired unit cannot reuse its cancelled token for rollback/retry. A fresh,
-                // bounded connection also handles a provider timeout that broke the old session.
+                // Provider disposal handles pending, completed and already-disposed transactions.
+                // Reuse a healthy session so a one-slot pool cannot wait on its own checkout.
                 using var cleanup = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cleanup.CancelAfter(TimeSpan.FromSeconds(5));
-                try { await transaction.RollbackAsync(cleanup.Token); }
-                catch (NpgsqlException) when (connection.State != System.Data.ConnectionState.Open) { }
+                await transaction.DisposeAsync();
                 // Record retries separately; the failed projection/receipt transaction was rolled back.
-                await using var failureConnection = await OpenAsync(cleanup.Token);
+                await using var replacement = connection.State == System.Data.ConnectionState.Open ? null : await OpenAsync(cleanup.Token);
+                var failureConnection = replacement ?? connection;
                 await using var failureTransaction = await BeginTenantAsync(failureConnection, tenantId, cleanup.Token);
                 await LockAsync(failureConnection, failureTransaction, tenantId, true, cleanup.Token);
                 var code = deadline.IsCancellationRequested ? "projection_deadline" : "projection_database_failure";
