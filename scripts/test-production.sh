@@ -13,6 +13,13 @@ cleanup() {
     "${compose[@]}" logs --no-color > test-results/production-containers.log 2>&1 || true
   fi
   "${compose[@]}" down --volumes --remove-orphans
+  # The base service graph no longer references the override-only recovery volume.
+  if docker volume inspect saveit-release_recovered_keyring >/dev/null 2>&1; then
+    owner="$(docker volume inspect saveit-release_recovered_keyring --format '{{index .Labels "com.docker.compose.project"}}')"
+    if [[ "$owner" != saveit-release ]]; then echo 'Refusing to remove an unowned recovery volume.' >&2; return 1; fi
+    docker volume rm saveit-release_recovered_keyring >/dev/null
+  fi
+  return "$status"
 }
 trap cleanup EXIT
 openssl req -x509 -newkey rsa:2048 -nodes -keyout "$fixture/ca.key" -out "$fixture/ca.crt" -days 2 -subj '/CN=SaveIT synthetic fixture CA' >/dev/null 2>&1

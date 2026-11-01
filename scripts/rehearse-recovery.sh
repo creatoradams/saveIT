@@ -24,6 +24,8 @@ docker run --rm --user 0 --entrypoint /bin/sh -v "$backup:/backup:ro" "$sdk" -eu
 "${compose[@]}" exec -T db psql -XAt -U postgres -d saveit_recovery -v ON_ERROR_STOP=1 < tests/production/inventory.sql > "$backup/restored-counts.txt"
 cmp --silent "$backup/before-counts.txt" "$backup/restored-counts.txt"
 "${recovered[@]}" create api
+owner="$(docker volume inspect saveit-release_recovered_keyring --format '{{index .Labels "com.docker.compose.project"}}')"
+[[ "$owner" == saveit-release ]]
 docker run --rm --user 0 --entrypoint /bin/sh -v saveit-release_recovered_keyring:/restore -v "$backup:/backup:ro" "$sdk" -euc 'test -z "$(ls -A /restore)"; mkdir -p /restore/ring; tar -xf /backup/keyring.tar -C /restore/ring; cp /backup/protection.pfx /restore/protection.pfx; cp /backup/previous.pfx /restore/previous.pfx; chown -R 1654:1654 /restore; chmod 700 /restore /restore/ring; chmod 600 /restore/protection.pfx /restore/previous.pfx'
 "${recovered[@]}" run --rm --no-deps worker --rebuild --once
 "${recovered[@]}" up -d --force-recreate api worker

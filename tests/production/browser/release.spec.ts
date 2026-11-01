@@ -199,16 +199,23 @@ test("logical database and protected keys recover into separate targets while th
     }),
   );
   const revision = await page.request.get(
-    root + "/documents/" + document.id + "/revisions/1",
+    root + "/documents/" + document.id + "/revisions",
   );
   expect(revision.status()).toBe(200);
-  expect(await revision.json()).toEqual(
+  const history = await revision.json();
+  expect(history.items).toEqual([
+    expect.objectContaining({
+      title: "Current recovery procedure",
+      content: currentContent,
+      version: 2,
+    }),
     expect.objectContaining({
       title: "Recovery procedure",
       content: initialContent,
       version: 1,
     }),
-  );
+  ]);
+  expect(history.nextCursor).toBeNull();
   expect(
     (
       await page.request.get(
