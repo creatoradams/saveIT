@@ -38,6 +38,8 @@ async function selectOrg(page: Page, id: string) {
     name: "ORGANIZATION",
     exact: true,
   });
+  await expect(picker).toBeVisible();
+  await expect(picker).toBeEnabled();
   for (
     let i = 0;
     i < 64 && !(await picker.locator(`option[value="${id}"]`).count());
@@ -257,8 +259,28 @@ test("publish an authored SOP, inspect immutable history and create a reviewed d
     )
   ).json();
   expect(origin.templateVersion).toBe(2);
+  let releaseOrganizations!: () => void;
+  const organizationGate = new Promise<void>((resolve) => {
+    releaseOrganizations = resolve;
+  });
+  let organizationRequestStarted!: () => void;
+  const organizationRequest = new Promise<void>((resolve) => {
+    organizationRequestStarted = resolve;
+  });
+  await page.route("**/api/v1/organizations", async (route) => {
+    organizationRequestStarted();
+    await organizationGate;
+    await route.continue();
+  });
   await page.reload();
-  await selectOrg(page, org);
+  await organizationRequest;
+  const selectReloadedOrganization = selectOrg(page, org);
+  await expect(
+    page.getByText("Opening your workspace…", { exact: true }),
+  ).toBeVisible();
+  releaseOrganizations();
+  await selectReloadedOrganization;
+  await page.unroute("**/api/v1/organizations");
   await page
     .getByRole("region", { name: "Asset inventory" })
     .getByRole("button", { name: new RegExp(a.name) })

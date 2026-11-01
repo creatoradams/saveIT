@@ -1,6 +1,6 @@
 # SaveIT architecture
 
-Status: working local core and unconfigured Okta adapter, 2026-10-30. [Original enterprise brief](project-brief.md) remains the scope of the product. This is not a production release.
+Status: working local core and unconfigured Okta adapter, 2026-10-31. [Original enterprise brief](project-brief.md) remains the scope of the product. This is not a production release.
 
 ## Repository inspection and choices
 

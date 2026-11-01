@@ -1,6 +1,6 @@
 # SaveIT threat model and release risks
 
-Updated 2026-10-29. Scope: the local core, synthetic data and unconfigured Okta adapter. Owners: project maintainers. Reassess each added endpoint, consumer, identity adapter, and data classification.
+Updated 2026-10-31. Scope: the local core, synthetic data and unconfigured Okta adapter. Owners: project maintainers. Reassess each added endpoint, consumer, identity adapter, and data classification.
 
 ## Data and trust boundaries
 
