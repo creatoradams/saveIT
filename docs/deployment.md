@@ -47,3 +47,9 @@ Only the dedicated test target includes the synthetic provider. It refuses envir
 ## Remaining production work
 
 Protected release promotion/SBOM/signing/scanning, real managed-database and provider tests, audited operational membership/grant lifecycle and in-flight revocation, telemetry/quotas/audit archives, actual backup/key recovery, measured capacity/SLOs and independent assessment remain separate gates. Terraform/cloud resources remain unapplied. All 146 enterprise scope entries remain tracked.
+
+## Isolated recovery rehearsal
+
+ADR 023 extends the packaged tests with a synthetic logical recovery drill. The third browser flow creates current/revision content, retains its session and invokes `scripts/rehearse-recovery.sh`. That helper targets only the disposable `saveit-release` Compose graph. It stops API/worker writers, dumps the database, snapshots persisted keys and both current/prior protectors, checks backup hashes and restores into `saveit_recovery` and a separate `recovered_keyring` volume. Original targets are retained. Protected-table/migration counts must match before restarting writes; the normal restricted worker rebuilds search and the same images start under the normal runtime guards. The browser checks its existing cookie, exact snapshots, tenant denial, rebuilt search and a new audited write.
+
+Run this only through the synthetic packaged suite. It is not a general production restore tool. Backup/key material and test evidence stay under ignored `.local`/test output paths. This drill retains the same cluster/roles/CA and uses a fixture administrator to preserve object ownership/grants. It does not establish independent-cluster or managed point-in-time restoration, offsite/immutable backups, KMS recovery or achieved RPO/RTO. Execution status is recorded in progress after actual Linux CI, not inferred from these definitions.

@@ -1,0 +1,9 @@
+# ADR 023: isolated synthetic database and key-ring recovery rehearsal
+
+Accepted for implementation 2026-11-01. Extends ADR 022. Execution evidence is recorded separately; this design is not a managed backup/RPO/RTO claim.
+
+Before cloud accounts exist, the packaged fixture can exercise logical database and session-key recovery with only synthetic data. Stop API/worker writers, take a custom-format PostgreSQL dump and a separate persisted key-ring/protector snapshot, verify backup hashes, restore to a newly named database and a distinct key-ring volume, then recreate the same application images against those targets. Compare all protected-table and migration row counts before resuming writes. The old database/key-ring remain separate. Restore uses the fixture's explicit privileged administrator so original object owners, forced RLS, constraints and grants survive; runtime roles never gain restore authority.
+
+The browser must retain its existing protected session while confirming exact current/revision content, live tenant denial and search rebuilt under the normal restricted worker. Readiness/role/schema checks remain enforced. Test helper names/credentials are fixed to the isolated Compose fixture and are not a general production restore command. Backups, protectors, hashes and browser evidence remain ignored; application/customer content never enters logs or Git.
+
+This proves a bounded synthetic logical restore plus protected key-ring round trip only after actual execution. Roles, host/cluster and fixture CA are retained, so it does not prove independent cluster/account recovery, managed point-in-time restore, immutable/offsite backup, KMS/secret recovery, automated rotation, rollback compatibility across releases or achieved RPO/RTO. Those require additional implementation and actual environment/operator drills. Asset/deletion recovery remains separate product work.

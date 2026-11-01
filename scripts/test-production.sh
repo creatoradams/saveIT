@@ -74,17 +74,21 @@ for attempt in $(seq 1 30); do
   if [[ "$attempt" == 30 ]]; then echo 'Synthetic HTTPS discovery did not become available.' >&2; exit 1; fi
   sleep 1
 done
-for attempt in $(seq 1 35); do
-  if "${compose[@]}" exec -T worker dotnet SaveIT.Workers.dll --healthcheck >/dev/null 2>&1; then break; fi
-  if [[ "$attempt" == 35 ]]; then echo 'Worker readiness never became healthy.' >&2; exit 1; fi
-  sleep 1
-done
+wait_for_worker() {
+  for attempt in $(seq 1 35); do
+    if "${compose[@]}" exec -T worker dotnet SaveIT.Workers.dll --healthcheck >/dev/null 2>&1; then return; fi
+    if [[ "$attempt" == 35 ]]; then echo 'Worker readiness never became healthy.' >&2; exit 1; fi
+    sleep 1
+  done
+}
+wait_for_worker
 for image in api worker deployment web; do
   user="$(docker image inspect "saveit-$image:test" --format '{{.Config.User}}')"
   [[ -n "$user" && "$user" != 0 && "$user" != root ]]
 done
 npx playwright test --config playwright.production.config.ts
 # Real DB outage must invalidate worker progress readiness, independently of process liveness.
+wait_for_worker
 "${compose[@]}" stop db
 for attempt in $(seq 1 35); do
   if ! "${compose[@]}" exec -T worker dotnet SaveIT.Workers.dll --healthcheck >/dev/null 2>&1; then break; fi

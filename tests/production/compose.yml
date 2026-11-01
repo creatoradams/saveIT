@@ -94,6 +94,7 @@ services:
         aliases: ["idp.localhost", "saveit.localhost"]
 volumes:
   keyring:
+  recovered_keyring:
 networks:
   default:
     ipam:

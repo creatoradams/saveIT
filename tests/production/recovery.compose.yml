@@ -1,0 +1,12 @@
+services:
+  api:
+    environment:
+      ConnectionStrings__App: Host=db;Database=saveit_recovery;Username=saveit_app;Password=synthetic-app-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
+      Identity__KeyDirectory: /keys/ring
+      Identity__KeyCertificatePath: /keys/protection.pfx
+      Identity__PreviousKeyCertificates__0__Path: /keys/previous.pfx
+    volumes:
+      - recovered_keyring:/keys
+  worker:
+    environment:
+      ConnectionStrings__SearchWorker: Host=db;Database=saveit_recovery;Username=saveit_search_worker;Password=synthetic-worker-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
