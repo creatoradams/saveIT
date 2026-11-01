@@ -169,6 +169,38 @@ public sealed class DocumentPlacement : ITenantOwned
     public int Version { get; set; } = 1;
     public DateTimeOffset UpdatedAt { get; set; }
 }
+public sealed class DocumentTemplate : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = "";
+    public int Version { get; set; } = 1;
+    public bool IsArchived { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+public sealed class DocumentTemplateRevision : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid TemplateId { get; set; }
+    public int Version { get; set; }
+    public string Name { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Content { get; set; } = "";
+    public bool IsArchived { get; set; }
+    public string Actor { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+}
+public sealed class DocumentTemplateOrigin : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid DocumentId { get; set; }
+    public int DocumentVersion { get; set; } = 1;
+    public Guid TemplateId { get; set; }
+    public int TemplateVersion { get; set; }
+}
 public sealed class Document : ITenantOwned
 {
     public Guid Id { get; set; }

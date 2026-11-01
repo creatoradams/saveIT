@@ -17,6 +17,13 @@ export type AssetComparisonSide =
   components["schemas"]["AssetComparisonSideDto"];
 export type AssetRelationship = components["schemas"]["AssetRelationshipDto"];
 export type Doc = components["schemas"]["DocumentDto"];
+export type DocumentTemplate = components["schemas"]["DocumentTemplateDto"];
+export type DocumentTemplateRevision =
+  components["schemas"]["DocumentTemplateRevisionDto"];
+export type DocumentTemplateSummary =
+  components["schemas"]["DocumentTemplateRevisionSummaryDto"];
+export type DocumentTemplateOrigin =
+  components["schemas"]["DocumentTemplateOriginDto"];
 export type Folder = components["schemas"]["FolderDto"];
 export type FolderDetail = components["schemas"]["FolderDetailDto"];
 export type LibraryDocument = components["schemas"]["LibraryDocumentDto"];

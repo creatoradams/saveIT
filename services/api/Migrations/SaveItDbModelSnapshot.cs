@@ -640,6 +640,125 @@ namespace SaveIT.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentTemplate", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "OrganizationId", "Id");
+
+                    b.HasIndex("TenantId", "OrganizationId", "IsArchived", "Id");
+
+                    b.ToTable("DocumentTemplates", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DocumentTemplate_Name", "public.valid_asset_text_v1(\"Name\",160,true) IS TRUE");
+
+                            t.HasCheckConstraint("CK_DocumentTemplate_Version", "\"Version\">0");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentTemplateOrigin", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DocumentVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TemplateVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "OrganizationId", "DocumentId");
+
+                    b.HasIndex("TenantId", "DocumentId", "DocumentVersion");
+
+                    b.HasIndex("TenantId", "OrganizationId", "TemplateId", "TemplateVersion");
+
+                    b.ToTable("DocumentTemplateOrigins", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DocumentTemplateOrigin_InitialVersion", "\"DocumentVersion\"=1 AND \"TemplateVersion\">0");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentTemplateRevision", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(50000)
+                        .HasColumnType("character varying(50000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.HasKey("TenantId", "OrganizationId", "TemplateId", "Version");
+
+                    b.ToTable("DocumentTemplateRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DocumentTemplateRevision_Text", "public.valid_asset_text_v1(\"Name\",160,true) IS TRUE AND public.valid_asset_text_v1(\"Title\",160,true) IS TRUE AND public.valid_asset_text_v1(\"Content\",50000,true) IS TRUE AND length(btrim(\"Actor\"))>0");
+
+                            t.HasCheckConstraint("CK_DocumentTemplateRevision_Version", "\"Version\">0");
+                        });
+                });
+
             modelBuilder.Entity("SaveIT.Api.Data.Location", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1280,6 +1399,65 @@ namespace SaveIT.Api.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId", "OrganizationId", "DocumentId")
                         .HasPrincipalKey("TenantId", "OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentTemplate", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentTemplateOrigin", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.DocumentRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "DocumentId", "DocumentVersion")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Document", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "DocumentId")
+                        .HasPrincipalKey("TenantId", "OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.DocumentTemplateRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "TemplateId", "TemplateVersion")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.DocumentTemplateRevision", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.DocumentTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId", "TemplateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

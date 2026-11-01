@@ -124,3 +124,22 @@ Folder create accepts `{ "name": "Runbooks", "parentId": null, "expectedVersion"
 Child/document pages use nullable UUID continuations. GET folder returns `{ folder, path }` with at most eight root-first current nodes. Library documents return metadata `{ id, assetId, title, version, updatedAt, folderId, placementVersion }` without bodies. Every page/path/placement requires current authority and durable read audit before serialization; source/audit failure returns no fields/cursor and no fallback. Lists and paths describe current state, not historical locations.
 
 Placement PUT accepts `{ "folderId": "<scoped UUID or null>", "expectedVersion": 0 }`. A legacy unfiled document has no placement row and version zero; its first move inserts version one, subsequent filing/unfiling increments only the placement version. Response `{ documentId, folderId, version, updatedAt }` is separate from DocumentDto.version. Filing preserves content/asset/time/revisions and search version; content edits/restoration preserve current placement. Identical placement is 400, concurrent first/later moves 409. Snapshot-free folder/placement writes still commit audit/outbox/queue atomically. Audit/outbox contain numeric/opaque metadata, and known schema-v1 folder/filing events are explicit worker no-ops. Folder history/lifecycle, partial ACLs and bulk changes remain unimplemented; see ADR 019.
+
+## Document templates and reviewed creation
+
+All routes below use `/api/v1/organizations/{org}`, protected session tenant authority and live organization roles. Viewers read; Editors write with CSRF.
+
+| Method / path | Behavior |
+| --- | --- |
+| GET /document-templates?includeArchived=false&after={uuid} | Audited metadata page, max 50; no body |
+| GET /document-templates/{id} | Audited current metadata/version/lifecycle |
+| POST /document-templates | Publish version 1 with expectedVersion=0; initially active |
+| PUT /document-templates/{id} | Publish immutable next version with expectedVersion and full fields/lifecycle |
+| GET /document-templates/{id}/revisions?before={positive integer} | Audited newest-first metadata history page, max 50 |
+| GET /document-templates/{id}/revisions/{version} | Audited exact immutable name/title/content/lifecycle/actor/time |
+| POST /document-templates/{id}/documents | Explicit reviewed creation from active current template version |
+| GET /documents/{id}/template-origin | Audited immutable source reference/name, or null source fields for no recorded origin |
+
+Publication accepts `{ name, title, content, expectedVersion, isArchived }`; name/title are trimmed nonblank plain text of at most 160 characters, body nonblank at most 50,000 with exact line endings. Invalid publication/creation fields, malformed route/query values and nonpositive history cursors return 400; stale/currently archived creation returns 409; missing exact revisions and inaccessible scoped resources return 404. History remains readable after archive. A failed source/audit read returns no content/cursor/provenance and never becomes a null-origin fallback.
+
+Reviewed creation accepts `{ assetId, templateVersion, title, content }`. The source head is locked before current active/version checks through the atomic document/revision-1/origin/audit/outbox/queue commit. The title/body are explicit user-reviewed values and may differ from the source. The ordinary DocumentDto is returned with 201; the new document is unfiled at placement version zero. Origin `{ documentId, templateId, templateVersion, templateName }` pins the exact historical starter and document revision 1; later template publications/content restore/filing do not alter it. Manual/legacy documents return null template fields after a successful source read/audit. No template reapply, comparison, restore, delete, dynamic variables or bulk generation exists. See ADR 020.

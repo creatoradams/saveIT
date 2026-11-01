@@ -130,6 +130,7 @@ app.MapSaveItEndpoints();
 app.MapSearchEndpoints();
 app.MapDocumentHistoryEndpoints();
 app.MapFolderEndpoints();
+app.MapDocumentTemplateEndpoints();
 app.MapAssetRelationshipEndpoints();
 app.MapDirectoryEndpoints();
 app.MapOrganizationEndpoints();

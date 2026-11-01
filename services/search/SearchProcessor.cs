@@ -50,6 +50,7 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
                 // must not delete or create asset/document projections. Other schemas/types still fail.
                 var metadataOnly = current.Type is "AssetRelationship.Created" or "AssetRelationship.Removed" or "Location.Created" or "Location.Revised" or "Location.Restored" or "Contact.Created" or "Contact.Revised" or "Contact.Restored" or "Organization.Created" or "Organization.Revised" or "AssetType.Created" or "AssetType.Revised";
                 metadataOnly |= current.Type is "DocumentFolder.Created" or "DocumentFolder.Revised" or "Document.Filed";
+                metadataOnly |= current.Type is "DocumentTemplate.Created" or "DocumentTemplate.Revised";
                 if (current.SchemaVersion != 1 || (type is null && !metadataOnly))
                 {
                     await WriteFailureAsync(connection, transaction, tenantId, current.Id, "unsupported_event", true, cancellationToken);

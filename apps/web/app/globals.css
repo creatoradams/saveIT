@@ -1720,3 +1720,25 @@ td strong {
 .document-library .panel-top {
   flex-wrap: wrap;
 }
+.document-templates {
+  padding-bottom: 24px;
+}
+.document-templates > p,
+.document-templates > div:not(.panel-top),
+.document-templates > form {
+  margin: 16px 24px;
+}
+.document-templates input:not([type="checkbox"]),
+.document-templates textarea,
+.document-templates select {
+  width: 100%;
+  min-width: 0;
+}
+.document-templates .document-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.document-templates label,
+.document-templates aside {
+  overflow-wrap: anywhere;
+}

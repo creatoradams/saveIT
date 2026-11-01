@@ -9,6 +9,7 @@ import AssetMetadata from "./asset-metadata";
 import OrganizationPanel from "./organization-panel";
 import OrganizationHistory from "./organization-history";
 import DocumentLibrary from "./document-library";
+import DocumentTemplates, { DocumentOrigin } from "./document-templates";
 import AssetTemplates from "./asset-templates";
 import AssetFieldsPanel from "./asset-fields";
 import {
@@ -70,6 +71,7 @@ export default function Workspace() {
     | "organizations"
     | "organization-history"
     | "library"
+    | "document-templates"
     | "templates"
   >("workspace");
   const searchSelection = useRef<Pick<
@@ -133,7 +135,9 @@ export default function Workspace() {
     setNotice("");
   }
 
-  async function openLibraryDocument(row: LibraryDocument) {
+  async function openLibraryDocument(
+    row: Pick<LibraryDocument, "id" | "assetId">,
+  ) {
     await perform(async () => {
       try {
         const current = await api<Organization>(
@@ -632,6 +636,15 @@ export default function Workspace() {
           >
             Document library
           </button>
+          <button
+            className={
+              view === "document-templates" ? "nav-item active" : "nav-item"
+            }
+            disabled={busy}
+            onClick={() => setView("document-templates")}
+          >
+            Document templates
+          </button>
           {session.canManageOrganizations && (
             <button
               className={
@@ -682,13 +695,15 @@ export default function Workspace() {
                     ? "Locations & contacts"
                     : view === "organizations"
                       ? "Manage organizations"
-                      : view === "library"
-                        ? "Document library"
-                        : view === "organization-history"
-                          ? "Organization history"
-                          : view === "templates"
-                            ? "Asset templates"
-                            : "Audit history"}
+                      : view === "document-templates"
+                        ? "Document templates"
+                        : view === "library"
+                          ? "Document library"
+                          : view === "organization-history"
+                            ? "Organization history"
+                            : view === "templates"
+                              ? "Asset templates"
+                              : "Audit history"}
             </strong>
           </div>
           <span className="development">
@@ -713,13 +728,15 @@ export default function Workspace() {
                       ? "People and places, connected."
                       : view === "organizations"
                         ? "Make room for what comes next."
-                        : view === "library"
-                          ? "A place for every document."
-                          : view === "organization-history"
-                            ? "A name for every chapter."
-                            : view === "templates"
-                              ? "A consistent starting point."
-                              : "Every change leaves a trail."}
+                        : view === "document-templates"
+                          ? "A thoughtful start for every procedure."
+                          : view === "library"
+                            ? "A place for every document."
+                            : view === "organization-history"
+                              ? "A name for every chapter."
+                              : view === "templates"
+                                ? "A consistent starting point."
+                                : "Every change leaves a trail."}
               </h1>
               <p>
                 {view === "workspace"
@@ -730,13 +747,15 @@ export default function Workspace() {
                       ? "Keep location and contact records inside their organization."
                       : view === "organizations"
                         ? "Create and name the organizations your team documents."
-                        : view === "library"
-                          ? "Organize documentation while keeping its history and connections."
-                          : view === "organization-history"
-                            ? "Inspect the saved names of the organization you can access."
-                            : view === "templates"
-                              ? "Define the fields that matter, then keep their history intact."
-                              : "Follow the people and changes behind your documentation."}
+                        : view === "document-templates"
+                          ? "Publish reusable text and review each document before creating it."
+                          : view === "library"
+                            ? "Organize documentation while keeping its history and connections."
+                            : view === "organization-history"
+                              ? "Inspect the saved names of the organization you can access."
+                              : view === "templates"
+                                ? "Define the fields that matter, then keep their history intact."
+                                : "Follow the people and changes behind your documentation."}
               </p>
             </div>
           </div>
@@ -839,6 +858,31 @@ export default function Workspace() {
                 denyOrganization(message, session.tenantId, organizationId)
               }
               onOpen={openLibraryDocument}
+            />
+          )}
+          {organizationId && view === "document-templates" && (
+            <DocumentTemplates
+              key={`${session.tenantId}:${organizationId}`}
+              organizationId={organizationId}
+              canEdit={canEdit}
+              disabled={busy}
+              onBusyChange={setBusy}
+              onDenied={(message) =>
+                denyOrganization(message, session.tenantId, organizationId)
+              }
+              onCreated={(doc) => {
+                searchSelection.current = {
+                  id: doc.id,
+                  assetId: doc.assetId,
+                  organizationId,
+                  type: "document",
+                };
+                setNavigationVersion((x) => x + 1);
+                setView("workspace");
+                setNotice(
+                  "Document created from the reviewed template version.",
+                );
+              }}
             />
           )}
           {organizationId && view === "workspace" && (
@@ -1190,6 +1234,20 @@ export default function Workspace() {
                               </span>
                             </div>
                             <p className="document-text">{document.content}</p>
+                            <DocumentOrigin
+                              key={`${session.tenantId}:${organizationId}:${document.id}`}
+                              organizationId={organizationId}
+                              documentId={document.id}
+                              disabled={busy}
+                              onBusyChange={setBusy}
+                              onDenied={(message) =>
+                                denyOrganization(
+                                  message,
+                                  session.tenantId,
+                                  organizationId,
+                                )
+                              }
+                            />
                             <div className="actions">
                               {canEdit && (
                                 <button

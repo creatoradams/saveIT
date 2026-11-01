@@ -29,6 +29,9 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
     public DbSet<AssetRevision> AssetRevisions => Set<AssetRevision>();
     public DbSet<AssetRelationship> AssetRelationships => Set<AssetRelationship>();
     public DbSet<Document> Documents => Set<Document>();
+    public DbSet<DocumentTemplate> DocumentTemplates => Set<DocumentTemplate>();
+    public DbSet<DocumentTemplateRevision> DocumentTemplateRevisions => Set<DocumentTemplateRevision>();
+    public DbSet<DocumentTemplateOrigin> DocumentTemplateOrigins => Set<DocumentTemplateOrigin>();
     public DbSet<DocumentFolder> DocumentFolders => Set<DocumentFolder>();
     public DbSet<DocumentPlacement> DocumentPlacements => Set<DocumentPlacement>();
     public DbSet<DocumentRevision> DocumentRevisions => Set<DocumentRevision>();
@@ -225,6 +228,32 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
             .HasPrincipalKey(x => new { x.TenantId, x.DocumentId, x.Version }).OnDelete(DeleteBehavior.Restrict);
         m.Entity<DocumentRevision>().ToTable(t => t.HasCheckConstraint("CK_Revision_RestoreProvenance",
             "COALESCE((\"RestoredFromVersion\" IS NULL AND \"RestoreReason\" IS NULL) OR (\"RestoredFromVersion\" > 0 AND \"RestoredFromVersion\" < \"Version\" AND length(btrim(\"RestoreReason\")) BETWEEN 3 AND 500),false)"));
+        TenantEntity<DocumentTemplate>(m, "DocumentTemplates");
+        m.Entity<DocumentTemplate>().HasKey(x => new { x.TenantId, x.OrganizationId, x.Id });
+        m.Entity<DocumentTemplate>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentTemplate>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<DocumentTemplate>().Property(x => x.Version).IsConcurrencyToken();
+        m.Entity<DocumentTemplate>().HasIndex(x => new { x.TenantId, x.OrganizationId, x.IsArchived, x.Id });
+        m.Entity<DocumentTemplate>().ToTable(t => {
+            t.HasCheckConstraint("CK_DocumentTemplate_Version", "\"Version\">0");
+            t.HasCheckConstraint("CK_DocumentTemplate_Name", "public.valid_asset_text_v1(\"Name\",160,true) IS TRUE");
+        });
+        TenantEntity<DocumentTemplateRevision>(m, "DocumentTemplateRevisions");
+        m.Entity<DocumentTemplateRevision>().HasKey(x => new { x.TenantId, x.OrganizationId, x.TemplateId, x.Version });
+        m.Entity<DocumentTemplateRevision>().HasOne<DocumentTemplate>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.TemplateId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentTemplateRevision>().Property(x => x.Name).HasMaxLength(160);
+        m.Entity<DocumentTemplateRevision>().Property(x => x.Title).HasMaxLength(160);
+        m.Entity<DocumentTemplateRevision>().Property(x => x.Content).HasMaxLength(50000);
+        m.Entity<DocumentTemplateRevision>().ToTable(t => {
+            t.HasCheckConstraint("CK_DocumentTemplateRevision_Version", "\"Version\">0");
+            t.HasCheckConstraint("CK_DocumentTemplateRevision_Text", "public.valid_asset_text_v1(\"Name\",160,true) IS TRUE AND public.valid_asset_text_v1(\"Title\",160,true) IS TRUE AND public.valid_asset_text_v1(\"Content\",50000,true) IS TRUE AND length(btrim(\"Actor\"))>0");
+        });
+        TenantEntity<DocumentTemplateOrigin>(m, "DocumentTemplateOrigins");
+        m.Entity<DocumentTemplateOrigin>().HasKey(x => new { x.TenantId, x.OrganizationId, x.DocumentId });
+        m.Entity<DocumentTemplateOrigin>().HasOne<Document>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.DocumentId }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentTemplateOrigin>().HasOne<DocumentRevision>().WithMany().HasForeignKey(x => new { x.TenantId, x.DocumentId, x.DocumentVersion }).HasPrincipalKey(x => new { x.TenantId, x.DocumentId, x.Version }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentTemplateOrigin>().HasOne<DocumentTemplateRevision>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId, x.TemplateId, x.TemplateVersion }).HasPrincipalKey(x => new { x.TenantId, x.OrganizationId, x.TemplateId, x.Version }).OnDelete(DeleteBehavior.Restrict);
+        m.Entity<DocumentTemplateOrigin>().ToTable(t => t.HasCheckConstraint("CK_DocumentTemplateOrigin_InitialVersion", "\"DocumentVersion\"=1 AND \"TemplateVersion\">0"));
         TenantEntity<AuditEvent>(m, "AuditEvents");
         m.Entity<AuditEvent>().HasKey(x => x.Id);
         m.Entity<AuditEvent>().HasOne<Organization>().WithMany().HasForeignKey(x => new { x.TenantId, x.OrganizationId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);

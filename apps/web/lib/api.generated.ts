@@ -266,6 +266,44 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/organizations/{organizationId}/documents/{documentId}/template-origin": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          documentId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentTemplateOriginDto"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/organizations/{organizationId}/assets/{assetId}/compare": {
     parameters: {
       query?: never;
@@ -1133,6 +1171,301 @@ export interface paths {
       };
     };
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/document-templates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          after?: string;
+          includeArchived?: boolean;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CursorPageOfDocumentTemplateDto"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["DocumentTemplateRequest"];
+        };
+      };
+      responses: {
+        /** @description Created */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentTemplateDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/document-templates/{templateId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          templateId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentTemplateDto"];
+          };
+        };
+      };
+    };
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          templateId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["DocumentTemplateRequest"];
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentTemplateDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/document-templates/{templateId}/revisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          before?: number | string;
+        };
+        header?: never;
+        path: {
+          organizationId: string;
+          templateId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CursorPageOfDocumentTemplateRevisionSummaryDto"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/document-templates/{templateId}/revisions/{version}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          templateId: string;
+          version: number;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentTemplateRevisionDto"];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/organizations/{organizationId}/document-templates/{templateId}/documents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          organizationId: string;
+          templateId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["CreateTemplateDocumentRequest"];
+        };
+      };
+      responses: {
+        /** @description Created */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["DocumentDto"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/problem+json": components["schemas"]["ProblemDetails"];
+          };
+        };
+      };
+    };
     delete?: never;
     options?: never;
     head?: never;
@@ -2851,6 +3184,14 @@ export interface components {
       targetAssetId: string;
       kind: string;
     };
+    CreateTemplateDocumentRequest: {
+      /** Format: uuid */
+      assetId: string;
+      /** Format: int32 */
+      templateVersion: number | string;
+      title: string;
+      content: string;
+    };
     CursorPageOfAssetDto: {
       items: components["schemas"]["AssetDto"][];
       nextCursor: null | string;
@@ -2885,6 +3226,14 @@ export interface components {
     };
     CursorPageOfDocumentDto: {
       items: components["schemas"]["DocumentDto"][];
+      nextCursor: null | string;
+    };
+    CursorPageOfDocumentTemplateDto: {
+      items: components["schemas"]["DocumentTemplateDto"][];
+      nextCursor: null | string;
+    };
+    CursorPageOfDocumentTemplateRevisionSummaryDto: {
+      items: components["schemas"]["DocumentTemplateRevisionSummaryDto"][];
       nextCursor: null | string;
     };
     CursorPageOfFolderDto: {
@@ -3044,6 +3393,61 @@ export interface components {
       version: number | string;
       /** Format: date-time */
       updatedAt: null | string;
+    };
+    DocumentTemplateDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      organizationId: string;
+      name: string;
+      /** Format: int32 */
+      version: number | string;
+      isArchived: boolean;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    DocumentTemplateOriginDto: {
+      /** Format: uuid */
+      documentId: string;
+      /** Format: uuid */
+      templateId: null | string;
+      /** Format: int32 */
+      templateVersion: null | number | string;
+      templateName: null | string;
+    };
+    DocumentTemplateRequest: {
+      name: string;
+      title: string;
+      content: string;
+      /**
+       * Format: int32
+       * @default 0
+       */
+      expectedVersion: number | string;
+      /** @default false */
+      isArchived: boolean;
+    };
+    DocumentTemplateRevisionDto: {
+      /** Format: uuid */
+      templateId: string;
+      /** Format: int32 */
+      version: number | string;
+      name: string;
+      title: string;
+      content: string;
+      isArchived: boolean;
+      actor: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    DocumentTemplateRevisionSummaryDto: {
+      /** Format: int32 */
+      version: number | string;
+      name: string;
+      isArchived: boolean;
+      actor: string;
+      /** Format: date-time */
+      createdAt: string;
     };
     FileDocumentRequest: {
       /** Format: uuid */
