@@ -1,0 +1,35 @@
+using System.Net;
+using Npgsql;
+
+namespace SaveIT.Search;
+
+public static class ConnectionPolicy
+{
+    public static string RuntimeConnection(string connection)
+    {
+        var c = new NpgsqlConnectionStringBuilder(connection);
+        if (!string.IsNullOrEmpty(c.Options)) throw new InvalidOperationException("Arbitrary database startup options are unsupported.");
+        c.SearchPath = "public";
+        return c.ConnectionString;
+    }
+    public static string WorkerConnection(string connection, bool production)
+    {
+        var c = new NpgsqlConnectionStringBuilder(RuntimeConnection(connection));
+        if (production)
+        {
+            c.Timeout = c.Timeout == 0 ? 5 : Math.Min(c.Timeout, 5);
+            c.CommandTimeout = c.CommandTimeout == 0 ? 5 : Math.Min(c.CommandTimeout, 5);
+            // Npgsql defines zero as an infinite wait for cancellation acknowledgement.
+            c.CancellationTimeout = c.CancellationTimeout == 0 ? 2000 : Math.Min(c.CancellationTimeout, 2000);
+        }
+        return c.ConnectionString;
+    }
+    public static void Validate(string connection, bool allowLoopback = false)
+    {
+        var c = new NpgsqlConnectionStringBuilder(connection);
+        var local = c.Host == "localhost" || (IPAddress.TryParse(c.Host, out var address) && IPAddress.IsLoopback(address));
+        if (allowLoopback && local) return;
+        if (c.SslMode != SslMode.VerifyFull)
+            throw new InvalidOperationException("Deployment database connections require TLS certificate and hostname verification.");
+    }
+}

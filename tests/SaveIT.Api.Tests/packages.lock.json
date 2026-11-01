@@ -562,6 +562,12 @@
           "SaveIT.Search": "[1.0.0, )"
         }
       },
+      "saveit.deployment": {
+        "type": "Project",
+        "dependencies": {
+          "SaveIT.Api": "[1.0.0, )"
+        }
+      },
       "saveit.search": {
         "type": "Project",
         "dependencies": {

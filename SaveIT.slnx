@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/services/" />
+  <Folder Name="/services/deployment/">
+    <Project Path="services/deployment/SaveIT.Deployment.csproj" />
+  </Folder>
   <Folder Name="/services/api/">
     <Project Path="services/api/SaveIT.Api.csproj" />
   </Folder>
@@ -11,5 +14,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/SaveIT.Api.Tests/SaveIT.Api.Tests.csproj" />
+    <Project Path="tests/SaveIT.TestIdentity/SaveIT.TestIdentity.csproj" />
   </Folder>
 </Solution>

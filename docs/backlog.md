@@ -1,6 +1,6 @@
 # SaveIT enterprise backlog
 
-Updated 2026-10-31. Preserve all scope in the [original brief](project-brief.md) and [capability inventory](feature-parity.md). A local slice is not feature parity or enterprise readiness. Each item requires persisted behavior, server authorization, appropriate audit, contracts/migrations, success/denial/recovery tests, accessible loading/empty/error/conflict UX, and updated evidence before being marked done. See the [completion register](completion-register.md) for implemented code, external prerequisites and next delivery dependencies.
+Updated 2026-11-01. Preserve all scope in the [original brief](project-brief.md) and [capability inventory](feature-parity.md). A local slice is not feature parity or enterprise readiness. Each item requires persisted behavior, server authorization, appropriate audit, contracts/migrations, success/denial/recovery tests, accessible loading/empty/error/conflict UX, and updated evidence before being marked done. See the [completion register](completion-register.md) for implemented code, external prerequisites and next delivery dependencies.
 
 ## Production critical path — reassessed 2026-10-31
 
@@ -12,7 +12,7 @@ The [production-readiness assessment](production-readiness.md) now controls rele
 - [ ] Redacted telemetry/alerts, production quotas, complete auth/denial/admin audit, protected archive/retention and worker operations; actual isolated database/config/key recovery with measured results.
 - [ ] Recorded load/capacity evidence, independent security/accessibility validation, remediation and an owned patch/release/incident/support process before an approved pilot; then expand to broader SaaS and full enterprise scope.
 
-The next engineering batch is the release foundation above. Template restoration is still an unfinished core feature, but is no longer the next release-priority task. Cloud provisioning and real-provider checks await authorized accounts; release-foundation code can proceed now.
+The release-foundation implementation is under final local/packaged CI verification (ADR 022); the unchecked aggregate gate is not complete until that execution succeeds. Next account-free work includes offline-tested infrastructure, isolated recovery rehearsal, supply-chain gates and audited operator/revocation work. Template restoration is still an unfinished core feature, but is no longer the next release-priority task. Cloud provisioning and real-provider checks await authorized accounts; release-foundation code can proceed now.
 
 ## Phase 0 — specification and inventory
 

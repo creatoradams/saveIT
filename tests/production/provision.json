@@ -1,0 +1,12 @@
+{
+  "tenantId": "30000000-0000-0000-0000-000000000001",
+  "tenantName": "Synthetic packaged tenant",
+  "membershipId": "30000000-0000-0000-0000-000000000002",
+  "subject": "synthetic-release-member",
+  "displayName": "Synthetic Release User",
+  "issuer": "https://idp.localhost:8443",
+  "externalSubject": "external-release-user",
+  "organizationId": "30000000-0000-0000-0000-000000000010",
+  "organizationName": "Synthetic Packaged Organization",
+  "operator": "synthetic-ci-operator"
+}

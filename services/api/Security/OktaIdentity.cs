@@ -38,7 +38,19 @@ public static class OktaIdentity
             var protector = X509CertificateLoader.LoadPkcs12FromFile(certificate, builder.Configuration["Identity:KeyCertificatePassword"]);
             if (!protector.HasPrivateKey || protector.NotBefore.ToUniversalTime() > DateTime.UtcNow || protector.NotAfter.ToUniversalTime() <= DateTime.UtcNow)
                 throw new InvalidOperationException("The Data Protection certificate requires an unexpired private key.");
-            builder.Services.AddDataProtection().SetApplicationName("SaveIT").PersistKeysToFileSystem(new DirectoryInfo(keys)).ProtectKeysWithCertificate(protector);
+            var previous = builder.Configuration.GetSection("Identity:PreviousKeyCertificates").GetChildren().ToArray();
+            if (previous.Length > 4) throw new InvalidOperationException("At most four prior key-protection certificates are supported.");
+            var unprotect = new List<X509Certificate2> { protector };
+            foreach (var item in previous)
+            {
+                if (string.IsNullOrWhiteSpace(item["Path"])) throw new InvalidOperationException("A previous key-protection certificate path is required.");
+                var old = X509CertificateLoader.LoadPkcs12FromFile(item["Path"]!, item["Password"]);
+                // Expired certificates may still decrypt old keys during a controlled retirement window.
+                if (!old.HasPrivateKey) throw new InvalidOperationException("A previous key-protection certificate requires its private key.");
+                unprotect.Add(old);
+            }
+            builder.Services.AddDataProtection().SetApplicationName("SaveIT").PersistKeysToFileSystem(new DirectoryInfo(keys))
+                .ProtectKeysWithCertificate(protector).UnprotectKeysWithAnyCertificate(unprotect.ToArray());
         }
         builder.Services.AddAuthentication().AddOpenIdConnect(Scheme, options =>
         {

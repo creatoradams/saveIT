@@ -2,6 +2,12 @@
 
 Assessed 2026-10-31 against `d35f04f` and its tested code commit `68dc8cbe2f0371877e9487b8777abcb06bcf5864`. This is a source/evidence assessment and revised delivery plan, not a deployment, penetration test or production approval.
 
+## Current engineering delta — 2026-11-01
+
+The release-foundation code in ADR 022 now implements separate seed-free migrations/insert-only provisioning, isolated owner/runtime roles, runtime TLS/schema/namespace guards, nonroot image definitions, runtime web origins/nonce CSP/trusted ingress and dependency-aware health. Local regression and packaged CI status are recorded in [progress](progress.md). Linux image execution is still pending; these additions do not prove cloud deployment, live identity or recovery. The tables below retain the historical baseline and its remaining operational gates.
+
+Account-free work continues after artifact verification: tested infrastructure definitions, isolated recovery rehearsal, supply-chain gates and audited operator/revocation implementation. Only actual cloud/provider deployment/verification requires official accounts. Do not conflate those external prerequisites with missing code.
+
 ## Decision
 
 SaveIT is a tested local core preview. It is not ready for customer production data. Prioritize a deployable, observable, recoverable staging system and verified identity/access operations before more history/template features. Template restoration remains in the backlog; no enterprise capability is removed.
@@ -10,7 +16,7 @@ Recommended first release milestone: an invitation-only documentation/inventory 
 
 The current Okta adapter configures one issuer and one SaveIT tenant. Tenant-isolated storage is implemented, but live multi-customer/multi-connection identity and customer onboarding are not. A broader SaaS launch needs those capabilities and their isolation/revocation evidence. Full enterprise parity is a later milestone tracked by all 146 inventory entries; vendor parity remains unverified. A percentage-complete or firm launch date is not supported by current evidence.
 
-## Current evidence
+## Baseline evidence (2026-10-31)
 
 | Area | What exists | Limit on the conclusion |
 | --- | --- | --- |
@@ -23,7 +29,7 @@ The current Okta adapter configures one issuer and one SaveIT tenant. Tenant-iso
 | Dependencies | Fresh npm high-severity gate passes with the same three moderate minimatch/Redocly/generator reports; last verified CI NuGet audit reports no vulnerable packages | No clean npm audit claim; release-time dependency/image patching and supply-chain controls are still needed |
 | Infrastructure | Terraform formatting/init/validation succeeds | `infra/terraform/main.tf` has no provider, remote backend or cloud resources; no deployment exists |
 
-## Concrete release blockers found in the repository
+## Baseline release blockers found in the repository
 
 | Evidence | Gap | Required outcome |
 | --- | --- | --- |

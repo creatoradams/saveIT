@@ -6,7 +6,7 @@ public sealed record SearchBatchResult(int Completed, int Retried, int DeadLette
 
 // A dedicated consumer owns projections/receipts. Core writes occur only in the API.
 // Each invalidation rehydrates current source state, so duplicates and event order are safe.
-public sealed class SearchProcessor(string connectionString, TimeProvider? timeProvider = null)
+public sealed class SearchProcessor(string connectionString, TimeProvider? timeProvider = null, bool requireSchema = false)
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
     private sealed record Event(Guid Id, Guid OrganizationId, Guid TargetId, string Type, int SchemaVersion);
@@ -18,15 +18,18 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
         await using var connection = await OpenAsync(cancellationToken);
     }
 
-    public async Task<SearchBatchResult> ProcessBatchAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<SearchBatchResult> ProcessBatchAsync(Guid tenantId, CancellationToken cancellationToken = default, Action? progress = null)
     {
         await using var connection = await OpenAsync(cancellationToken);
         var completed = 0; var retried = 0; var dead = 0;
         for (var i = 0; i < 100; i++)
         {
+            using var deadline = requireSchema ? new CancellationTokenSource(TimeSpan.FromSeconds(20), clock) : new CancellationTokenSource();
+            using var unit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
+            var unitToken = unit.Token;
             Event? current = null;
-            await using var transaction = await BeginTenantAsync(connection, tenantId, cancellationToken);
-            if (!await LockAsync(connection, transaction, tenantId, false, cancellationToken)) break;
+            await using var transaction = await BeginTenantAsync(connection, tenantId, unitToken);
+            if (!await LockAsync(connection, transaction, tenantId, false, unitToken)) break;
             await using (var command = new NpgsqlCommand("""
                 SELECT e."Id",e."OrganizationId",e."TargetId",e."Type",e."SchemaVersion"
                 FROM "SearchDeliveries" d JOIN "OutboxEvents" e
@@ -38,8 +41,8 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
             {
                 command.Parameters.AddWithValue("tenant", tenantId);
                 command.Parameters.AddWithValue("now", clock.GetUtcNow());
-                await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-                if (await reader.ReadAsync(cancellationToken)) current = new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetString(3), reader.GetInt32(4));
+                await using var reader = await command.ExecuteReaderAsync(unitToken);
+                if (await reader.ReadAsync(unitToken)) current = new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetString(3), reader.GetInt32(4));
             }
             if (current is null) break;
             try
@@ -53,20 +56,20 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
                 metadataOnly |= current.Type is "DocumentTemplate.Created" or "DocumentTemplate.Revised";
                 if (current.SchemaVersion != 1 || (type is null && !metadataOnly))
                 {
-                    await WriteFailureAsync(connection, transaction, tenantId, current.Id, "unsupported_event", true, cancellationToken);
+                    await WriteFailureAsync(connection, transaction, tenantId, current.Id, "unsupported_event", true, unitToken);
                     isDeadLetter = true;
                 }
                 else if (type is not null)
                 {
-                    var source = await ReadSourceAsync(connection, transaction, tenantId, current.TargetId, type, cancellationToken);
+                    var source = await ReadSourceAsync(connection, transaction, tenantId, current.TargetId, type, unitToken);
                     if (source is not null && source.OrganizationId != current.OrganizationId)
                     {
-                        await WriteFailureAsync(connection, transaction, tenantId, current.Id, "scope_mismatch", true, cancellationToken);
+                        await WriteFailureAsync(connection, transaction, tenantId, current.Id, "scope_mismatch", true, unitToken);
                         isDeadLetter = true;
                     }
                     else
                     {
-                        await ProjectAsync(connection, transaction, tenantId, current.TargetId, type, source, cancellationToken);
+                        await ProjectAsync(connection, transaction, tenantId, current.TargetId, type, source, unitToken);
                     }
                 }
                 if (!isDeadLetter)
@@ -80,21 +83,33 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
                     receipt.Parameters.AddWithValue("tenant", tenantId);
                     receipt.Parameters.AddWithValue("event", current.Id);
                     receipt.Parameters.AddWithValue("now", clock.GetUtcNow());
-                    await receipt.ExecuteNonQueryAsync(cancellationToken);
+                    await receipt.ExecuteNonQueryAsync(unitToken);
                 }
-                await transaction.CommitAsync(cancellationToken);
+                await transaction.CommitAsync(unitToken);
                 if (isDeadLetter) dead++; else completed++;
             }
-            catch (NpgsqlException) when (!cancellationToken.IsCancellationRequested)
+            catch (Exception error) when (!cancellationToken.IsCancellationRequested &&
+                (error is NpgsqlException || error is OperationCanceledException && deadline.IsCancellationRequested))
             {
-                await transaction.RollbackAsync(cancellationToken);
+                // An expired unit cannot reuse its cancelled token for rollback/retry. A fresh,
+                // bounded connection also handles a provider timeout that broke the old session.
+                using var cleanup = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cleanup.CancelAfter(TimeSpan.FromSeconds(5));
+                try { await transaction.RollbackAsync(cleanup.Token); }
+                catch (NpgsqlException) when (connection.State != System.Data.ConnectionState.Open) { }
                 // Record retries separately; the failed projection/receipt transaction was rolled back.
-                await using var failureTransaction = await BeginTenantAsync(connection, tenantId, cancellationToken);
-                await LockAsync(connection, failureTransaction, tenantId, true, cancellationToken);
-                var isDead = await WriteFailureAsync(connection, failureTransaction, tenantId, current.Id, "projection_database_failure", false, cancellationToken);
-                await failureTransaction.CommitAsync(cancellationToken);
+                await using var failureConnection = await OpenAsync(cleanup.Token);
+                await using var failureTransaction = await BeginTenantAsync(failureConnection, tenantId, cleanup.Token);
+                await LockAsync(failureConnection, failureTransaction, tenantId, true, cleanup.Token);
+                var code = deadline.IsCancellationRequested ? "projection_deadline" : "projection_database_failure";
+                var isDead = await WriteFailureAsync(failureConnection, failureTransaction, tenantId, current.Id, code, false, cleanup.Token);
+                await failureTransaction.CommitAsync(cleanup.Token);
                 if (isDead) dead++; else retried++;
+                // A provider timeout can break the old session; the next batch reopens it.
+                if (connection.State != System.Data.ConnectionState.Open)
+                { progress?.Invoke(); return new(completed, retried, dead); }
             }
+            progress?.Invoke();
         }
         return new(completed, retried, dead);
     }
@@ -140,8 +155,14 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
 
     private async Task<NpgsqlConnection> OpenAsync(CancellationToken cancellationToken)
     {
-        var connection = new NpgsqlConnection(connectionString);
-        try { await connection.OpenAsync(cancellationToken); await DatabaseRoleGuard.ValidateSearchWorkerAsync(connection, cancellationToken); return connection; }
+        var connection = new NpgsqlConnection(ConnectionPolicy.WorkerConnection(connectionString, requireSchema));
+        try
+        {
+            await connection.OpenAsync(cancellationToken);
+            await DatabaseRoleGuard.ValidateSearchWorkerAsync(connection, cancellationToken);
+            if (requireSchema) await DatabaseRoleGuard.ValidateSchemaAsync(connection, cancellationToken, true);
+            return connection;
+        }
         catch { await connection.DisposeAsync(); throw; }
     }
 

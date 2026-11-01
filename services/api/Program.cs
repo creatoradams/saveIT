@@ -11,6 +11,7 @@ using SaveIT.Api.Documentation;
 using SaveIT.Api.Assets;
 using SaveIT.Api.Core;
 using SaveIT.Search;
+using SaveIT.Api.Operations;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1_048_576);
@@ -22,10 +23,14 @@ if (devIdentity && !builder.Environment.IsDevelopment())
     throw new InvalidOperationException("Development identity requires the Development environment.");
 if (!builder.Environment.IsDevelopment() && !oktaEnabled)
     throw new InvalidOperationException("Production identity is unconfigured. Configure and review an enterprise identity adapter before deployment.");
+var appConnection = ConnectionPolicy.RuntimeConnection(builder.Configuration.GetConnectionString("App")
+    ?? throw new InvalidOperationException("ConnectionStrings:App is required."));
+if (!builder.Environment.IsDevelopment())
+    ConnectionPolicy.Validate(appConnection, builder.Configuration.GetValue<bool>("Deployment:AllowLoopbackDatabase"));
+Ingress.Configure(builder);
 
 builder.Services.AddScoped<TenantScope>();
-builder.Services.AddDbContext<SaveItDb>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("App")
-    ?? throw new InvalidOperationException("ConnectionStrings:App is required.")));
+builder.Services.AddDbContext<SaveItDb>(o => o.UseNpgsql(appConnection));
 builder.Services.AddScoped<TenantFilter>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
 {
@@ -71,13 +76,15 @@ if (args.Contains("--migrate"))
     await seedTransaction.CommitAsync();
     return;
 }
-await using (var connection = new NpgsqlConnection(builder.Configuration.GetConnectionString("App")))
+await using (var connection = new NpgsqlConnection(appConnection))
 {
     await connection.OpenAsync();
     await DatabaseRoleGuard.ValidateAsync(connection);
+    if (!app.Environment.IsDevelopment()) await DatabaseRoleGuard.ValidateSchemaAsync(connection, requireMigration: true);
 }
 
 app.UseExceptionHandler();
+app.UseForwardedHeaders();
 app.Use(async (context, next) =>
 {
     context.Response.Headers.CacheControl = "no-store";
@@ -101,6 +108,7 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "SaveIT" }));
+app.MapOperationalHealth();
 app.MapOpenApi();
 app.MapGet("/api/v1/csrf", (HttpContext c, IAntiforgery antiforgery) => Results.Ok(new { token = antiforgery.GetAndStoreTokens(c).RequestToken! }));
 app.MapGet("/api/v1/auth/options", () => Results.Ok(new { development = devIdentity, okta = oktaEnabled }));
