@@ -1,6 +1,6 @@
 # ADR 025: restricted operator access changes and durable response drain
 
-Implemented under verification, 2026-11-01 (migration timestamp 2026-11-02 UTC). Extends ADRs 001/002/010/022. Do not treat source or focused tests as a completed release gate; exact full/packaged evidence belongs in progress.
+Accepted for the bounded synthetic implementation, 2026-11-01 (migration timestamp 2026-11-02 UTC). Extends ADRs 001/002/010/022. Exact-commit general/packaged CI passed; evidence is in progress. Production operational/provider gates remain separate.
 
 ## Scope and authority
 
