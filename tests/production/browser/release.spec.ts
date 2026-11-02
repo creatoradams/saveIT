@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 const compose = [
   "compose",
   "-p",
@@ -107,6 +108,113 @@ test("production CSP nonces are unique, script unsafe-inline is absent and readi
       timeout: 30000,
     })
     .toBe(200);
+});
+
+test("restricted operator changes apply to packaged Okta cookies and reactivation requires a new sign-in", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in with Okta" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Everything has a home." }),
+  ).toBeVisible();
+  const source = {
+    tenantId: "30000000-0000-0000-0000-000000000001",
+    membershipId: "30000000-0000-0000-0000-000000000002",
+    operator: "synthetic-ci-access-operator",
+  };
+  const root = "/api/v1/organizations/30000000-0000-0000-0000-000000000010";
+  const invoke = (operation: "apply" | "inspect", manifest: object) => {
+    writeFileSync(
+      ".local/container-fixture/access.json",
+      JSON.stringify(manifest),
+      { mode: 0o644 }, // Synthetic fixture IDs/actions only; nonroot tool image reads the bind mount.
+    );
+    return execFileSync(
+      "docker",
+      [
+        ...compose,
+        "run",
+        "--rm",
+        "deployment",
+        "access",
+        operation,
+        "/run/config/access.json",
+      ],
+      { encoding: "utf8", timeout: 20000 },
+    );
+  };
+  const initial = JSON.parse(invoke("inspect", source));
+  let version: number = initial.accessVersion;
+  const cookie = (await page.context().cookies()).find(
+    (x) => x.name === "SaveIT.Session",
+  )!.value;
+  const change = (operation: "active" | "grant", extra: object) => {
+    const result = invoke("apply", {
+      ...source,
+      expectedVersion: version,
+      operation,
+      ...extra,
+    });
+    version++;
+    expect(result).toContain("committed at version " + version);
+  };
+  change("grant", {
+    organizationId: "30000000-0000-0000-0000-000000000010",
+    role: "Viewer",
+  });
+  expect((await page.request.get(root + "/assets")).status()).toBe(200);
+  const csrf = await (await page.request.get("/api/v1/csrf")).json();
+  expect(
+    (
+      await page.request.post(root + "/assets", {
+        headers: { "X-CSRF-TOKEN": csrf.token },
+        data: { name: "Denied after downgrade", kind: "Server" },
+      })
+    ).status(),
+  ).toBe(403);
+  change("active", { enabled: false });
+  expect((await page.request.get("/api/v1/session")).status()).toBe(401);
+  change("active", { enabled: true });
+  expect(
+    (await page.context().cookies()).find((x) => x.name === "SaveIT.Session")!
+      .value,
+  ).toBe(cookie);
+  expect((await page.request.get("/api/v1/session")).status()).toBe(401);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in with Okta" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Everything has a home." }),
+  ).toBeVisible();
+  expect((await page.request.get("/api/v1/session")).status()).toBe(200);
+  expect(
+    (await page.context().cookies()).find((x) => x.name === "SaveIT.Session")!
+      .value,
+  ).not.toBe(cookie);
+  change("grant", {
+    organizationId: "30000000-0000-0000-0000-000000000010",
+    role: "Editor",
+  });
+  const fresh = await (await page.request.get("/api/v1/csrf")).json();
+  expect(
+    (
+      await page.request.post(root + "/assets", {
+        headers: { "X-CSRF-TOKEN": fresh.token },
+        data: { name: "Write after approved access", kind: "Server" },
+      })
+    ).status(),
+  ).toBe(201);
+  expect(
+    (
+      await page.request.get(
+        "/api/v1/organizations/20000000-0000-0000-0000-000000000010/assets",
+      )
+    ).status(),
+  ).toBe(404);
+  const current = JSON.parse(invoke("inspect", source));
+  expect(current.accessVersion).toBe(version);
+  expect(current.sessionEpoch).toBe(initial.sessionEpoch + 2);
 });
 
 test("logical database and protected keys recover into separate targets while the existing session preserves history and tenant denial", async ({

@@ -444,6 +444,8 @@ next-env.d.ts
 appsettings.Local.json
 appsettings.*.Local.json
 secrets.json
+*.access.local.json
+*.provision.local.json
 *.pem
 *.key
 coverage/

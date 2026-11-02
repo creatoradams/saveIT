@@ -28,6 +28,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
     {
         await using var admin = new NpgsqlConnection(bootstrap);
         await admin.OpenAsync();
+        await using (var accessRole = new NpgsqlCommand("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='saveit_access_operator') THEN CREATE ROLE saveit_access_operator NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS; END IF; IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='saveit_migration_owner') THEN CREATE ROLE saveit_migration_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS; END IF; END $$", admin)) await accessRole.ExecuteNonQueryAsync();
         // Only synthetic, isolated test databases. The application never performs this bootstrap.
         await using (var role = new NpgsqlCommand("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='saveit_app') THEN CREATE ROLE saveit_app LOGIN PASSWORD 'synthetic-app-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS; END IF; END $$", admin)) await role.ExecuteNonQueryAsync();
         await using (var create = new NpgsqlCommand($"CREATE DATABASE \"{database}\" ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'", admin)) await create.ExecuteNonQueryAsync();

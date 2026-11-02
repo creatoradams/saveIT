@@ -23,6 +23,138 @@ namespace SaveIT.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("SaveIT.Api.Data.AccessAudit", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AccessVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanManageOrganizations")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DatabaseLogin")
+                        .IsRequired()
+                        .HasMaxLength(63)
+                        .HasColumnType("character varying(63)");
+
+                    b.Property<string>("Operator")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("SessionEpoch")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "MembershipId", "Id");
+
+                    b.HasIndex("TenantId", "OrganizationId");
+
+                    b.HasIndex("TenantId", "MembershipId", "CreatedAt", "Id");
+
+                    b.ToTable("AccessAudits", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccessAudit_Action", "\"Action\" IN ('Created','ActiveChanged','GrantChanged','CapabilityChanged','Inspected')");
+
+                            t.HasCheckConstraint("CK_AccessAudit_Role", "\"Role\" IS NULL OR (\"OrganizationId\" IS NOT NULL AND \"Role\" IN ('Viewer','Editor'))");
+
+                            t.HasCheckConstraint("CK_AccessAudit_Version", "\"AccessVersion\">0 AND \"SessionEpoch\">0");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AccessControlEvent", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuditId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "MembershipId", "AuditId");
+
+                    b.ToTable("AccessControlEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccessControlEvent_Schema", "\"SchemaVersion\"=1");
+                        });
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AccessResponse", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InstanceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TenantId", "MembershipId", "RequestId");
+
+                    b.HasIndex("TenantId", "MembershipId")
+                        .HasDatabaseName("IX_AccessResponses_Pending")
+                        .HasFilter("\"CompletedAt\" IS NULL");
+
+                    b.HasIndex("TenantId", "MembershipId", "CompletedAt");
+
+                    b.ToTable("AccessResponses", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccessResponse_Completion", "(\"CompletedAt\" IS NULL AND \"Outcome\" IS NULL) OR (\"CompletedAt\" IS NOT NULL AND \"Outcome\" IS NOT NULL AND \"CompletedAt\">=\"StartedAt\" AND \"Outcome\" IN ('Completed','Aborted'))");
+                        });
+                });
+
             modelBuilder.Entity("SaveIT.Api.Data.Asset", b =>
                 {
                     b.Property<Guid>("Id")
@@ -870,6 +1002,12 @@ namespace SaveIT.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("AccessVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<bool>("Active")
                         .HasColumnType("boolean");
 
@@ -888,6 +1026,11 @@ namespace SaveIT.Api.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<int>("SessionEpoch")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("Subject")
                         .IsRequired()
                         .HasColumnType("text");
@@ -905,6 +1048,8 @@ namespace SaveIT.Api.Migrations
 
                     b.ToTable("Memberships", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Membership_AccessVersion", "\"AccessVersion\">0 AND \"SessionEpoch\">0");
+
                             t.HasCheckConstraint("CK_Membership_ExternalIdentity", "(\"ExternalIssuer\" IS NULL AND \"ExternalSubject\" IS NULL) OR (\"ExternalIssuer\" IS NOT NULL AND \"ExternalSubject\" IS NOT NULL AND length(\"ExternalIssuer\") > 0 AND length(\"ExternalSubject\") > 0)");
                         });
                 });
@@ -1155,6 +1300,59 @@ namespace SaveIT.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Tenants", (string)null);
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AccessAudit", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Membership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "MembershipId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrganizationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AccessControlEvent", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.AccessAudit", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "MembershipId", "AuditId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SaveIT.Api.Data.AccessResponse", b =>
+                {
+                    b.HasOne("SaveIT.Api.Data.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveIT.Api.Data.Membership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "MembershipId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SaveIT.Api.Data.Asset", b =>

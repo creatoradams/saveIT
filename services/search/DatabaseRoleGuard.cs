@@ -4,20 +4,29 @@ namespace SaveIT.Search;
 
 public static class DatabaseRoleGuard
 {
-    public const string RequiredMigration = "20261031212239_DocumentTemplates";
+    public const string RequiredMigration = "20261102004553_OperatorAccess";
     private static readonly string[] ProtectedTables = ["Tenants", "Memberships", "Organizations", "OrganizationRevisions", "OrganizationGrants", "Assets", "AssetRelationships",
-        "Documents", "DocumentRevisions", "DocumentFolders", "DocumentPlacements", "DocumentTemplates", "DocumentTemplateRevisions", "DocumentTemplateOrigins", "AuditEvents", "OutboxEvents", "SearchEntries", "SearchDeliveries", "Locations", "Contacts", "LocationRevisions", "ContactRevisions", "AssetRevisions", "AssetTypes", "AssetTypeRevisions"];
+        "Documents", "DocumentRevisions", "DocumentFolders", "DocumentPlacements", "DocumentTemplates", "DocumentTemplateRevisions", "DocumentTemplateOrigins", "AuditEvents", "OutboxEvents", "SearchEntries", "SearchDeliveries", "Locations", "Contacts", "LocationRevisions", "ContactRevisions", "AssetRevisions", "AssetTypes", "AssetTypeRevisions", "AccessResponses", "AccessAudits", "AccessControlEvents"];
     private static readonly string[] CoreTables = ProtectedTables.Where(x => x is not ("SearchEntries" or "SearchDeliveries")).ToArray();
     public static async Task ValidateAsync(NpgsqlConnection connection, CancellationToken cancellationToken = default)
     {
         await using var command = new NpgsqlCommand("""
-            SELECT current_setting('server_encoding')<>'UTF8' OR EXISTS (SELECT 1 FROM pg_roles r WHERE (r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR has_schema_privilege(r.oid,'public','CREATE'))
+            SELECT current_user<>session_user OR current_setting('server_encoding')<>'UTF8' OR EXISTS (SELECT 1 FROM pg_roles r WHERE (r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR has_schema_privilege(r.oid,'public','CREATE'))
                 AND pg_has_role(current_user,r.oid,'MEMBER')) OR EXISTS (
                 SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                 WHERE n.nspname='public' AND c.relname=ANY(@tables)
-                AND pg_has_role(current_user,c.relowner,'MEMBER'))
+            AND pg_has_role(current_user,c.relowner,'MEMBER'))
+            OR EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname='saveit_access_operator' AND pg_has_role(current_user,r.oid,'MEMBER'))
+            OR EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('access_change_v1','access_inspect_v1')
+                JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='public'
+                WHERE pg_has_role(current_user,r.oid,'MEMBER') AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
+            OR EXISTS (SELECT 1 FROM pg_roles r CROSS JOIN unnest(@protocol) a(t)
+                WHERE pg_has_role(current_user,r.oid,'MEMBER')
+                  AND (has_table_privilege(r.oid,format('%I',a.t),'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
+                    OR has_any_column_privilege(r.oid,format('%I',a.t),'SELECT,INSERT,UPDATE')))
             """, connection);
         command.Parameters.AddWithValue("tables", ProtectedTables);
+        command.Parameters.AddWithValue("protocol", new[] { "AccessResponses", "AccessAudits", "AccessControlEvents" });
         if (await command.ExecuteScalarAsync(cancellationToken) is not false)
             throw new InvalidOperationException("A UTF8 database and a non-owner role without superuser or BYPASSRLS privileges are required.");
     }
@@ -76,6 +85,11 @@ public static class DatabaseRoleGuard
                   OR has_any_column_privilege(r.oid,'"DocumentTemplates"','SELECT')
                   OR has_any_column_privilege(r.oid,'"DocumentTemplateRevisions"','SELECT')
                   OR has_any_column_privilege(r.oid,'"DocumentTemplateOrigins"','SELECT')))
+              AND NOT EXISTS (SELECT 1 FROM pg_roles r CROSS JOIN (VALUES ('AccessResponses'),('AccessAudits'),('AccessControlEvents')) AS a(t)
+                WHERE pg_has_role(current_user,r.oid,'MEMBER') AND has_any_column_privilege(r.oid,format('%I',a.t),'SELECT'))
+              AND NOT EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('register_response_v1','complete_response_v1')
+                JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='public'
+                WHERE pg_has_role(current_user,r.oid,'MEMBER') AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
             """, connection);
         command.Parameters.AddWithValue("core", CoreTables);
         if (await command.ExecuteScalarAsync(cancellationToken) is not true)

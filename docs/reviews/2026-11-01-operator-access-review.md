@@ -1,0 +1,25 @@
+# Restricted operator access review
+
+Scope: ADR 025 access versions/epochs, 28-table forced-RLS model/migration, checked private operator commands, durable response registration/drain/completion, identity integration, role/connection guards and synthetic tests. This is an internal source review and local verification report, not independent security assurance or production approval.
+
+The user requested separate efficiency and security agents. Both performed read-only reviews and final source rechecks; neither edited files or executed tests. Their findings and primary-agent remedies follow.
+
+## Findings and remedies
+
+- A session advisory lock alone would release on database disconnect while HTTP serialization could continue. The reviewed implementation uses committed pending response records, fresh VOLATILE READ COMMITTED observations after member-gate acquisition, and server OnCompleted-only closure. No TTL/RequestAborted-only/finally closure or runtime/operator force-close path exists. Operator drain precedes membership/grant row locks.
+- Security found an inherited connection-startup gap: omitted Options let Npgsql inherit PGOPTIONS; a privileged login could switch current_user while retaining a privileged session_user. Empty Options round-trips to null, caught by a focused test. One inert whitespace character now survives serialization and suppresses ambient options; runtime guards reject current/session identity mismatch. Real PostgreSQL tests reproduce the unsafe role switch, confirm the normalized connection stays on its authenticated login and reject both unsafe credential paths.
+- Security requested actual non-superuser-owned function evidence, since the main test fixture owns functions as its synthetic administrator. A deployment test now migrates/provisions as the fixed restricted owner, revokes PUBLIC schema USAGE and exercises actual operator create/inspect/drain/change/reactivate plus app registration/completion. Explicit operator schema USAGE is granted. The case passes.
+- Reviews requested explicit operator trust/recovery boundaries. ADR/runbook now document cluster-global roles, private operator credential authority, database CONNECT/trust isolation, sampled bounded diagnostics, timeout with unchanged access, required old-instance fencing after possible protocol-state loss, proxy/client buffering and server connection headroom. No managed fencing/human identity/credential lifecycle implementation is implied.
+- Efficiency confirmed index-supported pending lookup, 51-to-50 grant pages, capped 1,001-response diagnostic input, 32-row closed-only pruning, independent registration/completion pools, scalar/singleton callback state and core row locks after drain. No further actionable efficiency finding was identified. Stale count/progress wording found in the final reviews is corrected.
+
+## Executed primary-agent evidence
+
+The full local rerun passed **414 backend cases / zero skipped**. Its first run passed 400 and saw 13 connection failures while embedded Windows PostgreSQL recovered; the failure tests were retained, and the full rerun passed. Final 44 focused identity/one-slot/owner/role/protocol cases also passed after the relevant refinements. Two additional retention/legacy-cookie cases and the expanded PGOPTIONS reproduction pass separately (three focused checks); exact-commit CI must verify the final combined count.
+
+Actual PostgreSQL/Kestrel tests cover held serialized responses, both gate-wait directions, abort, killed database sessions, old pending records, CAS, immediate/deferred write/audit/control-event failure, exact epochs, both identity adapters, legacy-cookie rejection/CSRF logout, idempotent bounded pruning, restricted/non-owner role/function/column paths and scoped sources. A loopback PostgreSQL protocol proxy drops real COMMIT acknowledgements after the server reports commit, demonstrating uncertain registration is not retried and only known-finished completion retries. The saturation case observes 16 registrations waiting while completion and a separate member can progress.
+
+All **61 local Chromium regressions pass**. TypeScript, optimized web build, strict production-browser source types and deterministic OpenAPI/TypeScript generation pass without contract changes. Ignore checks include real/private manifest paths and sanitized examples. Linux general/packaged CI, including the new packaged Okta offboard/reactivate/fresh-sign-in flow, remains pending until linked from progress. The existing three moderate npm development-tool reports are not suppressed or represented as a clean audit.
+
+## Limits
+
+No live Okta/AWS/customer credentials or customer data were used. No managed failover/fencing/orphan recovery, delegated permission UI, SCIM, human operator authentication, production load measurement or independent assessment is established. A pending orphan can block acknowledgement indefinitely until trusted operational recovery; timeout leaves access unchanged. API completion cannot recall downstream buffers. All 146 enterprise inventory labels remain in scope and vendor parity remains unverified.

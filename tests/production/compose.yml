@@ -26,6 +26,7 @@ services:
     profiles: ["tools"]
     environment:
       SAVEIT_DEPLOYMENT_CONNECTION: Host=db;Database=saveit;Username=synthetic_deployer;Password=synthetic-deployer-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
+      SAVEIT_ACCESS_CONNECTION: Host=db;Database=saveit;Username=synthetic_access;Password=synthetic-access-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
     volumes:
       - ../../.local/container-fixture:/run/config:ro
       - ./provision.json:/run/provision.json:ro

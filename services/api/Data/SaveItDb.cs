@@ -11,7 +11,7 @@ public sealed class TenantScope
     public bool CanManageOrganizations { get; set; }
 }
 
-public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope scope) : DbContext(options)
+public sealed partial class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope scope) : DbContext(options)
 {
     public Guid CurrentTenantId => scope.TenantId;
     public DbSet<Tenant> Tenants => Set<Tenant>();
@@ -47,6 +47,9 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         TenantEntity<Membership>(m, "Memberships");
         m.Entity<Membership>().HasKey(x => x.Id);
         m.Entity<Membership>().HasAlternateKey(x => new { x.TenantId, x.Id });
+        m.Entity<Membership>().Property(x => x.AccessVersion).HasDefaultValue(1).IsConcurrencyToken();
+        m.Entity<Membership>().Property(x => x.SessionEpoch).HasDefaultValue(1);
+        m.Entity<Membership>().ToTable(t => t.HasCheckConstraint("CK_Membership_AccessVersion", "\"AccessVersion\">0 AND \"SessionEpoch\">0"));
         m.Entity<Membership>().HasIndex(x => new { x.TenantId, x.Subject }).IsUnique();
         m.Entity<Membership>().Property(x => x.ExternalIssuer).HasMaxLength(500);
         m.Entity<Membership>().Property(x => x.ExternalSubject).HasMaxLength(256);
@@ -280,6 +283,7 @@ public sealed class SaveItDb(DbContextOptions<SaveItDb> options, TenantScope sco
         m.Entity<SearchDelivery>().Property(x => x.ErrorCode).HasMaxLength(48);
         m.Entity<SearchDelivery>().HasIndex(x => new { x.TenantId, x.NextAttemptAt, x.EventId })
             .HasDatabaseName("IX_SearchDeliveries_Due").HasFilter("\"CompletedAt\" IS NULL AND \"DeadLetteredAt\" IS NULL");
+        ConfigureAccess(m);
     }
 
     private void TenantEntity<T>(ModelBuilder m, string table) where T : class, ITenantOwned

@@ -3,10 +3,16 @@ namespace SaveIT.Api.Migrations;
 internal static class OrganizationHistorySql
 {
     // Only migration-owned constants are interpolated. No dynamic SQL runs in either function.
-    internal static string Functions(bool history)
+    internal static string Functions(bool history, bool accessVersions = false)
     {
         var actorDeclaration = history ? "actor text;" : "";
         var membershipRead = history ? "SELECT m.\"Subject\" INTO actor" : "PERFORM 1";
+        var createLock = accessVersions ? "FOR UPDATE" : "FOR SHARE";
+        var accessVersion = accessVersions ? """
+            UPDATE public."Memberships" SET "AccessVersion"="AccessVersion"+1
+              WHERE "TenantId"=tenant_id AND "Id"=member_id AND "AccessVersion"<2147483647;
+            IF NOT FOUND THEN RAISE EXCEPTION 'Access version exhausted' USING ERRCODE='40001'; END IF;
+            """ : "";
         var created = history ? """
             INSERT INTO public."OrganizationRevisions" ("TenantId","OrganizationId","Version","Name","Actor","CreatedAt","Origin")
               SELECT o."TenantId",o."Id",o."Version",o."Name",actor,o."UpdatedAt",'Created'
@@ -27,13 +33,14 @@ internal static class OrganizationHistorySql
                     RAISE EXCEPTION 'Organization administration is unavailable' USING ERRCODE='42501';
                 END IF;
                 {{membershipRead}} FROM public."Memberships" m WHERE m."TenantId"=tenant_id AND m."Id"=member_id
-                  AND m."Active" AND m."CanManageOrganizations" FOR SHARE;
+                  AND m."Active" AND m."CanManageOrganizations" {{createLock}};
                 IF NOT FOUND THEN
                     RAISE EXCEPTION 'Organization administration is unavailable' USING ERRCODE='42501';
                 END IF;
                 IF new_name IS NULL OR length(btrim(new_name)) NOT BETWEEN 1 AND 160 THEN
                     RAISE EXCEPTION 'Invalid organization name' USING ERRCODE='22023';
                 END IF;
+                {{accessVersion}}
                 INSERT INTO public."Organizations" ("Id","TenantId","Name","Version","UpdatedAt")
                   VALUES (new_id,tenant_id,btrim(new_name),1,CURRENT_TIMESTAMP);
                 INSERT INTO public."OrganizationGrants" ("TenantId","MembershipId","OrganizationId","Role")

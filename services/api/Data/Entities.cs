@@ -10,6 +10,8 @@ public sealed class Membership : ITenantOwned
     public string DisplayName { get; set; } = "";
     public bool Active { get; set; } = true;
     public bool CanManageOrganizations { get; set; }
+    public int AccessVersion { get; set; } = 1;
+    public int SessionEpoch { get; set; } = 1;
     public string? ExternalIssuer { get; set; }
     public string? ExternalSubject { get; set; }
 }

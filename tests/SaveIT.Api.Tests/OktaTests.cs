@@ -39,7 +39,7 @@ public sealed class OktaTests(DatabaseFixture fixture)
             var claims = new[] { new Claim("sub", failure == "unmapped" ? "unknown" : "external-alice"),
                 new Claim("nonce", failure == "nonce" ? "wrong-nonce" : Nonce), new Claim("acr", failure == "acr" ? "weak" : "required-acr"),
                 new Claim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture), ClaimValueTypes.Integer64),
-                new Claim("tenant", DevelopmentSeed.TenantB.ToString()), new Claim("roles", "Administrator") };
+                new Claim("tenant", DevelopmentSeed.TenantB.ToString()), new Claim("roles", "Administrator"), new Claim(ResponseRegistry.EpochClaim, "999") };
             var token = new JwtSecurityToken(failure == "issuer" ? "https://foreign.example" : Issuer,
                 failure == "audience" ? "foreign-client" : "synthetic-client", claims, DateTime.UtcNow.AddMinutes(-10),
                 failure == "expired" ? DateTime.UtcNow.AddMinutes(-5) : DateTime.UtcNow.AddMinutes(5), new SigningCredentials(key, SecurityAlgorithms.RsaSha256));
@@ -107,6 +107,7 @@ public sealed class OktaTests(DatabaseFixture fixture)
                 var value = cookie.Split(';')[0]["SaveIT.Session=".Length..];
                 var options = factory.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>().Get(CookieAuthenticationDefaults.AuthenticationScheme);
                 var ticket = options.TicketDataFormat.Unprotect(value)!; Assert.Null(ticket.Properties.GetTokenValue("id_token"));
+                Assert.Equal((await fixture.Scalar<int>($"SELECT \"SessionEpoch\" FROM \"Memberships\" WHERE \"Id\"='{Member}'")).ToString(System.Globalization.CultureInfo.InvariantCulture), ticket.Principal.FindFirstValue(ResponseRegistry.EpochClaim));
                 await fixture.Execute($"UPDATE \"Memberships\" SET \"Active\"=false WHERE \"Id\"='{Member}'");
                 Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/session")).StatusCode);
             }

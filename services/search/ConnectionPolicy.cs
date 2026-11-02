@@ -8,7 +8,11 @@ public static class ConnectionPolicy
     public static string RuntimeConnection(string connection)
     {
         var c = new NpgsqlConnectionStringBuilder(connection);
-        if (!string.IsNullOrEmpty(c.Options)) throw new InvalidOperationException("Arbitrary database startup options are unsupported.");
+        if (c.Options is not (null or "" or " ")) throw new InvalidOperationException("Arbitrary database startup options are unsupported.");
+        // Null falls back to PGOPTIONS; an empty string round-trips back to null in
+        // Npgsql. One explicit whitespace character supplies no GUCs and survives
+        // connection-string serialization, suppressing ambient role/session settings.
+        c.Options = " ";
         RejectRequiredGss(c);
         // Npgsql attempts GSS before TLS and may return before VerifyFull is reached.
         // SaveIT supports certificate TLS, not an alternative ambient GSS transport.

@@ -51,7 +51,7 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         await DeploymentRunner.MigrateAsync(d.Connection, true); await DeploymentRunner.MigrateAsync(d.Connection, true);
         Assert.Equal(0L, await d.Scalar<long>("SELECT count(*) FROM \"Tenants\""));
         Assert.False(await d.Scalar<bool>("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole FROM pg_roles WHERE rolname='saveit_migration_owner'"));
-        Assert.Equal(25L, await d.Scalar<long>("SELECT count(*) FROM pg_policy WHERE polname='saveit_deployment_owner'"));
+        Assert.Equal(28L, await d.Scalar<long>("SELECT count(*) FROM pg_policy WHERE polname='saveit_deployment_owner'"));
         foreach (var connection in new[] { d.App, d.Worker })
         {
             await using var c = new NpgsqlConnection(connection); await c.OpenAsync();
@@ -112,7 +112,7 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         await DeploymentRunner.MigrateAsync(d.Connection, true);
         Assert.Equal(2L, await d.Scalar<long>("SELECT count(*) FROM \"LocationRevisions\""));
         Assert.Equal(2L, await d.Scalar<long>("SELECT count(*) FROM \"OrganizationRevisions\""));
-        Assert.Equal(25L, await d.Scalar<long>("SELECT count(*) FROM pg_policy WHERE polname='saveit_deployment_owner'"));
+        Assert.Equal(28L, await d.Scalar<long>("SELECT count(*) FROM pg_policy WHERE polname='saveit_deployment_owner'"));
     }
 
     [Fact]
@@ -348,5 +348,52 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         Assert.True(await d.Scalar<bool>("SELECT \"Attempts\"=1 AND \"CompletedAt\" IS NULL AND \"NextAttemptAt\">now() AND \"ErrorCode\"='projection_database_failure' FROM \"SearchDeliveries\""));
         await d.Execute("DROP TRIGGER fail_completion_commit ON \"SearchDeliveries\"; DROP FUNCTION fail_completion_commit(); UPDATE \"SearchDeliveries\" SET \"NextAttemptAt\"=now()-interval '1 second'");
         Assert.Equal(1, (await processor.ProcessBatchAsync(p.TenantId)).Completed);
+    }
+
+    [Fact]
+    public async Task Access_functions_owned_by_non_superuser_preserve_forced_rls_and_support_restricted_operator_and_response_protocol()
+    {
+        await using var d = await Database(); await d.Execute("REVOKE USAGE ON SCHEMA public FROM PUBLIC"); await DeploymentRunner.MigrateAsync(d.Connection, true);
+        var p = Manifest(); await DeploymentRunner.ProvisionAsync(d.Connection, JsonSerializer.Serialize(p), true);
+        var login = "saveit_access_owner_test_" + Guid.NewGuid().ToString("N");
+        await d.Execute($"CREATE ROLE {login} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'synthetic-release-test-only'; GRANT saveit_access_operator TO {login}");
+        try
+        {
+            var op = new NpgsqlConnectionStringBuilder(d.Admin) { Username = login, Password = "synthetic-release-test-only", Pooling = false }.ConnectionString;
+            var member = Guid.NewGuid(); var created = new AccessManifest(p.TenantId, member, 0, "create", "synthetic-owner-policy-test", p.OrganizationId, "Viewer",
+                DisplayName: "Synthetic operator member", Issuer: p.Issuer, ExternalSubject: "synthetic-owned-" + member);
+            Assert.Equal(1, await AccessRunner.ChangeAsync(op, JsonSerializer.Serialize(created), true));
+            Assert.True(await d.Scalar<bool>("SELECT bool_and(p.proowner=(SELECT oid FROM pg_roles WHERE rolname='saveit_migration_owner')) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('register_response_v1','complete_response_v1','access_change_v1','access_inspect_v1')"));
+            await using var app = new NpgsqlConnection(d.App); await app.OpenAsync();
+            async Task<bool> Register(int epoch, Guid request, Guid instance)
+            {
+                await using var tx = await app.BeginTransactionAsync();
+                await using var cmd = new NpgsqlCommand($"SELECT set_config('app.tenant_id','{p.TenantId}',true),set_config('app.membership_id','{member}',true); SELECT public.register_response_v1('{p.TenantId}','{member}','{member}',{epoch},'{request}','{instance}')", app, tx);
+                await using var reader = await cmd.ExecuteReaderAsync(); await reader.NextResultAsync(); await reader.ReadAsync(); var result = reader.GetBoolean(0); await reader.DisposeAsync(); await tx.CommitAsync(); return result;
+            }
+            var request = Guid.NewGuid(); var instance = Guid.NewGuid(); Assert.True(await Register(1, request, instance));
+            using var inspected = JsonDocument.Parse(await AccessRunner.InspectAsync(op, JsonSerializer.Serialize(new AccessInspection(p.TenantId, member, "synthetic")), true));
+            Assert.Equal(1, inspected.RootElement.GetProperty("pendingResponseCount").GetInt32());
+            var change = new AccessManifest(p.TenantId, member, 1, "active", "synthetic", Enabled: false);
+            Assert.Equal("55P03", (await Assert.ThrowsAsync<PostgresException>(() => AccessRunner.ChangeAsync(op, JsonSerializer.Serialize(change), true))).SqlState);
+            await using (var tx = await app.BeginTransactionAsync())
+            {
+                await using var cmd = new NpgsqlCommand($"SELECT set_config('app.tenant_id','{p.TenantId}',true),set_config('app.membership_id','{member}',true); SELECT public.complete_response_v1('{p.TenantId}','{member}','{request}','{instance}',false)", app, tx);
+                await cmd.ExecuteNonQueryAsync(); await tx.CommitAsync();
+            }
+            Assert.Equal(2, await AccessRunner.ChangeAsync(op, JsonSerializer.Serialize(change), true));
+            Assert.Equal(3, await AccessRunner.ChangeAsync(op, JsonSerializer.Serialize(change with { ExpectedVersion = 2, Enabled = true }), true));
+            Assert.False(await Register(1, Guid.NewGuid(), Guid.NewGuid()));
+            // The automatically added creator grant must advance the same expected-access token.
+            var organization = Guid.NewGuid();
+            await using (var tx = await app.BeginTransactionAsync())
+            {
+                await using var cmd = new NpgsqlCommand($"SELECT set_config('app.tenant_id','{p.TenantId}',true),set_config('app.membership_id','{p.MembershipId}',true); SELECT public.create_organization('{organization}','Synthetic creator grant','{p.MembershipId}')", app, tx);
+                await cmd.ExecuteNonQueryAsync(); await tx.CommitAsync();
+            }
+            Assert.Equal(3, await d.Scalar<int>($"SELECT \"AccessVersion\" FROM \"Memberships\" WHERE \"Id\"='{p.MembershipId}'"));
+            Assert.Equal(3L, await d.Scalar<long>($"SELECT count(*) FROM \"AccessControlEvents\" WHERE \"MembershipId\"='{member}'"));
+        }
+        finally { await d.Execute($"DROP ROLE {login}"); }
     }
 }

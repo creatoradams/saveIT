@@ -32,6 +32,7 @@ Ingress.Configure(builder);
 builder.Services.AddScoped<TenantScope>();
 builder.Services.AddDbContext<SaveItDb>(o => o.UseNpgsql(appConnection));
 builder.Services.AddScoped<TenantFilter>();
+builder.Services.AddSingleton(sp => new ResponseRegistry(appConnection, sp.GetRequiredService<ILogger<ResponseRegistry>>()));
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
 {
     o.Cookie.Name = oktaEnabled ? "SaveIT.Session" : "SaveIT.Development";
@@ -83,6 +84,11 @@ await using (var connection = new NpgsqlConnection(appConnection))
     if (!app.Environment.IsDevelopment()) await DatabaseRoleGuard.ValidateSchemaAsync(connection, requireMigration: true);
 }
 
+app.UseRouting();
+app.Use(async (context, next) => {
+    context.RequestServices.GetRequiredService<ResponseRegistry>().Initialize(context);
+    await next(context);
+});
 app.UseExceptionHandler();
 app.UseForwardedHeaders();
 app.Use(async (context, next) =>
@@ -92,6 +98,7 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.UseAuthentication();
+app.Use((context, next) => context.RequestServices.GetRequiredService<ResponseRegistry>().AuthorizeAsync(context, next));
 app.UseAuthorization();
 app.UseRateLimiter();
 app.Use(async (context, next) =>
@@ -122,18 +129,25 @@ if (devIdentity)
         var profile = DevelopmentSeed.Profiles.SingleOrDefault(x => x.Id == request.Profile);
         if (profile is null) return Results.Unauthorized();
         scope.TenantId = profile.TenantId;
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.tenant_id', {scope.TenantId.ToString()}, true)");
-        if (!await db.Memberships.AnyAsync(x => x.Id == profile.MembershipId && x.Subject == profile.Id && x.Active)) return Results.Unauthorized();
+        int? epoch;
+        await using (var transaction = await db.Database.BeginTransactionAsync())
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.tenant_id', {scope.TenantId.ToString()}, true)");
+            epoch = await db.Memberships.Where(x => x.Id == profile.MembershipId && x.Subject == profile.Id && x.Active).Select(x => (int?)x.SessionEpoch).SingleOrDefaultAsync();
+        }
+        if (epoch is null) return Results.Unauthorized();
         var identity = new ClaimsIdentity([
             new(ClaimTypes.NameIdentifier, profile.MembershipId.ToString()), new("tenant", profile.TenantId.ToString()),
-            new("subject", profile.Id), new(ClaimTypes.Name, profile.Name)
+            new("subject", profile.Id), new(ClaimTypes.Name, profile.Name), new(ResponseRegistry.EpochClaim, epoch.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))
         ], CookieAuthenticationDefaults.AuthenticationScheme);
-        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+        var principal = new ClaimsPrincipal(identity);
+        if (!await context.RequestServices.GetRequiredService<ResponseRegistry>().RegisterAsync(context, principal)) return Results.Unauthorized();
+        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
         return Results.NoContent();
     }).RequireRateLimiting("development-login");
 }
-app.MapPost("/api/v1/logout", async (HttpContext c) => { await c.SignOutAsync(); return Results.NoContent(); }).RequireAuthorization();
+// Clearing a cookie discloses no protected data. Stale epochs must still be able to sign out; CSRF remains required.
+app.MapPost("/api/v1/logout", async (HttpContext c) => { await c.SignOutAsync(); return Results.NoContent(); }).AllowAnonymous();
 app.MapSaveItEndpoints();
 app.MapSearchEndpoints();
 app.MapDocumentHistoryEndpoints();

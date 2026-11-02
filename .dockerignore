@@ -26,5 +26,7 @@ coverage
 **/*.p12
 **/appsettings.*.Local.json
 **/secrets.json
+**/*.access.local.json
+**/*.provision.local.json
 **/.idea
 **/.vscode

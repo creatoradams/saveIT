@@ -51,6 +51,18 @@ export async function startDatabase() {
     const client = pg.getPgClient();
     await client.connect();
     try {
+      for (const name of ["saveit_migration_owner", "saveit_access_operator"]) {
+        if (
+          !(
+            await client.query("SELECT 1 FROM pg_roles WHERE rolname=$1", [
+              name,
+            ])
+          ).rowCount
+        )
+          await client.query(
+            `CREATE ROLE ${name} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS`,
+          );
+      }
       const role = await client.query(
         "SELECT 1 FROM pg_roles WHERE rolname='saveit_app'",
       );

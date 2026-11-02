@@ -80,15 +80,23 @@ public static class OktaIdentity
                 { context.Fail("The verified identity does not satisfy this connection."); return; }
                 var scope = context.HttpContext.RequestServices.GetRequiredService<TenantScope>(); scope.TenantId = connection.TenantId;
                 var db = context.HttpContext.RequestServices.GetRequiredService<SaveItDb>();
-                await using var transaction = await db.Database.BeginTransactionAsync(context.HttpContext.RequestAborted);
-                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.tenant_id',{scope.TenantId.ToString()},true)");
-                var member = await db.Memberships.AsNoTracking().SingleOrDefaultAsync(x => x.Active && x.ExternalIssuer == connection.Issuer && x.ExternalSubject == subject);
+                Membership? member;
+                await using (var transaction = await db.Database.BeginTransactionAsync(context.HttpContext.RequestAborted))
+                {
+                    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.tenant_id',{scope.TenantId.ToString()},true)");
+                    member = await db.Memberships.AsNoTracking().SingleOrDefaultAsync(x => x.Active && x.ExternalIssuer == connection.Issuer && x.ExternalSubject == subject);
+                }
                 if (member is null) { context.Fail("No active membership is provisioned for this verified identity."); return; }
                 // No email matching, automatic provisioning, token-provided tenant or provider roles grant access.
                 context.Principal = new ClaimsPrincipal(new ClaimsIdentity([
                     new(ClaimTypes.NameIdentifier, member.Id.ToString()), new(ClaimTypes.Name, member.DisplayName),
-                    new("tenant", member.TenantId.ToString()), new("subject", member.Subject)
+                    new("tenant", member.TenantId.ToString()), new("subject", member.Subject),
+                    new(ResponseRegistry.EpochClaim, member.SessionEpoch.ToString(System.Globalization.CultureInfo.InvariantCulture))
                 ], CookieAuthenticationDefaults.AuthenticationScheme));
+                // Authentication can short-circuit the pipeline. Register before cookie output,
+                // rechecking the exact epoch after any concurrent operator barrier has finished.
+                if (!await context.HttpContext.RequestServices.GetRequiredService<ResponseRegistry>().RegisterAsync(context.HttpContext, context.Principal))
+                { context.Fail("Membership changed during sign-in."); return; }
                 context.Properties ??= new();
                 context.Properties.RedirectUri = "/";
             };

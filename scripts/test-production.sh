@@ -42,6 +42,8 @@ sudo chown 999:999 "$fixture/pg.key"
 ALTER DATABASE saveit OWNER TO saveit_migration_owner;
 CREATE ROLE synthetic_deployer LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'synthetic-deployer-only';
 GRANT saveit_migration_owner TO synthetic_deployer;
+CREATE ROLE synthetic_access LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'synthetic-access-only';
+GRANT saveit_access_operator TO synthetic_access;
 ALTER ROLE saveit_app LOGIN PASSWORD 'synthetic-app-only';
 ALTER ROLE saveit_search_worker LOGIN PASSWORD 'synthetic-worker-only';
 SQL

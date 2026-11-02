@@ -9,7 +9,7 @@ public sealed class TenantFilter(SaveItDb db, TenantScope scope) : IEndpointFilt
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var user = context.HttpContext.User;
-        if (!Guid.TryParse(user.FindFirstValue("tenant"), out var tenant) || !Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var membership))
+        if (!ResponseRegistry.TryAuthority(user, out var tenant, out var membership, out var epoch))
             return Results.Unauthorized();
         scope.TenantId = tenant;
         scope.MembershipId = membership;
@@ -17,7 +17,7 @@ public sealed class TenantFilter(SaveItDb db, TenantScope scope) : IEndpointFilt
         await using var transaction = await db.Database.BeginTransactionAsync(context.HttpContext.RequestAborted);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.tenant_id', {tenant.ToString()}, true)");
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.membership_id', {membership.ToString()}, true)");
-        var current = await db.Memberships.AsNoTracking().Where(x => x.Id == membership && x.Subject == scope.Subject && x.Active)
+        var current = await db.Memberships.AsNoTracking().Where(x => x.Id == membership && x.Subject == scope.Subject && x.Active && x.SessionEpoch == epoch)
             .Select(x => new { x.CanManageOrganizations }).SingleOrDefaultAsync(context.HttpContext.RequestAborted);
         if (current is null)
             return Results.Unauthorized();
