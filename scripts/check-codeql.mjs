@@ -1,6 +1,7 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readBoundedFile } from "./read-bounded-file.mjs";
 
 export function assessCodeql(report) {
   if (
@@ -57,9 +58,9 @@ if (
   let failed = false;
   for (const file of files) {
     const path = join(directory, file);
-    if (statSync(path).size > 64 * 1024 * 1024)
-      throw new Error("CodeQL report is too large.");
-    const result = assessCodeql(JSON.parse(readFileSync(path, "utf8")));
+    const result = assessCodeql(
+      JSON.parse(readBoundedFile(path, 64 * 1024 * 1024).toString("utf8")),
+    );
     console.log(JSON.stringify({ report: file, ...result }));
     failed ||= result.high > 0 || result.errors > 0;
   }

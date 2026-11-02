@@ -3,6 +3,31 @@ import assert from "node:assert/strict";
 import { assessCodeql } from "../scripts/check-codeql.mjs";
 import { validateImageInventory } from "../scripts/release-inventory.mjs";
 import { securityTool } from "../scripts/security-tools.mjs";
+import { readBoundedFile } from "../scripts/read-bounded-file.mjs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  rmdirSync,
+  writeFileSync,
+} from "node:fs";
+import { resolve } from "node:path";
+
+test("Report/cache reads enforce limits on regular files through a single handle", () => {
+  mkdirSync(".local/security", { recursive: true });
+  const directory = mkdtempSync(resolve(".local/security/read-canary-"));
+  const file = resolve(directory, "input.json");
+  try {
+    writeFileSync(file, "abc");
+    assert.equal(readBoundedFile(file, 3).toString(), "abc");
+    assert.throws(() => readBoundedFile(file, 2));
+    assert.throws(() => readBoundedFile(file, -1));
+    assert.throws(() => readBoundedFile(directory, 100));
+  } finally {
+    rmSync(file, { force: true });
+    rmdirSync(directory);
+  }
+});
 
 const report = (score = "6.0") => ({
   version: "2.1.0",

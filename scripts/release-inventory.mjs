@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { securityTool } from "./security-tools.mjs";
+import { readBoundedFile } from "./read-bounded-file.mjs";
 
 const imageNames = ["api", "worker", "deployment", "web"];
 export function validateImageInventory(image, native, cyclone, revision, name) {
@@ -108,9 +109,7 @@ export function createReleaseInventory() {
     );
     const readInventory = (file) => {
       const path = resolve(directory, file);
-      if (statSync(path).size > 64 * 1024 * 1024)
-        throw new Error("Image inventory is too large.");
-      return readFileSync(path);
+      return readBoundedFile(path, 64 * 1024 * 1024);
     };
     const nativeBytes = readInventory(nativeFile);
     const cycloneBytes = readInventory(cycloneFile);
