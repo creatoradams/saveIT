@@ -1,5 +1,7 @@
 # SaveIT repository guidance
 
+Source-security/inventory changes preserve pinned tool/action hashes, full nonshallow reachable-history scanning, redaction and disabled inline allow comments. State inherited scanner exclusions and keep only reviewed exact false-positive fingerprints. Keep real scanner canaries, fail-closed SARIF severity/error handling and same-image native/CycloneDX bindings, explicit source/configuration-ID aliases, pinned output format and canonical positive numeric UIDs. Unsigned inventory hashes are not registry digests, signatures, vulnerability scans or promotion evidence.
+
 Read `docs/project-brief.md`, `docs/architecture.md`, `docs/progress.md` and relevant ADRs before architectural changes or completion claims. Preserve all enterprise scope in `docs/backlog.md` and `docs/feature-parity.md`; unimplemented capabilities stay visibly unimplemented. Use original SaveIT branding and synthetic data.
 
 Never derive tenant authority from request headers/payloads alone. Preserve live membership/organization checks, transaction-local PostgreSQL context, forced RLS, tenant/organization FKs and the non-owner runtime-role guard. Do not replace real PostgreSQL integration tests with an in-memory provider. Business writes, revisions where applicable, audit and outbox must commit atomically. Development identity stays opt-in and impossible in Production.

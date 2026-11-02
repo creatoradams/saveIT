@@ -1,0 +1,74 @@
+name: SaveIT source security
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.16.0"
+      - run: node scripts/security-tools.mjs gitleaks
+      - run: node scripts/test-secret-detector.mjs
+      - run: node scripts/check-secrets.mjs
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: csharp
+            build: manual
+          - language: javascript-typescript
+            build: none
+          - language: actions
+            build: none
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.16.0"
+      - if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          global-json-file: global.json
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4; linked CLI 2.27.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build }}
+          tools: linked
+          queries: security-extended
+      - if: matrix.language == 'csharp'
+        run: |
+          dotnet restore SaveIT.slnx --locked-mode
+          dotnet build SaveIT.slnx -c Release --no-restore --no-incremental
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
+        with:
+          category: /language:${{ matrix.language }}
+          output: .local/codeql-results
+      - name: Reject high security findings and error results
+        run: node scripts/check-codeql.mjs .local/codeql-results
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: saveit-codeql-${{ matrix.language }}
+          path: .local/codeql-results/*.sarif
+          retention-days: 7

@@ -1,0 +1,30 @@
+{
+  "gitleaks": {
+    "version": "8.30.1",
+    "repository": "gitleaks/gitleaks",
+    "linux": {
+      "asset": "gitleaks_8.30.1_linux_x64.tar.gz",
+      "sha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+      "binary": "gitleaks"
+    },
+    "win32": {
+      "asset": "gitleaks_8.30.1_windows_x64.zip",
+      "sha256": "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e",
+      "binary": "gitleaks.exe"
+    }
+  },
+  "syft": {
+    "version": "1.55.0",
+    "repository": "anchore/syft",
+    "linux": {
+      "asset": "syft_1.55.0_linux_amd64.tar.gz",
+      "sha256": "bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d",
+      "binary": "syft"
+    },
+    "win32": {
+      "asset": "syft_1.55.0_windows_amd64.zip",
+      "sha256": "ada4c9b93af575f479ce80fce6629897272a2d41f300a14bc49bace020767ca2",
+      "binary": "syft.exe"
+    }
+  }
+}

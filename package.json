@@ -18,7 +18,10 @@
     "build": "npm run build --workspace apps/web",
     "test": "dotnet test SaveIT.slnx --no-restore",
     "test:e2e": "playwright test",
-    "check:ignore": "node --test tests/gitignore.test.mjs"
+    "check:ignore": "node --test tests/gitignore.test.mjs",
+    "test:security": "node --test tests/security-gates.test.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "inventory:images": "node scripts/release-inventory.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

@@ -36,6 +36,7 @@ jobs:
       - run: dotnet build SaveIT.slnx --no-restore
       - run: dotnet test SaveIT.slnx --no-build --no-restore --logger trx
       - run: npm run check:ignore
+      - run: node --test tests/security-gates.test.mjs
       - run: npm run contracts && git diff --exit-code -- apps/web/lib/api.generated.ts
       - run: npm run typecheck
       - run: npm run build

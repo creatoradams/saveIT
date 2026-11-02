@@ -8,6 +8,8 @@ RUN dotnet restore SaveIT.slnx --locked-mode \
  && dotnet publish services/deployment -c Release --no-restore --no-self-contained -p:UseAppHost=false -o /out/deployment
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-noble-chiseled-extra@sha256:9b755ea799ae649141a073e30d8b62d8095a5465af2b7694d17866e8c05131d8 AS runtime
+ARG SAVEIT_REVISION
+LABEL org.opencontainers.image.revision=$SAVEIT_REVISION org.opencontainers.image.source="https://github.com/creatoradams/saveIT"
 WORKDIR /app
 ENV DOTNET_ENVIRONMENT=Production ASPNETCORE_ENVIRONMENT=Production DOTNET_EnableDiagnostics=0
 USER $APP_UID

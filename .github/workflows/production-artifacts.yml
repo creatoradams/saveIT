@@ -19,12 +19,22 @@ jobs:
         run: |
           for target in api worker deployment identity-fixture; do
             if [ "$target" = identity-fixture ]; then name=identity-fixture; else name=$target; fi
-            docker build -f infra/containers/dotnet.Dockerfile --target "$target" -t "saveit-$name:test" .
+            docker build -f infra/containers/dotnet.Dockerfile --build-arg "SAVEIT_REVISION=$GITHUB_SHA" --target "$target" -t "saveit-$name:test" .
           done
-          docker build -f infra/containers/web.Dockerfile -t saveit-web:test .
+          docker build -f infra/containers/web.Dockerfile --build-arg "SAVEIT_REVISION=$GITHUB_SHA" -t saveit-web:test .
       - run: npx playwright install --with-deps chromium
       - name: Verify packaged Production-mode behavior with synthetic external identity
         run: bash scripts/test-production.sh
+      - name: Inventory the same verified release images
+        run: |
+          node scripts/security-tools.mjs syft
+          node scripts/test-image-inventory.mjs
+          node scripts/release-inventory.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: saveit-release-inventory-${{ github.sha }}
+          path: test-results/release-inventory/
+          retention-days: 14
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: failure()
         with:
