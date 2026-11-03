@@ -1,5 +1,5 @@
 import EmbeddedPostgres from "embedded-postgres";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -34,6 +34,8 @@ export function run(command, args, env = {}) {
 export async function startDatabase() {
   const dir = resolve(".local/postgres");
   mkdirSync(resolve(".local"), { recursive: true });
+  let startupLog = "",
+    starting = true;
   const pg = new EmbeddedPostgres({
     databaseDir: dir,
     user: "postgres",
@@ -42,11 +44,25 @@ export async function startDatabase() {
     persistent: true,
     authMethod: "scram-sha-256",
     postgresFlags: ["-h", "127.0.0.1"],
-    onLog: () => {},
+    onLog: (message) => {
+      if (starting) startupLog = (startupLog + String(message)).slice(-8192);
+    },
     onError: (message) => console.error(String(message)),
   });
-  if (!existsSync(resolve(dir, "PG_VERSION"))) await pg.initialise();
-  await pg.start();
+  try {
+    if (!existsSync(resolve(dir, "PG_VERSION"))) await pg.initialise();
+    await pg.start();
+  } catch {
+    // The wrapper rejects with undefined on early process exit. Preserve bounded
+    // synthetic startup diagnostics in ignored evidence; never collect SQL traffic.
+    writeFileSync(resolve(".local/postgres-startup.log"), startupLog);
+    throw new Error(
+      "Local synthetic PostgreSQL failed before readiness; see .local/postgres-startup.log.",
+    );
+  } finally {
+    starting = false;
+    startupLog = "";
+  }
   try {
     const client = pg.getPgClient();
     await client.connect();

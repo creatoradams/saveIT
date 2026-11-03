@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: "24.16.0"
+          node-version: "24.22.2"
           cache: npm
       - run: npm ci
       - name: Build immutable non-root process images
@@ -26,11 +26,17 @@ jobs:
       - name: Verify packaged Production-mode behavior with synthetic external identity
         run: bash scripts/test-production.sh
       - name: Inventory the same verified release images
+        id: inventory
         run: |
           node scripts/security-tools.mjs syft
           node scripts/test-image-inventory.mjs
           node scripts/release-inventory.mjs
+      - name: Reject vulnerable release images with a current verified database
+        run: |
+          node scripts/security-tools.mjs grype
+          node scripts/scan-image-vulnerabilities.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && steps.inventory.outcome == 'success'
         with:
           name: saveit-release-inventory-${{ github.sha }}
           path: test-results/release-inventory/

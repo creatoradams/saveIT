@@ -35,7 +35,7 @@ The release-foundation general and packaged CI gates pass (ADR 022); the bounded
 - [ ] User directory, groups/teams, action-level PermissionGrant rules, inheritance/override/deny precedence, OpenFGA adapter and authoritative consistency protocol.
 - [ ] Delegated permission administration, operated fencing/recovery and expanded failed/denied/authentication/admin audit and separate immutable archives/retention/gap detection/SIEM exports.
 - [ ] Per-tenant quotas, API/workload rate limits, workload identities, private services, restricted administration and egress, OpenTelemetry redaction and actionable alerts.
-- [ ] Patch policy, automated secret/SAST scanning, SBOMs, signed artifacts and reviewed deployment/release pipeline. ADR 026 defines full-reachable-history Gitleaks with explicit inherited exclusions, CodeQL security-extended thresholds and four-image native/CycloneDX inventories; Linux execution is pending. Signing, image vulnerability/license policy, protected promotion and operated patching remain unfinished.
+- [ ] Patch policy, automated secret/SAST scanning, SBOMs, signed artifacts and reviewed deployment/release pipeline. ADR 026 defines full-reachable-history Gitleaks with explicit inherited exclusions, CodeQL security-extended thresholds and four-image native/CycloneDX inventories; actual Linux source/package jobs pass (general browser startup re-verification pending). ADR 027 image vulnerability gates/minimal patched Node runtime are under verification. Signing, image license policy, protected promotion and operated patching remain unfinished.
 
 ## Phase 2 — core vertical slices
 

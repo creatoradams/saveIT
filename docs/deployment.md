@@ -66,7 +66,7 @@ Only the dedicated test target includes the synthetic provider. It refuses envir
 
 ## Remaining production work
 
-Protected release promotion/signing, image vulnerability/license policy and scanning/inventory execution evidence (see [source security](source-security.md)), real managed-database and provider tests, operated human access/fencing/recovery and delegated administration, telemetry/quotas/audit archives, actual backup/key recovery, measured capacity/SLOs and independent assessment remain separate gates. Terraform/cloud resources remain unapplied. All 146 enterprise scope entries remain tracked.
+Protected release promotion/signing, image license policy and ADR 027 patched-runtime/full-image verification (see [source security](source-security.md)), real managed-database and provider tests, operated human access/fencing/recovery and delegated administration, telemetry/quotas/audit archives, actual backup/key recovery, measured capacity/SLOs and independent assessment remain separate gates. Terraform/cloud resources remain unapplied. All 146 enterprise scope entries remain tracked.
 
 ## Isolated recovery rehearsal
 

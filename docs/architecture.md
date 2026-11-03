@@ -147,3 +147,5 @@ Both sign-in adapters seal a live session epoch into cookies and register before
 ## Source and image release checks
 
 ADR 026 defines pinned full-reachable-history Gitleaks with explicit upstream exclusions and a runtime detection/redaction canary, CodeQL security-extended threshold gates, and native/CycloneDX inventories tied to the same four verified packaged images. Actual execution status is in progress. Local configuration IDs and SBOM hashes are unsigned bookkeeping; registry promotion, signatures, vulnerability/license policy and branch/environment enforcement remain unfinished. See [source security](source-security.md).
+
+ADR027 extends image inventory with pinned Grype/fresh public database checks and a patched minimal Node runtime on Ubuntu24.04 chiseled runtime-deps. Full-image and packaged execution are required; base-only scans do not establish application results. High/critical/unknown matches block, lower findings remain visible. See source-security/progress for scope, inherited matcher defaults and execution evidence.

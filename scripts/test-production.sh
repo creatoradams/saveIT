@@ -6,6 +6,9 @@ cd "$root"
 fixture="$root/.local/container-fixture"
 mkdir -p "$fixture"
 compose=(docker compose -p saveit-release -f tests/production/compose.yml)
+# The custom minimal web runtime must execute the actual patched binary under its
+# declared nonroot identity, before any application/network fixture is started.
+test "$(docker run --rm saveit-web:test --version)" = 'v24.22.2'
 cleanup() {
   status=$?
   if [[ "$status" != 0 ]]; then

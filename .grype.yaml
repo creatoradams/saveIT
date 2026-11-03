@@ -1,0 +1,20 @@
+# Explicit reviewed settings; upstream kernel-header indirect-match defaults still
+# exist in Grype. Actual ignored matches are rejected by our report gate.
+check-for-app-update: false
+fail-on-severity: high
+only-fixed: false
+only-notfixed: false
+ignore-wontfix: ""
+exclude: []
+ignore: []
+db:
+  cache-dir: .local/security/grype-db
+  auto-update: true
+  validate-by-hash-on-start: true
+  validate-age: true
+  max-allowed-built-age: 120h
+  require-update-check: true
+  max-update-check-frequency: 0s
+  update-url: https://grype.anchore.io/databases
+  update-available-timeout: 30s
+  update-download-timeout: 5m
