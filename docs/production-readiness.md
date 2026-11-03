@@ -2,7 +2,7 @@
 
 ## Current checkpoint — 2026-11-03
 
-SaveIT remains a tested development preview. The latest fully green application/injection source is **0547bc4**: 430 backend tests/zero skipped, 61 Chromium checks and four packaged Production-mode flows. Storage source **194c506** also passes source/packaged checks and all 38 infrastructure mock plans; one browser helper race prevented a completely green general run. Its captured failure is diagnosed and repaired with four passing local affected flows; exact updated-source CI is pending. See [progress](progress.md) for immutable run links and current results. The baseline assessment below is historical, not the current test count.
+SaveIT remains a tested development preview. Code **0a27cfb** passes all three workflows: 430 backend tests/zero skipped, 61 Chromium checks, four packaged Production-mode flows, eight load-harness tool tests and 38 infrastructure mock plans. The captured relationship browser-helper race is repaired and passes with a deliberately delayed first target response. Source and actual same-image vulnerability gates pass at the recorded snapshot, with lower findings still visible. Both requested agents completed final read-only checks of the bounded delta without remaining actionable findings; that is not independent assurance. See [progress](progress.md) for immutable run links, scan snapshot and methodology limits. The baseline assessment below is historical, not the current test count.
 
 | Production path | Implemented and evidenced | Further engineering / actual environment evidence |
 | --- | --- | --- |
