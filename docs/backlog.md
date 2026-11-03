@@ -106,3 +106,5 @@ The release-foundation general and packaged CI gates pass (ADR 022); the bounded
 ## Delivery gates
 
 Complete phase 1 only after reproducible local setup/CI, two-tenant evidence and identity/authorization baseline are accepted. Complete a core slice only with real persistence and denial/revocation cases. Integrations need real credentials and recovery evidence. Vault release requires independent review. Enterprise readiness requires measured operations and remediated release blockers; do not remove unmet gates to ship a partial preview.
+
+ADR 028 adds an unapplied, locally mocked-tested private network/database foundation. This is a partial infrastructure subset: compute/ingress/restricted egress, workload secrets/persisted keys, private migration/operator execution and trusted fencing, registry/signing/promotion, redacted telemetry/quotas and actual managed-service compatibility/recovery remain unfinished. All 146 inventory labels remain in scope; definition/test evidence is not a cloud deployment.

@@ -77,3 +77,7 @@ The original p95/availability/RPO/RTO numbers are proposed targets, not achieved
 - [Okta application and IdP sessions](https://developer.okta.com/docs/concepts/session/): application session lifecycle requires explicit treatment alongside provider sessions. That page is Classic Engine guidance; confirm the actual tenant engine and applicable policy/session behavior during live setup.
 
 These sources inform the plan; they do not prove SaveIT has implemented or exercised the documented controls. Only documentation changes were made for this reassessment. Existing CI evidence is cited above; the application test suites were not rerun as new production evidence.
+
+## Current supply-chain and private-data delta — 2026-11-02
+
+ADRs 026/027 now have exact-commit general/source/packaged CI evidence in progress, including patched Node 24.22.2 and actual four-image vulnerability scans with no high/critical/unknown matches at the stated database snapshot. Lower image/tool/dependency findings remain visible. ADR 028 introduces only an unapplied private network/database foundation under verification; full app compute/ingress/restricted egress, runtime credentials/keys, operator connectivity/fencing, protected promotion and telemetry/quotas still require account-free engineering. Actual account apply/managed role/CA/recovery and live Okta/MFA verification then require authorized environments. Neither working source scans nor cloud resource definitions are production approval.

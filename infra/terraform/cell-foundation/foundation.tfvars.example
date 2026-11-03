@@ -1,0 +1,12 @@
+# Synthetic shape only. Do not apply these values. Resolve actual account,
+# residency, network overlap, AZ/engine/class availability and budget first.
+account_id              = "111122223333"
+region                  = "us-east-1"
+cell                    = "pilot"
+environment             = "staging"
+availability_zones      = ["us-east-1a", "us-east-1b"]
+vpc_cidr                = "10.84.0.0/16"
+key_administrators      = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+database_engine_version = "18"
+database_instance_class = "db.m7g.large"
+database_storage_gib    = 20
