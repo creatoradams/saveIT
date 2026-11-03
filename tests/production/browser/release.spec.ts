@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 const compose = [
   "compose",
   "-p",
@@ -54,7 +54,44 @@ test("production images use real HTTPS OIDC and PKCE, scoped persistence and pro
   expect(cookie?.secure).toBe(true);
   expect(cookie?.httpOnly).toBe(true);
   execFileSync("bash", ["scripts/rotate-test-key.sh"], { stdio: "pipe" });
-  execFileSync("docker", [...compose, "restart", "api"], { stdio: "pipe" });
+  // Synthetic private material exists only in ignored runtime evidence. Passing
+  // the file path keeps certificate values out of CLI arguments and test output.
+  const memoryConfig =
+    ".local/container-fixture/memory-certificate.compose.json";
+  writeFileSync(
+    memoryConfig,
+    JSON.stringify({
+      services: {
+        api: {
+          environment: {
+            Identity__KeyCertificatePath: "",
+            Identity__KeyCertificateBase64: readFileSync(
+              ".local/container-fixture/protection.pfx",
+            ).toString("base64"),
+            Identity__PreviousKeyCertificates__0__Path: "",
+            Identity__PreviousKeyCertificates__0__Base64: readFileSync(
+              ".local/container-fixture/previous.pfx",
+            ).toString("base64"),
+          },
+        },
+      },
+    }),
+    { mode: 0o600 },
+  );
+  execFileSync(
+    "docker",
+    [
+      ...compose,
+      "-f",
+      memoryConfig,
+      "up",
+      "-d",
+      "--no-deps",
+      "--force-recreate",
+      "api",
+    ],
+    { stdio: "pipe" },
+  );
   await expect
     .poll(async () => (await page.request.get("/health/ready")).status(), {
       timeout: 30000,

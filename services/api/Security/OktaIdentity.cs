@@ -33,20 +33,17 @@ public static class OktaIdentity
         {
             var keys = builder.Configuration["Identity:KeyDirectory"];
             var certificate = builder.Configuration["Identity:KeyCertificatePath"];
-            if (string.IsNullOrWhiteSpace(keys) || string.IsNullOrWhiteSpace(certificate))
+            var encodedCertificate = builder.Configuration["Identity:KeyCertificateBase64"];
+            if (string.IsNullOrWhiteSpace(keys) || (string.IsNullOrWhiteSpace(certificate) && string.IsNullOrWhiteSpace(encodedCertificate)))
                 throw new InvalidOperationException("Enterprise identity requires an explicit persisted, certificate-protected Data Protection key ring.");
-            var protector = X509CertificateLoader.LoadPkcs12FromFile(certificate, builder.Configuration["Identity:KeyCertificatePassword"]);
-            if (!protector.HasPrivateKey || protector.NotBefore.ToUniversalTime() > DateTime.UtcNow || protector.NotAfter.ToUniversalTime() <= DateTime.UtcNow)
-                throw new InvalidOperationException("The Data Protection certificate requires an unexpired private key.");
+            var protector = KeyProtectionCertificate.Load(certificate, encodedCertificate, builder.Configuration["Identity:KeyCertificatePassword"]);
             var previous = builder.Configuration.GetSection("Identity:PreviousKeyCertificates").GetChildren().ToArray();
             if (previous.Length > 4) throw new InvalidOperationException("At most four prior key-protection certificates are supported.");
             var unprotect = new List<X509Certificate2> { protector };
             foreach (var item in previous)
             {
-                if (string.IsNullOrWhiteSpace(item["Path"])) throw new InvalidOperationException("A previous key-protection certificate path is required.");
-                var old = X509CertificateLoader.LoadPkcs12FromFile(item["Path"]!, item["Password"]);
                 // Expired certificates may still decrypt old keys during a controlled retirement window.
-                if (!old.HasPrivateKey) throw new InvalidOperationException("A previous key-protection certificate requires its private key.");
+                var old = KeyProtectionCertificate.Load(item["Path"], item["Base64"], item["Password"], allowExpired: true);
                 unprotect.Add(old);
             }
             builder.Services.AddDataProtection().SetApplicationName("SaveIT").PersistKeysToFileSystem(new DirectoryInfo(keys))

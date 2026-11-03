@@ -1,0 +1,9 @@
+# Bounded session-key protector source review
+
+Separate efficiency and security agents reviewed ADR 029, the shared certificate loader, nondevelopment identity registration, real cryptographic tests and packaged file-to-injected configuration transition. Both reviews were read-only; neither agent ran tests or independently verified CI. They found no actionable source defect in the reviewed change.
+
+The efficiency review checked single-handle file reads with a growth cap, bounded startup-only loading, resource cleanup and persisted encrypted-key decryption under replacement/current-plus-retired certificates. The security review checked exclusive sources, input/key/validity bounds, ephemeral imports, decoded-buffer clearing, sanitized exceptions and preservation of existing old-cookie and isolated recovery checks. Documentation now explicitly states that Base64 remains secret material in configuration/environment/memory and that injection support is not secret-manager retrieval or automatic rotation.
+
+The implementation requires RSA private keys of at least 2048 bits; current certificates must be valid now, while retired private certificates may be expired for controlled decryption continuity. Managed strings and native live keys cannot be erased by clearing decoded buffers. Privileged process/configuration access, protected persisted key storage, actual secret IAM/KMS controls and managed lifecycle/recovery remain separate deployment gates. This review is not independent security assurance.
+
+Execution evidence is recorded in [progress](../progress.md). Local full PostgreSQL regression execution passes **430 tests with zero skipped**, including all fourteen new crypto cases. Strict packaged-browser source types, TypeScript, optimized web build, ignore policy and Bash syntax pass. Linux packaged transition execution remains pending at this checkpoint. No cloud account, official credential or public deployment was used.

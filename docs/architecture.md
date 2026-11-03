@@ -153,3 +153,5 @@ ADR 027 extends image inventory with pinned Grype/fresh public database checks a
 ## Isolated network/database definition
 
 ADR 028 adds a separate unapplied cell-foundation root: four private subnets/two AZs, local-only routes, empty default SG and three designated process-to-PostgreSQL paths, rotating protected storage key and RDS-managed bootstrap credentials. All variables are explicit and mocked plans require no AWS credentials. This is partial infrastructure, not a runnable application cell or managed compatibility/recovery evidence. Account-side drift and actual role/CA/KMS/restore verification, compute/ingress/restricted egress, workload keys/secrets and operations remain gates.
+
+ADR 029 adds optional bounded secret-manager-style Base64 PFX configuration beside protected-file mode for current/retired session-key protectors. Imports are ephemeral and decoded buffers are cleared; managed configuration strings/native keys remain sensitive. Persisted encrypted key rings and all current tenant/session checks remain required. No cloud secret client, automatic rotation, multi-instance key storage or managed recovery is implemented by this loader.

@@ -70,6 +70,7 @@ refuses_startup() {
 refuses_startup 'Development identity requires the Development environment.' -e DevelopmentIdentity__Enabled=true -e Identity__Okta__Enabled=false api
 refuses_startup 'Production identity is unconfigured.' -e Identity__Okta__Enabled=false api
 refuses_startup 'Enterprise identity requires an explicit persisted, certificate-protected Data Protection key ring.' -e Identity__KeyDirectory= api
+refuses_startup 'Data Protection requires exactly one bounded protected PFX source' -e Identity__KeyCertificateBase64=synthetic-invalid-source api
 refuses_startup 'Synthetic migration/seed command requires explicit development identity opt-in.' api --migrate
 refuses_startup 'Synthetic identity fixture requires ContainerTest environment.' -e ASPNETCORE_ENVIRONMENT=Production -e DOTNET_ENVIRONMENT=Production identity
 "${compose[@]}" up -d api worker identity web edge

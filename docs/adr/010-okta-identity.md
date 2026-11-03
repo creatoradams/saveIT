@@ -26,6 +26,7 @@ The optional RequiredAcr value is requested and must appear exactly in the valid
 | Identity__Okta__RequiredAcr | Optional exact verified assurance value |
 | Identity__KeyDirectory | Persisted Data Protection key directory outside the repository |
 | Identity__KeyCertificatePath | Protected PFX path with unexpired private key |
+| Identity__KeyCertificateBase64 | Alternative protected injected PFX value; choose exactly one source (ADR 029) |
 | Identity__KeyCertificatePassword | Secret password from protected configuration |
 | SAVEIT_OKTA_ISSUER | Same public issuer on the Next server, for CSP form navigation |
 
