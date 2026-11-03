@@ -1,0 +1,15 @@
+# Local load harness and relationship-test review
+
+Separate user-requested efficiency and security agents reviewed source read-only. They ran no tests/network/AWS calls and made no edits. Primary-agent execution is recorded separately in [progress](../progress.md).
+
+Remedies:
+
+- Reject the known foreign fixture organization in list validation and add an HTTP canary. DTO-only validation still cannot prove ownership of arbitrary organization IDs; docs state this limit and the known-stack requirement.
+- Record warm-up page counts and validated-response item totals/minimum/maximum per group, distinguishing empty from populated workloads. Describe concurrency as closed-loop in-flight requests over two cookie sessions, without an arrival-rate/capacity claim.
+- Measure through client body consumption/validation while disclosing that durable completion callbacks may finish afterward. Rename the failure bucket `request-error` to include body failures accurately.
+- Replace ambient `fetch` transport after the security agent found Node proxy inheritance could route loopback requests through a configured proxy. Revalidate imported configurations; use literal `127.0.0.1`, a validated port and scoped `node:http` agent with empty proxy environment/socket bounds/final cleanup. A child-process positive control proves ambient global fetch hits a configured local proxy; the actual CLI then completes with zero proxy connections. Body/encoding/redirect/global/response limits remain explicit.
+- Fix the relationship helper's initial render race exposed in Linux CI. The captured desired option was already present, but the helper had counted before the form mounted and waited for unavailable pagination. Await the enabled selector before option checks; deliberately delay the real first target response without replacing its content. Four affected browser flows pass locally; no product authorization or assertion changed.
+
+The efficiency agent's final source recheck found no remaining actionable issue in these remedies, including native transport and meaningful proxy control. At that checkpoint seven tool tests passed; the primary agent then added and passed an eighth stalled-body deadline test. The security agent reached its usage limit after reporting proxy inheritance and could not complete a final source re-review of the fix. Do not describe the latest harness as having two final independent approvals. Primary verification includes all eight real local HTTP tool cases and actual bounded requests against the real PostgreSQL-backed API.
+
+Loopback transport is not an attestation against a listener that itself forwards elsewhere, and fixed preflights are not comprehensive tenant tests. Reports do not prove loaded binary identity, complete dataset sizes, completion latency, production quotas/capacity/SLOs or independent security assurance. Production operations and broader enterprise capabilities remain in the full roadmap.

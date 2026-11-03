@@ -1,5 +1,20 @@
 # SaveIT production-readiness reassessment
 
+## Current checkpoint — 2026-11-03
+
+SaveIT remains a tested development preview. The latest fully green application/injection source is **0547bc4**: 430 backend tests/zero skipped, 61 Chromium checks and four packaged Production-mode flows. Storage source **194c506** also passes source/packaged checks and all 38 infrastructure mock plans; one browser helper race prevented a completely green general run. Its captured failure is diagnosed and repaired with four passing local affected flows; exact updated-source CI is pending. See [progress](progress.md) for immutable run links and current results. The baseline assessment below is historical, not the current test count.
+
+| Production path | Implemented and evidenced | Further engineering / actual environment evidence |
+| --- | --- | --- |
+| Packaged application and authority | Nonroot images, seed-free deployment/bootstrap, verified synthetic OIDC/PKCE, persisted protected key/session replacement/recovery, live authority and 28 forced-RLS tables | Live Okta/MFA/assignment/lifecycle, managed PostgreSQL role/CA compatibility, operated access identity/fencing and independent review |
+| Source and release images | Reachable-history secret scan, CodeQL gates, unsigned same-image inventories and fresh-database image vulnerability gates; patched Node 24.22.2 release runtime | Protected registry digests/signatures/provenance/promotion/rollback, image license policy, operated servicing and all lower findings/risk ownership |
+| Infrastructure definitions | Separate unapplied state bootstrap, isolated private network/RDS and private EFS key-ring definitions with 9/16/13 mocked plans | Task/execution roles, secret-reference policies, ECS services, HTTPS ingress/restricted egress, private migration/operator execution, actual account plans/apply and managed permissions/mount/backup/recovery proof |
+| Protector configuration | Exactly one bounded file/Base64 PFX source per current/retired entry; real encrypted-ring and packaged file-to-injection continuity checks | Protected secret creation/injection/IAM/KMS, multi-replica mounting and actual creation/rotation/retirement/restore lifecycle |
+| Load/operations | Bounded opt-in two-tenant local read harness, content-free item/timing metadata, proxy/timeout/redirect canaries and real local measurements | Representative staging data/scenarios, redacted telemetry/alerts, API/tenant quotas, denied/auth/admin audit expansion/archives, worker operating controls and measured fault/capacity/recovery budgets |
+| Enterprise roadmap | All 146 capability/connector labels remain visible | Rich files/editor, vault, connectors/workflows, multi-connection identity and all other unfinished product/assurance scope |
+
+Current work still has account-free engineering gaps; official credentials are not the sole blocker. Complete and mock-test the workload IAM/secret-reference/compute/network/promotion/operations definitions before actual staging authorization. The user's selected Okta and the AWS regional-cell direction remain; no account, resource, purchase or public app deployment exists. [Load methodology](load-testing.md) states the local experiment's limits. Do not treat local milliseconds, green scanners, backup enrollment or mock plans as production approval.
+
 Assessed 2026-10-31 against `d35f04f` and its tested code commit `68dc8cbe2f0371877e9487b8777abcb06bcf5864`. This is a source/evidence assessment and revised delivery plan, not a deployment, penetration test or production approval.
 
 ## Current engineering delta — 2026-11-01

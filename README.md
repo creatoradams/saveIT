@@ -122,3 +122,5 @@ These commands use a separate synthetic `saveit_search_worker` account and the t
 Restricted operator access commands and the durable API response-drain protocol are described in [deployment instructions](docs/deployment.md#restricted-private-access-operations) and [ADR 025](docs/adr/025-operator-access-and-response-drain.md). Exact release verification and production limitations are recorded in [progress](docs/progress.md). No official account is needed for the synthetic tests.
 
 Source scanning and unsigned image inventories are described in [the source-security guide](docs/source-security.md). Execution status and limitations are recorded in progress; protected promotion, signatures and deployment remain unfinished.
+
+Run `npm run load:local -- --allow-local --requests 240 --concurrency 8` against the ready synthetic local API for a bounded two-tenant read measurement. The [load-testing guide](docs/load-testing.md) explains safety guards, ignored reports, measurement limits and remaining staging work. Local results do not establish production capacity or SLOs.

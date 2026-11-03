@@ -62,6 +62,9 @@ async function createInUi(page: Page, targetId: string, kind = "DependsOn") {
   await region.getByRole("button", { name: "Add relationship" }).click();
   const form = region.getByRole("form", { name: "Create asset relationship" });
   const select = form.getByRole("combobox", { name: "Linked asset" });
+  // The form is mounted after the first target page finishes. An immediate
+  // count can see no form and wait for pagination that will never be needed.
+  await expect(select).toBeEnabled();
   for (
     let i = 0;
     i < 30 &&
@@ -99,6 +102,14 @@ test("create a directed link, navigate both ways, persist it, and remove only th
   });
   await page.reload();
   await open(page, source.name);
+  await page.route(
+    `**/api/v1/organizations/${org}/assets`,
+    async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await route.continue();
+    },
+    { times: 1 },
+  );
   const region = await createInUi(page, target.id);
   await expect(
     region.getByRole("list", { name: "Linked assets" }),
@@ -233,6 +244,7 @@ test("duplicate and concurrent removal conflicts offer reload without changing a
   await region.getByRole("button", { name: "Add relationship" }).click();
   const form = region.getByRole("form", { name: "Create asset relationship" });
   const select = form.getByRole("combobox", { name: "Linked asset" });
+  await expect(select).toBeEnabled();
   for (
     let i = 0;
     i < 30 &&
