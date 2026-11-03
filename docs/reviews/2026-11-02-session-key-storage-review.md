@@ -1,0 +1,11 @@
+# Private session-key storage source review
+
+Separate user-requested efficiency and security agents reviewed ADR 030 and `infra/terraform/key-storage` read-only. They executed no tests or AWS calls and provided no independent assurance.
+
+The efficiency review checked separate state/resource ownership, compatibility with foundation standalone PostgreSQL SG rules, policy-before-mount-target ordering, distinct subnet/group mocks, lookup guards, access-point POSIX identity/directory and explicit future task volume metadata. No actionable efficiency/correctness finding remained.
+
+Security review identified one policy refinement: the mount-target requirement was only on an Allow, which an additional identity Allow could widen. An explicit `BoolIfExists` Deny for missing/false mount-target context now accompanies the existing other-role/access-point/TLS/root denies. Exact policy and narrow positive/negative context regressions cover the resulting intent. Documentation explicitly states that distinct task/admin ARNs do not prove absence of transitive role assumption or policy escalation; actual future IAM roles/trust/permissions need review. The reviewer rechecked the explicit deny with no other actionable source defect. Subsequent predicate tests and wording were added as planned.
+
+Local Terraform 1.13.5/AWS 6.71.0 signed-provider initialization, formatting, validation and thirteen mocked plans pass without AWS credentials/calls. Mocks validate configuration and scoped predicates, not AWS IAM evaluation. Initial generic mock behavior invented a random computed AZ; the fixture now supplies EFS's empty regional response. Linux checks remain pending at this checkpoint.
+
+The security agent's final read-only recheck confirms the exact deny assertions, narrow predicate cases and transitive-IAM limitation wording, with no remaining actionable finding in this delta. Actual EFS/KMS grants, mounts, role isolation, backup/retention/vault access, multi-replica key/session continuity, cost/throughput and fencing/restore are unverified gates. The code creates no resources, secret versions or PFX values. Privileged account/key administrators remain trusted authorities. See [progress](../progress.md) for exact execution status.

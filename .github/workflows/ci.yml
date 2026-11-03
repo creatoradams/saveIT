@@ -61,6 +61,12 @@ jobs:
           terraform -chdir=infra/terraform/cell-foundation init -backend=false -lockfile=readonly
           terraform -chdir=infra/terraform/cell-foundation validate
           terraform -chdir=infra/terraform/cell-foundation test
+      - name: Verify private session-key storage without credentials
+        run: |
+          terraform -chdir=infra/terraform/key-storage fmt -check -recursive
+          terraform -chdir=infra/terraform/key-storage init -backend=false -lockfile=readonly
+          terraform -chdir=infra/terraform/key-storage validate
+          terraform -chdir=infra/terraform/key-storage test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

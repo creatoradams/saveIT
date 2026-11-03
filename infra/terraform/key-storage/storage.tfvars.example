@@ -1,0 +1,13 @@
+# Synthetic identifiers only. Use actual reviewed foundation/role metadata in
+# an ignored private tfvars file; never put certificate/password values here.
+account_id         = "111122223333"
+region             = "us-east-1"
+cell               = "pilot"
+environment        = "staging"
+api_task_role      = "arn:aws:iam::111122223333:role/SaveITApiTask"
+key_administrators = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+network = {
+  vpc_id                 = "vpc-00000000000000001"
+  api_security_group_id  = "sg-00000000000000002"
+  application_subnet_ids = ["subnet-00000000000000001", "subnet-00000000000000002"]
+}
