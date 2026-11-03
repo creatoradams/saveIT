@@ -1,0 +1,36 @@
+# SaveIT workload identities and configuration references
+
+Unapplied preparation under [ADR 031](../../../docs/adr/031-workload-identities-and-configuration-references.md). No ECS tasks, registry/log groups, secret values or AWS resources have been created. This root does not make the application deployable or production ready.
+
+Five processes (API, web, worker, migration and access) have separate ECS task and execution roles. Task roles explicitly deny all AWS actions except an optional exact API EFS mount/write grant. Execution roles pull only their designated repository, write their own log streams, and read only their own pinned configuration version. Migration/access share the deployment image but have different roles, connections and logs. Web has no secret or KMS access. Explicit-deny permissions boundaries constrain additional identity/session grants; privileged administrators can still change those controls. Regional ECR token authorization requires a wildcard resource; pulls do not.
+
+Four protected rotating KMS keys and Secrets Manager **metadata containers** hold future configuration. Terraform never creates/reads a secret version or accepts/outputs payloads. Configuration UUIDs and field selectors are nonsecret metadata. Existing exact same-account infrastructure administrators and protected secret custodians are required; their trust, identity policies and authenticated lifecycle remain separately controlled. Each execution identity can read the entire JSON object for its workload, so put no unrelated values there.
+
+## Account-free checks
+
+Use Terraform 1.13.5 and the tracked AWS 6.71.0 lockfile:
+
+```sh
+terraform -chdir=infra/terraform/workload-identity fmt -check -recursive
+terraform -chdir=infra/terraform/workload-identity init -backend=false -lockfile=readonly
+terraform -chdir=infra/terraform/workload-identity validate
+terraform -chdir=infra/terraform/workload-identity test
+```
+
+All test runs use plan-time provider mocks and synthetic distinct ARNs. They check bootstrap/bound behavior, exact role/policy/reference relationships, invalid inputs/lookups, explicit-deny intent, narrow missing/wrong context predicates and maximum policy sizes. They are not an IAM simulator, actual AWS authorization or managed secret/mount/recovery evidence. Provider installation uses the public registry; tests need no AWS credentials or APIs.
+
+## Future protected deployment sequence
+
+This is an engineering sequence, not authorization to apply. First establish the account/budget/region, protected remote state/bootstrap, authenticated infrastructure/custodian identities, reviewed plans and protected promotion. The example is sanitized metadata only; real local vars, backend configuration, state and plans remain ignored. Do not put passwords, PFX Base64 or secret JSON into Terraform, CLI arguments, logs, manifests or chat.
+
+1. Initially leave `session_key_storage = null`. Roles/configuration metadata may be created, but **every task role denies all AWS actions** and binding-ready is false. No compute should use this bootstrap state.
+2. Use `api_task_role_arn` for the separate [key-storage root](../key-storage/README.md). After the reviewed store exists, bind its exact filesystem/access-point IDs here. Metadata lookups check account/region/cell, encryption and POSIX/root creation intent. They do not inspect existing directory permissions, filesystem policy drift or actually mount it. API then gets only exact mount/write with TLS/access-point/mount-target conditions; root access and other AWS actions stay denied.
+3. Through protected secret-custodian operations outside Terraform, populate each configuration container with a JSON SecretString using the chosen UUID as its version/client request token. Properties must exactly match `configuration.fields`. API current/retired PFX and passwords belong to the same pinned JSON version. Validate actual certificate/password/configuration and combined UTF-8 secret size before deployment: Secrets Manager's 64 KiB total carrier limit is smaller than some combinations accepted individually by the PFX loader. Retired entries are contiguous paired indexes, zero to four; rotation is not automatic.
+4. Future compute must require binding-ready plus exact IAM/TLS EFS task volume, UID 1654, private writable `/var/saveit/keys`, protected runtime settings and a platform supporting ECS JSON-key/version selectors (Linux Fargate 1.4+). Use `workloads.*.secrets` unchanged: `secret-arn:json-key::version-id`. Precreate the exact returned repositories/log groups. Never use the RDS master credential as an application connection.
+5. Verify actual allowed/denied IAM/Secrets Manager/KMS/EFS requests, injection, replacement/replica sessions, revocation completion, key rotation/recovery and fencing in isolated staging. Custodians may prepare another version; task reads remain pinned until reviewed definitions and tasks change. Changing a secret value alone does not update running task environments. Those environments, native keys, debug tools and crash dumps remain sensitive.
+
+ECS trust uses both SourceAccount and regional/account SourceArn; AWS does not support cluster-specific SourceArn for this trust. Protected scheduler/PassRole restrictions, drift controls and real denial tests are required. The administrator/custodian inputs are trusted privileged roles, not proof of transitive or human isolation. KMS slot context admits only the secret name plus the service-generated six-character ARN suffix; execution/secret policies use the exact resolved ARN and version. Key-policy administration is intentionally trusted and can change these controls.
+
+Metadata administrators with `secretsmanager:UpdateSecret` can also replace payloads through that API, in addition to changing policies. Custodians' PutSecretValue/version-stage restriction is not exclusive value-writer separation. Protect and monitor both privileged identities; they are not workload identities.
+
+Compute/ingress/restricted egress, registry/log resources, operator scheduling/connectivity, protected artifact promotion, telemetry/quotas and actual managed verification remain unfinished. Workload IAM never grants tenant authority or changes live membership/organization checks, forced PostgreSQL RLS, durable response completion or audit/outbox atomicity. This configuration is not the product vault.

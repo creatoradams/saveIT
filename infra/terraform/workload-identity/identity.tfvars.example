@@ -1,0 +1,16 @@
+# Synthetic metadata only. Never put credentials/PFX/secret payloads in tfvars.
+account_id  = "111122223333"
+region      = "us-east-1"
+cell        = "pilot"
+environment = "staging"
+key_administrators = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+secret_custodians  = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+configuration_versions = {
+  api       = "10000000-0000-0000-0000-000000000001"
+  worker    = "10000000-0000-0000-0000-000000000002"
+  migration = "10000000-0000-0000-0000-000000000003"
+  access    = "10000000-0000-0000-0000-000000000004"
+}
+api_retired_certificates = 0
+# First bootstrap must fail closed; bind real reviewed key-storage IDs later.
+session_key_storage = null

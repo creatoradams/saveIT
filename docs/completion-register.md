@@ -13,7 +13,7 @@ Updated 2026-11-03. The original brief and all 145 prior capability entries rema
 | Browser | Responsive accessible native controls, request cancellation/retry, edit/restore conflict UX, role controls, real browser/axe checks | Expert WCAG/screen-reader assessment, representative user research, command palette, saved views and virtualization |
 | Reviews | Separate efficiency and security agents reviewed code; reported defects fixed and regressions added | Independent penetration/deployment/cryptographic assessment, load tests and operational drills |
 | Enterprise expansion | Architecture and complete phased inventory retained | Rich editor/private files, integrations/workflows, vault/OTP/rotation/offline, portals/co-management, discovery/mobile/extensions, Office editing, AI |
-| Hosting / operations | Nonroot runtime and isolated synthetic logical DB/key recovery verified in CI; unapplied mocked state/private network/RDS/EFS definitions; bounded injected protectors and local synthetic read-load harness | Task/IAM/secret-reference/ingress/egress/operator/promotion/telemetry/quotas engineering, then actual AWS/Okta/managed mount/backup/restore/fencing/capacity verification |
+| Hosting / operations | Nonroot runtime and isolated synthetic logical DB/key recovery verified in CI; unapplied mocked state/private network/RDS/EFS and workload-IAM/configuration-metadata/pinned-reference definitions; bounded injected protectors and local synthetic read-load harness | Compute/registry/log resources, ingress/egress, scheduler/PassRole/operator/promotion/telemetry/quotas engineering, then actual AWS/Okta/secret injection/managed mount/backup/restore/fencing/capacity verification |
 
 ## External prerequisites confirmed by the user
 
