@@ -78,3 +78,15 @@ variable "session_key_storage" {
     error_message = "Supply exact filesystem/access-point IDs or retain the unbound fail-closed bootstrap."
   }
 }
+variable "operational_log_keys" {
+  type        = map(string)
+  default     = null
+  description = "Optional exact artifact-stores log key ARNs for all five workloads. Null is unbound bootstrap; future encrypted compute must require log_key_binding_ready."
+  validation {
+    condition = var.operational_log_keys == null || try(
+      toset(keys(var.operational_log_keys)) == toset(["api", "web", "worker", "migration", "access"]) &&
+      length(distinct(values(var.operational_log_keys))) == 5 &&
+    alltrue([for arn in values(var.operational_log_keys) : can(regex("^arn:aws:kms:${var.region}:${var.account_id}:key/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", arn))]), false)
+    error_message = "Bind exactly api/web/worker/migration/access to distinct same-account/region symmetric key UUID ARNs, or retain null bootstrap."
+  }
+}

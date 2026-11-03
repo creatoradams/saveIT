@@ -1,0 +1,9 @@
+# Synthetic metadata only. No password, credential or payload belongs here.
+account_id  = "111122223333"
+region      = "us-east-1"
+cell        = "pilot"
+environment = "staging"
+key_administrators = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+publisher_role     = "arn:aws:iam::111122223333:role/SaveITProtectedPublisher"
+# Operational default only; does not configure an immutable tenant audit archive.
+log_retention_days = 90

@@ -14,3 +14,5 @@ configuration_versions = {
 api_retired_certificates = 0
 # First bootstrap must fail closed; bind real reviewed key-storage IDs later.
 session_key_storage = null
+# Bind all five exact reviewed artifact-stores log key ARNs before encrypted compute.
+operational_log_keys = null

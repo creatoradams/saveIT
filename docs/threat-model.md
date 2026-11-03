@@ -1,5 +1,7 @@
 # SaveIT threat model and release risks
 
+ADR 032 adds unapplied registry/log stores and exact optional execution log-key binding. Repository deny policies isolate image readers/publisher/control changes and preserve images/tags; administrators can change those policies, so this is no tamper-proof signing/promotion boundary. Per-log KMS scope supports direct regional Logs service and separately authorized forwarding. Bound execution policies add only own-key/via-Logs/context crypto and separate key description, retain configuration-secret constraints and forbid configuration-key reuse. No task/query authority is added. Null binding is bootstrap only; future encrypted compute needs both log and EFS readiness gates. Finite operational retention can delete events and is not immutable tenant audit archival. Actual IAM/PutLogEvents, redaction/collection, privilege drift, retention/key availability and operated recovery remain verification gates.
+
 Updated 2026-10-31. Scope: the local core, synthetic data and unconfigured Okta adapter. Owners: project maintainers. Reassess each added endpoint, consumer, identity adapter, and data classification.
 
 ## Data and trust boundaries

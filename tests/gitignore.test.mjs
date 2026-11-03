@@ -8,6 +8,8 @@ test('build artifacts and secrets are ignored, reproducibility inputs are tracka
   tracked.push('infra/terraform/key-storage/.terraform.lock.hcl', 'infra/terraform/key-storage/storage.tfvars.example');
   ignored.push('infra/terraform/workload-identity/terraform.tfstate', 'infra/terraform/workload-identity/review.tfplan', 'infra/terraform/workload-identity/local.tfvars', 'infra/terraform/workload-identity/local.backend.hcl', 'infra/terraform/workload-identity/.terraform/providers/test');
   tracked.push('infra/terraform/workload-identity/.terraform.lock.hcl', 'infra/terraform/workload-identity/identity.tfvars.example');
+  ignored.push('infra/terraform/artifact-stores/terraform.tfstate', 'infra/terraform/artifact-stores/review.tfplan', 'infra/terraform/artifact-stores/local.tfvars', 'infra/terraform/artifact-stores/local.backend.hcl', 'infra/terraform/artifact-stores/.terraform/providers/test');
+  tracked.push('infra/terraform/artifact-stores/.terraform.lock.hcl', 'infra/terraform/artifact-stores/stores.tfvars.example');
   for (const [paths, expected] of [[ignored, true], [tracked, false]]) {
     for (const path of paths) {
       const result = spawnSync('git', ['check-ignore', '--no-index', '-q', path]);

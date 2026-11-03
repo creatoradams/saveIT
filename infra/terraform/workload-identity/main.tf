@@ -151,6 +151,10 @@ resource "aws_iam_role_policy" "execution" {
       condition     = length(local.execution_grants[each.key]) <= 10240
       error_message = "Execution inline policy exceeds the IAM limit; do not widen or truncate policy scope."
     }
+    precondition {
+      condition     = !contains([for key in values(aws_kms_key.configuration) : key.arn], lookup(local.bound_log_keys, each.key, ""))
+      error_message = "Log keys must remain separate from every configuration key; never conflate service/context authorities."
+    }
   }
 }
 resource "aws_iam_role_policy" "api_ring" {

@@ -1,5 +1,7 @@
 # SaveIT architecture
 
+The unapplied [ADR 032](adr/032-private-image-and-log-stores.md) artifact-stores root defines four private immutable ECR repositories and five protected finite-retention operational log groups with separate registry/per-log KMS keys. Its real alternate-module mock contract binds exact outputs to workload-identity roles, image/log grants and optional own-log crypto/description permissions. Explicit-deny bound policies keep configuration-secret and log-key contexts separate; task/RLS/response-drain authority is unchanged. Null log-key binding remains bootstrap only. No image promotion, ingestion/redaction, immutable audit archive, live IAM enforcement or ECS runtime is implemented by these definitions.
+
 Status: working local core and unconfigured Okta adapter, 2026-10-31. [Original enterprise brief](project-brief.md) remains the scope of the product. This is not a production release.
 
 ## Repository inspection and choices

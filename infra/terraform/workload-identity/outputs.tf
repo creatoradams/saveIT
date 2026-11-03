@@ -29,3 +29,7 @@ output "session_key_binding_ready" {
   value       = var.session_key_storage != null
   depends_on  = [data.aws_efs_file_system.ring, data.aws_efs_access_point.ring]
 }
+output "log_key_binding_ready" {
+  description = "Declared five-key binding only, not managed key-policy, awslogs ingestion or runtime enforcement evidence. Future encrypted compute must require true."
+  value       = var.operational_log_keys != null
+}

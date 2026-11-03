@@ -1,5 +1,7 @@
 # SaveIT release artifacts and local production verification
 
+ADR 032 adds unapplied private image/operational-log stores and an optional exact own-log-key execution binding. See [artifact-stores](../infra/terraform/artifact-stores/README.md) for the metadata-only sequence and trust/retention limits. Encrypted PutLogEvents needs the own-key via-Logs caller binding as well as service key permission; future compute must require log-key-binding-ready and EFS-binding-ready. No images were published, logs collected, signatures promoted or cloud tasks run. Managed authorization, ingestion/redaction/alerts, immutable audit archival, networking and deployment remain gates.
+
 The application is still a preproduction system. See [production readiness](production-readiness.md) and [ADR 022](adr/022-production-release-foundation.md). This guide describes artifacts/tooling and synthetic verification; it does not authorize cloud provisioning or use of customer credentials/data.
 
 ## Separate identities and migration

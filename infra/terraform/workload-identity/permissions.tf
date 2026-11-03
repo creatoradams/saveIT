@@ -17,8 +17,8 @@ locals {
     ])
   }) : jsonencode({ Version = "2012-10-17", Statement = [{ Sid = "NoAWSWorkloadAuthority", Effect = "Deny", Action = "*", Resource = "*" }] }) }
 
-  execution_actions = { for name in local.workloads : name => concat(["ecr:GetAuthorizationToken"], local.pull_actions, local.log_actions,
-  contains(local.configured, name) ? ["secretsmanager:GetSecretValue", "kms:Decrypt"] : []) }
+  execution_actions = { for name in local.workloads : name => distinct(concat(["ecr:GetAuthorizationToken"], local.pull_actions, local.log_actions,
+  contains(local.configured, name) ? ["secretsmanager:GetSecretValue", "kms:Decrypt"] : [], var.operational_log_keys == null ? [] : concat(local.log_crypto, ["kms:DescribeKey"]))) }
   execution_grants = { for name in local.workloads : name => jsonencode({
     Version = "2012-10-17"
     Statement = concat([
@@ -29,9 +29,13 @@ locals {
         { Sid = "PinnedConfigurationVersion", Effect = "Allow", Action = "secretsmanager:GetSecretValue", Resource = try(aws_secretsmanager_secret.configuration[name].arn, ""), Condition = { StringEquals = { "secretsmanager:VersionId" = lookup(var.configuration_versions, name, "") } } },
         { Sid = "ConfigurationDecryptionOnly", Effect = "Allow", Action = "kms:Decrypt", Resource = try(aws_kms_key.configuration[name].arn, ""),
         Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.${var.region}.amazonaws.com", "kms:EncryptionContext:SecretARN" = try(aws_secretsmanager_secret.configuration[name].arn, ""), "kms:EncryptionContext:SecretVersionId" = lookup(var.configuration_versions, name, "") } } }
-    ] : statement if contains(local.configured, name)])
+        ] : statement if contains(local.configured, name)], [for statement in [
+        { Sid = "OwnEncryptedLogData", Effect = "Allow", Action = local.log_crypto, Resource = lookup(local.bound_log_keys, name, ""), Condition = { StringEquals = { "kms:ViaService" = "logs.${var.region}.amazonaws.com" }, ArnEquals = { "kms:EncryptionContext:aws:logs:arn" = local.log_groups[name] } } },
+        # DescribeKey has no encryption context; keep it exact-key and via Logs.
+        { Sid = "OwnLogKeyDescription", Effect = "Allow", Action = "kms:DescribeKey", Resource = lookup(local.bound_log_keys, name, ""), Condition = { StringEquals = { "kms:ViaService" = "logs.${var.region}.amazonaws.com" } } }
+    ] : statement if var.operational_log_keys != null])
   }) }
-  execution_boundaries = { for name in local.workloads : name => jsonencode({
+  bootstrap_execution_boundaries = { for name in local.workloads : name => jsonencode({
     Version = "2012-10-17"
     Statement = concat([
       # A boundary caps permissions; this Allow is not attached as a grant.
@@ -50,6 +54,7 @@ locals {
         { Sid = "RejectOtherVersionContexts", Effect = "Deny", Action = "kms:Decrypt", Resource = "*", Condition = { StringNotEqualsIfExists = { "kms:EncryptionContext:SecretVersionId" = lookup(var.configuration_versions, name, "") } } }
     ] : statement if contains(local.configured, name)])
   }) }
+  execution_boundaries = { for name in local.workloads : name => var.operational_log_keys == null ? local.bootstrap_execution_boundaries[name] : local.log_bound_execution_boundaries[name] }
 }
 
 resource "aws_iam_policy" "task_boundary" {
