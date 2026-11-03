@@ -17,6 +17,8 @@ Updated 2026-11-03. The original brief and all 145 prior capability entries rema
 
 ## External prerequisites confirmed by the user
 
+Latest workload-identity source b9ab029 has all three workflows green: 430 backend/61 Chromium/68 mocked plans/four packaged flows, with both requested read-only agent reviews completed after remediation. Only definitions and pinned references are added; actual AWS authorization, secret injection and deployed behavior are unverified. Exact evidence and remaining lower source/image findings are recorded in progress.
+
 - Identity provider: **Okta**. A real tenant/application, issuer and client configuration have not been supplied. The setup procedure is in [ADR 010](adr/010-okta-identity.md); secrets must be provided through protected configuration.
 - Nonproduction AWS account and initial integration service: **none yet**. No account, infrastructure, paid service, connector or public application was created. Full compute/deployment remains unfinished; separate state/network/database/key-ring definitions are unapplied and tested with mocks.
 - Licensing/entitlements, budget, target regions/residency, regulated-data scope, support commitments and actual connector priorities remain product decisions. They do not prevent implementing the next local core features.
