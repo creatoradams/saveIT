@@ -2,7 +2,7 @@
 
 ## Current checkpoint — 2026-11-03
 
-SaveIT remains a tested development preview. Verified source **8a8e6d7** passes all three workflows with 430 backend/zero skipped, 61 Chromium, four packaged Production-mode flows, eight load-harness cases and 109 infrastructure mock plans. ADR 033 now adds guarded application task definitions, shell-free API readiness and private nonroot scratch support; current local/CI verification is recorded in [progress](progress.md), separately from that verified baseline. Source and actual same-image vulnerability gates pass at the recorded snapshot, with lower findings still visible. Requested agent reviews are bounded read-only code reviews, not independent assurance. No managed deployment or customer production approval exists.
+SaveIT remains a tested development preview. Verified source **4549980** passes all three workflows with **450 backend/zero skipped, 61 Chromium, four packaged Production-mode flows, eight load-harness cases and 140 infrastructure mock plans**. ADR 033 adds guarded application task definitions, shell-free API readiness and verified private nonroot scratch support. Exact immutable links and scan snapshot are in [progress](progress.md). Source and actual same-image vulnerability gates pass at that snapshot, with lower findings still visible. Both requested agents completed final bounded read-only rechecks after remediation; this is not independent assurance. No managed deployment or customer production approval exists.
 
 | Production path | Implemented and evidenced | Further engineering / actual environment evidence |
 | --- | --- | --- |

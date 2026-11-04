@@ -1,6 +1,6 @@
 # SaveIT enterprise backlog
 
-Updated 2026-11-01. Preserve all scope in the [original brief](project-brief.md) and [capability inventory](feature-parity.md). A local slice is not feature parity or enterprise readiness. Each item requires persisted behavior, server authorization, appropriate audit, contracts/migrations, success/denial/recovery tests, accessible loading/empty/error/conflict UX, and updated evidence before being marked done. See the [completion register](completion-register.md) for implemented code, external prerequisites and next delivery dependencies.
+Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md) and [capability inventory](feature-parity.md). A local slice is not feature parity or enterprise readiness. Each item requires persisted behavior, server authorization, appropriate audit, contracts/migrations, success/denial/recovery tests, accessible loading/empty/error/conflict UX, and updated evidence before being marked done. See the [completion register](completion-register.md) for implemented code, external prerequisites and next delivery dependencies.
 
 ## Production critical path — reassessed 2026-10-31
 
