@@ -4,7 +4,7 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
-- [x] Unapplied private runtime ECR/Logs/configuration endpoints and application-only image-layer gateway, separated application/database routing, bounded endpoint policies and cross-module mocked contracts (ADR 034; verification in progress). Complete service TLS/trusted forwarding/CA delivery, restricted Okta egress/DNS/HTTPS ingress, launch/services/protected operations and real unfiltered AWS route/SG/DNS/IAM/presigned/ingestion checks remain separate work.
+- [x] Unapplied private runtime ECR/Logs/configuration endpoints and application-only image-layer gateway, separated application/database routing, bounded endpoint policies and cross-module mocked contracts (ADR 034; verified CI linked from [progress](progress.md)). Complete service TLS/trusted forwarding/CA delivery, restricted Okta egress/DNS/HTTPS ingress, launch/services/protected operations and real unfiltered AWS route/SG/DNS/IAM/presigned/ingestion checks remain separate work.
 
 The [production-readiness assessment](production-readiness.md) now controls release priority. The local core is tested, but customer production use is not approved. These gates add operational dependencies without removing any of the 146 enterprise inventory entries or marking the full program complete.
 
