@@ -177,6 +177,10 @@ variables {
 run "bootstrap_roles_fail_closed_and_exact_trust" {
   command = plan
   assert {
+    condition     = output.session_key_binding == null && output.operational_log_keys == null && !output.log_key_binding_ready
+    error_message = "Concrete binding outputs must retain null fail-closed bootstrap behavior."
+  }
+  assert {
     condition = length(aws_iam_role.task) == 5 && length(aws_iam_role.execution) == 5 && !output.session_key_binding_ready && length(aws_iam_role_policy.api_ring) == 0 && alltrue([
       for name, role in aws_iam_role.task : role.permissions_boundary == aws_iam_policy.task_boundary[name].arn && role.max_session_duration == 3600 && jsondecode(aws_iam_policy.task_boundary[name].policy).Statement == [
         { Sid = "NoAWSWorkloadAuthority", Effect = "Deny", Action = "*", Resource = "*" }

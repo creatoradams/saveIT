@@ -13,6 +13,11 @@ using SaveIT.Api.Core;
 using SaveIT.Search;
 using SaveIT.Api.Operations;
 
+if (args.Contains("--healthcheck", StringComparer.Ordinal))
+{
+    Environment.ExitCode = args.Length == 1 ? await ApiHealthProbe.FromEnvironmentAsync() : 1;
+    return;
+}
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1_048_576);
 var devIdentity = builder.Configuration.GetValue<bool>("DevelopmentIdentity:Enabled");

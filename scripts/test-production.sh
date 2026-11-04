@@ -9,6 +9,8 @@ compose=(docker compose -p saveit-release -f tests/production/compose.yml)
 # The custom minimal web runtime must execute the actual patched binary under its
 # declared nonroot identity, before any application/network fixture is started.
 test "$(docker run --rm saveit-web:test --version)" = 'v24.22.2'
+# Exact image VOLUME path must be private, writable and nonroot even with a read-only root.
+docker run --rm --read-only saveit-web:test -e "const fs=require('node:fs'),a=require('node:assert/strict');const p='/var/saveit/runtime',s=fs.statSync(p);a.equal(process.getuid(),1654);a.equal(s.uid,1654);a.equal(s.gid,1654);a.equal(s.mode&0o777,0o700);fs.writeFileSync(p+'/probe','synthetic');fs.unlinkSync(p+'/probe');"
 cleanup() {
   status=$?
   if [[ "$status" != 0 ]]; then
@@ -95,6 +97,9 @@ wait_for_worker() {
   done
 }
 wait_for_worker
+"${compose[@]}" exec -T api dotnet SaveIT.Api.dll --healthcheck
+if "${compose[@]}" exec -T api dotnet SaveIT.Api.dll --healthcheck --migrate; then echo 'Mixed health arguments unexpectedly succeeded.' >&2; exit 1; fi
+if "${compose[@]}" exec -T -e SAVEIT_HEALTH_HOST=http://api api dotnet SaveIT.Api.dll --healthcheck; then echo 'Malformed health host unexpectedly succeeded.' >&2; exit 1; fi
 for image in api worker deployment web; do
   user="$(docker image inspect "saveit-$image:test" --format '{{.Config.User}}')"
   [[ -n "$user" && "$user" != 0 && "$user" != root ]]
@@ -103,6 +108,11 @@ npx playwright test --config playwright.production.config.ts
 # Real DB outage must invalidate worker progress readiness, independently of process liveness.
 wait_for_worker
 "${compose[@]}" stop db
+for attempt in $(seq 1 15); do
+  if ! "${compose[@]}" exec -T api dotnet SaveIT.Api.dll --healthcheck >/dev/null 2>&1; then break; fi
+  if [[ "$attempt" == 15 ]]; then echo 'API readiness stayed healthy after database failure.' >&2; exit 1; fi
+  sleep 1
+done
 for attempt in $(seq 1 35); do
   if ! "${compose[@]}" exec -T worker dotnet SaveIT.Workers.dll --healthcheck >/dev/null 2>&1; then break; fi
   if [[ "$attempt" == 35 ]]; then echo 'Worker readiness stayed healthy after database failure.' >&2; exit 1; fi

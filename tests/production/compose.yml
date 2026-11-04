@@ -62,7 +62,7 @@ services:
     environment:
       ConnectionStrings__SearchWorker: Host=db;Database=saveit;Username=saveit_search_worker;Password=synthetic-worker-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
       SearchWorker__Tenants__0: 30000000-0000-0000-0000-000000000001
-      SearchWorker__HealthPath: /tmp/saveit-worker-health.json
+      SearchWorker__HealthPath: /var/saveit/runtime/saveit-worker-health.json
     volumes:
       - ../../.local/container-fixture:/run/config:ro
   web:

@@ -1,5 +1,7 @@
 # SaveIT infrastructure preparation
 
+The [ecs-tasks root](ecs-tasks/README.md) adds three unapplied guarded Fargate application task definitions (ADR 033). Concrete EFS/log identity bindings, exact digest/secret selectors and nonroot/read-only scratch/health settings are checked with provider mocks and an actual alternate-module contract. It creates no cluster/services/launch/networking or PassRole. Private endpoints, egress/ingress, encrypted inter-service transport, trusted forwarding/RDS CA delivery and protected operations/promotion remain unfinished.
+
 The [artifact-stores root](artifact-stores/README.md) now defines unapplied private immutable ECR repositories and protected finite-retention operational log stores, matching the workload-identity references through real alternate-module mocked plan checks (ADR 032). It creates no images, logs, identity grants, promotion or compute. Six declared rotating KMS keys isolate registry and per-workload log encryption. Runtime/publisher/operator enforcement and actual cloud behavior remain unverified.
 
 The parent application root remains a non-provisioning scaffold with no provider/backend. `terraform fmt -check` and `terraform init -backend=false` / `terraform validate` check that scaffold when Terraform >=1.9,<2 is installed. The separate [state-bootstrap root](bootstrap/README.md) now defines private versioned KMS-encrypted state storage with a pinned AWS provider/lockfile and credential-free mocked tests. Those definitions are unapplied; no cloud resource exists.

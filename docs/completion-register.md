@@ -17,6 +17,8 @@ Updated 2026-11-03. The original brief and all 145 prior capability entries rema
 
 ## External prerequisites confirmed by the user
 
+ADR 033 adds only unapplied three-application task definitions, concrete identity/EFS/log contract checks, bounded shell-free API readiness and private nonroot scratch preparation. No cluster/services/launch, cloud account, secret population or managed enforcement has been completed. Current tests and requested read-only reviews are recorded in progress. Private endpoints/egress/ingress, authenticated encrypted inter-service transport, trusted forwarding/CA delivery and protected jobs/promotion/telemetry remain account-free engineering before live-provider verification.
+
 Latest artifact/log-binding source 8a8e6d7 has all three workflows green: 430 backend/zero skipped, 61 Chromium, 109 mocked plans and four packaged Production-mode flows. Both requested read-only agent reviews completed after fixing the caller-KMS permission gap. Private image/log storage and binding are unapplied definitions; actual promotion, encrypted ingestion, compute/network deployment and managed enforcement remain unverified. Exact links and lower source/image findings are recorded in progress.
 
 Latest workload-identity source b9ab029 has all three workflows green: 430 backend/61 Chromium/68 mocked plans/four packaged flows, with both requested read-only agent reviews completed after remediation. Only definitions and pinned references are added; actual AWS authorization, secret injection and deployed behavior are unverified. Exact evidence and remaining lower source/image findings are recorded in progress.

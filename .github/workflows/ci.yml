@@ -80,6 +80,12 @@ jobs:
           terraform -chdir=infra/terraform/artifact-stores init -backend=false -lockfile=readonly
           terraform -chdir=infra/terraform/artifact-stores validate
           terraform -chdir=infra/terraform/artifact-stores test
+      - name: Verify guarded application task definitions without credentials
+        run: |
+          terraform -chdir=infra/terraform/ecs-tasks fmt -check -recursive
+          terraform -chdir=infra/terraform/ecs-tasks init -backend=false -lockfile=readonly
+          terraform -chdir=infra/terraform/ecs-tasks validate
+          terraform -chdir=infra/terraform/ecs-tasks test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -33,3 +33,11 @@ output "log_key_binding_ready" {
   description = "Declared five-key binding only, not managed key-policy, awslogs ingestion or runtime enforcement evidence. Future encrypted compute must require true."
   value       = var.operational_log_keys != null
 }
+output "operational_log_keys" {
+  description = "Declared exact five-key binding, or null bootstrap; consumers must compare references as well as readiness. Not live IAM/ingestion proof."
+  value       = var.operational_log_keys
+}
+output "session_key_binding" {
+  description = "Declared filesystem/access-point IDs, or null bootstrap; consumers must require the same binding. Not managed mount/IAM evidence."
+  value       = var.session_key_storage
+}
