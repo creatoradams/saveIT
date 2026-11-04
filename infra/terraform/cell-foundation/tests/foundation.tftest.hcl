@@ -42,6 +42,17 @@ variables {
 
 override_resource {
   override_during = plan
+  target          = aws_route_table.application
+  values          = { id = "rtb-00000000000000001" }
+}
+override_resource {
+  override_during = plan
+  target          = aws_route_table.isolated
+  values          = { id = "rtb-00000000000000002" }
+}
+
+override_resource {
+  override_during = plan
   target          = aws_subnet.application["0"]
   values          = { id = "subnet-00000000000000001" }
 }
@@ -63,6 +74,15 @@ override_resource {
 
 run "isolated_database_and_exact_client_paths" {
   command = plan
+  assert {
+    condition = (aws_route_table.application.id != aws_route_table.isolated.id &&
+      alltrue([for a in aws_route_table_association.application : a.route_table_id == aws_route_table.application.id]) &&
+      alltrue([for a in aws_route_table_association.database : a.route_table_id == aws_route_table.isolated.id]) &&
+      output.network.application_route_table_id == aws_route_table.application.id && output.network.database_route_table_id == aws_route_table.isolated.id &&
+      alltrue([for s in aws_subnet.application : s.tags.Tier == "application"]) && alltrue([for s in aws_subnet.database : s.tags.Tier == "database"]) &&
+    alltrue([for name, g in aws_security_group.client : g.tags.Process == name]))
+    error_message = "Application endpoint routing must remain separate from local-only DB routing, with stable scoped metadata outputs."
+  }
   assert {
     condition     = length(aws_subnet.application) == 2 && length(aws_subnet.database) == 2 && alltrue([for s in concat(values(aws_subnet.application), values(aws_subnet.database)) : !s.map_public_ip_on_launch && s.vpc_id == aws_vpc.cell.id]) && length(aws_route_table.isolated.route) == 0 && length(aws_route_table_association.application) == 2 && length(aws_route_table_association.database) == 2
     error_message = "The foundation must stay private and locally routed, across four subnets/two AZs."

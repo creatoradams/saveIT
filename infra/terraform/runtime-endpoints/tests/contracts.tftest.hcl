@@ -1,0 +1,528 @@
+mock_provider "aws" { override_during = plan }
+override_data {
+  target = data.aws_vpc.cell
+  values = {
+    "id"                   = "vpc-00000000000000001"
+    "arn"                  = "arn:aws:ec2:us-east-1:111122223333:vpc/vpc-00000000000000001"
+    "owner_id"             = "111122223333"
+    "default"              = false
+    "enable_dns_support"   = true
+    "enable_dns_hostnames" = true
+    "cidr_block"           = "10.84.0.0/16"
+    "cidr_block_associations" = [{
+      "association_id" = "vpc-cidr-assoc-00000000000000001"
+      "cidr_block"     = "10.84.0.0/16"
+      "state"          = "associated"
+    }]
+    "ipv6_cidr_block_associations" = []
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+    }
+  }
+}
+override_data {
+  target = data.aws_subnet.cell["application-0"]
+  values = {
+    "id"                      = "subnet-00000000000000001"
+    "arn"                     = "arn:aws:ec2:us-east-1:111122223333:subnet/subnet-00000000000000001"
+    "vpc_id"                  = "vpc-00000000000000001"
+    "availability_zone"       = "us-east-1a"
+    "map_public_ip_on_launch" = false
+    "ipv6_cidr_block"         = ""
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Tier"        = "application"
+    }
+  }
+}
+override_data {
+  target = data.aws_subnet.cell["application-1"]
+  values = {
+    "id"                      = "subnet-00000000000000002"
+    "arn"                     = "arn:aws:ec2:us-east-1:111122223333:subnet/subnet-00000000000000002"
+    "vpc_id"                  = "vpc-00000000000000001"
+    "availability_zone"       = "us-east-1b"
+    "map_public_ip_on_launch" = false
+    "ipv6_cidr_block"         = ""
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Tier"        = "application"
+    }
+  }
+}
+override_data {
+  target = data.aws_subnet.cell["database-0"]
+  values = {
+    "id"                      = "subnet-00000000000000003"
+    "arn"                     = "arn:aws:ec2:us-east-1:111122223333:subnet/subnet-00000000000000003"
+    "vpc_id"                  = "vpc-00000000000000001"
+    "availability_zone"       = "us-east-1a"
+    "map_public_ip_on_launch" = false
+    "ipv6_cidr_block"         = ""
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Tier"        = "database"
+    }
+  }
+}
+override_data {
+  target = data.aws_subnet.cell["database-1"]
+  values = {
+    "id"                      = "subnet-00000000000000004"
+    "arn"                     = "arn:aws:ec2:us-east-1:111122223333:subnet/subnet-00000000000000004"
+    "vpc_id"                  = "vpc-00000000000000001"
+    "availability_zone"       = "us-east-1b"
+    "map_public_ip_on_launch" = false
+    "ipv6_cidr_block"         = ""
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Tier"        = "database"
+    }
+  }
+}
+override_data {
+  target = data.aws_security_group.client["api"]
+  values = {
+    "id"     = "sg-00000000000000002"
+    "arn"    = "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000002"
+    "vpc_id" = "vpc-00000000000000001"
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Process"     = "api"
+    }
+  }
+}
+override_data {
+  target = data.aws_security_group.client["worker"]
+  values = {
+    "id"     = "sg-00000000000000003"
+    "arn"    = "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000003"
+    "vpc_id" = "vpc-00000000000000001"
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Process"     = "worker"
+    }
+  }
+}
+override_data {
+  target = data.aws_security_group.client["deployment"]
+  values = {
+    "id"     = "sg-00000000000000004"
+    "arn"    = "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000004"
+    "vpc_id" = "vpc-00000000000000001"
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Process"     = "deployment"
+    }
+  }
+}
+override_data {
+  target = data.aws_prefix_list.s3
+  values = {
+    "id"          = "pl-00000001"
+    "name"        = "com.amazonaws.us-east-1.s3"
+    "cidr_blocks" = ["52.216.0.0/15"]
+  }
+}
+override_data {
+  target = data.aws_route_table.cell["application"]
+  values = {
+    "id"       = "rtb-00000000000000001"
+    "arn"      = "arn:aws:ec2:us-east-1:111122223333:route-table/rtb-00000000000000001"
+    "owner_id" = "111122223333"
+    "vpc_id"   = "vpc-00000000000000001"
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Tier"        = "application"
+    }
+    "routes" = []
+    "associations" = [{
+      "subnet_id"                  = "subnet-00000000000000001"
+      "route_table_id"             = "rtb-00000000000000001"
+      "main"                       = false
+      "gateway_id"                 = ""
+      "route_table_association_id" = "rtbassoc-00000000000000001"
+      }, {
+      "subnet_id"                  = "subnet-00000000000000002"
+      "route_table_id"             = "rtb-00000000000000001"
+      "main"                       = false
+      "gateway_id"                 = ""
+      "route_table_association_id" = "rtbassoc-00000000000000002"
+    }]
+  }
+}
+override_data {
+  target = data.aws_route_table.cell["database"]
+  values = {
+    "id"       = "rtb-00000000000000002"
+    "arn"      = "arn:aws:ec2:us-east-1:111122223333:route-table/rtb-00000000000000002"
+    "owner_id" = "111122223333"
+    "vpc_id"   = "vpc-00000000000000001"
+    "tags" = {
+      "Project"     = "SaveIT"
+      "Cell"        = "pilot"
+      "Environment" = "staging"
+      "Tier"        = "database"
+    }
+    "routes" = []
+    "associations" = [{
+      "subnet_id"                  = "subnet-00000000000000003"
+      "route_table_id"             = "rtb-00000000000000002"
+      "main"                       = false
+      "gateway_id"                 = ""
+      "route_table_association_id" = "rtbassoc-00000000000000001"
+      }, {
+      "subnet_id"                  = "subnet-00000000000000004"
+      "route_table_id"             = "rtb-00000000000000002"
+      "main"                       = false
+      "gateway_id"                 = ""
+      "route_table_association_id" = "rtbassoc-00000000000000002"
+    }]
+  }
+}
+override_resource {
+  override_during = plan
+  target          = aws_security_group.web
+  values = {
+    "id" = "sg-00000000000000005"
+  }
+}
+override_resource {
+  override_during = plan
+  target          = aws_security_group.endpoint["ecr-api"]
+  values = {
+    "id" = "sg-00000000000000010"
+  }
+}
+override_resource {
+  override_during = plan
+  target          = aws_security_group.endpoint["ecr-dkr"]
+  values = {
+    "id" = "sg-00000000000000011"
+  }
+}
+override_resource {
+  override_during = plan
+  target          = aws_security_group.endpoint["logs"]
+  values = {
+    "id" = "sg-00000000000000012"
+  }
+}
+override_resource {
+  override_during = plan
+  target          = aws_security_group.endpoint["configuration"]
+  values = {
+    "id" = "sg-00000000000000013"
+  }
+}
+variables {
+  account_id  = "111122223333"
+  region      = "us-east-1"
+  cell        = "pilot"
+  environment = "staging"
+  network = {
+    "vpc_id"                     = "vpc-00000000000000001"
+    "application_subnet_ids"     = ["subnet-00000000000000001", "subnet-00000000000000002"]
+    "database_subnet_ids"        = ["subnet-00000000000000003", "subnet-00000000000000004"]
+    "application_route_table_id" = "rtb-00000000000000001"
+    "database_route_table_id"    = "rtb-00000000000000002"
+    "database_security_group"    = "sg-00000000000000001"
+    "client_security_groups" = {
+      "api"        = "sg-00000000000000002"
+      "worker"     = "sg-00000000000000003"
+      "deployment" = "sg-00000000000000004"
+    }
+  }
+  identity = {
+    "workloads" = {
+      "api" = {
+        "execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+        "repository_arn"     = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/api"
+        "log_group_arn"      = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/api"
+      }
+      "web" = {
+        "execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution"
+        "repository_arn"     = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/web"
+        "log_group_arn"      = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/web"
+      }
+      "worker" = {
+        "execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+        "repository_arn"     = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/worker"
+        "log_group_arn"      = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/worker"
+      }
+      "migration" = {
+        "execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+        "repository_arn"     = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment"
+        "log_group_arn"      = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/migration"
+      }
+      "access" = {
+        "execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+        "repository_arn"     = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment"
+        "log_group_arn"      = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/access"
+      }
+    }
+    "configuration" = {
+      "api" = {
+        "arn"        = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00"
+        "version_id" = "10000000-0000-0000-0000-000000000001"
+      }
+      "worker" = {
+        "arn"        = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/worker/config-Abcd01"
+        "version_id" = "10000000-0000-0000-0000-000000000002"
+      }
+      "migration" = {
+        "arn"        = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/migration/config-Abcd02"
+        "version_id" = "10000000-0000-0000-0000-000000000003"
+      }
+      "access" = {
+        "arn"        = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/access/config-Abcd03"
+        "version_id" = "10000000-0000-0000-0000-000000000004"
+      }
+    }
+  }
+}
+run "actual_foundation_reference_contract" {
+  command = plan
+  module { source = "../cell-foundation" }
+  variables {
+    availability_zones      = ["us-east-1a", "us-east-1b"]
+    vpc_cidr                = "10.84.0.0/16"
+    key_administrators      = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    database_engine_version = "18"
+    database_instance_class = "db.m7g.large"
+    database_storage_gib    = 20
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_vpc.cell
+    values = {
+      "id" = "vpc-00000000000000001"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.database
+    values = {
+      "id" = "sg-00000000000000001"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.client["api"]
+    values = {
+      "id" = "sg-00000000000000002"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.client["worker"]
+    values = {
+      "id" = "sg-00000000000000003"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.client["deployment"]
+    values = {
+      "id" = "sg-00000000000000004"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_subnet.application["0"]
+    values = {
+      "id" = "subnet-00000000000000001"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_subnet.application["1"]
+    values = {
+      "id" = "subnet-00000000000000002"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_subnet.database["0"]
+    values = {
+      "id" = "subnet-00000000000000003"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_subnet.database["1"]
+    values = {
+      "id" = "subnet-00000000000000004"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_route_table.application
+    values = {
+      "id" = "rtb-00000000000000001"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_route_table.isolated
+    values = {
+      "id" = "rtb-00000000000000002"
+    }
+  }
+  assert {
+    condition     = jsonencode(output.network) == jsonencode(var.network)
+    error_message = "Actual foundation outputs must retain the exact separated routing/subnet/process-group reference contract."
+  }
+}
+run "actual_identity_reference_contract" {
+  command = plan
+  module { source = "../workload-identity" }
+  variables {
+    key_administrators = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    secret_custodians  = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+    configuration_versions = {
+      "api"       = "10000000-0000-0000-0000-000000000001"
+      "worker"    = "10000000-0000-0000-0000-000000000002"
+      "migration" = "10000000-0000-0000-0000-000000000003"
+      "access"    = "10000000-0000-0000-0000-000000000004"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution["api"]
+    values = {
+      "arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution["web"]
+    values = {
+      "arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution["worker"]
+    values = {
+      "arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution["migration"]
+    values = {
+      "arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution["access"]
+    values = {
+      "arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.configuration["api"]
+    values = {
+      "arn"    = "arn:aws:kms:us-east-1:111122223333:key/10000000-0000-0000-0000-000000000001"
+      "key_id" = "10000000-0000-0000-0000-000000000001"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_secretsmanager_secret.configuration["api"]
+    values = {
+      "arn" = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.configuration["worker"]
+    values = {
+      "arn"    = "arn:aws:kms:us-east-1:111122223333:key/10000000-0000-0000-0000-000000000002"
+      "key_id" = "10000000-0000-0000-0000-000000000002"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_secretsmanager_secret.configuration["worker"]
+    values = {
+      "arn" = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/worker/config-Abcd01"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.configuration["migration"]
+    values = {
+      "arn"    = "arn:aws:kms:us-east-1:111122223333:key/10000000-0000-0000-0000-000000000003"
+      "key_id" = "10000000-0000-0000-0000-000000000003"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_secretsmanager_secret.configuration["migration"]
+    values = {
+      "arn" = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/migration/config-Abcd02"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.configuration["access"]
+    values = {
+      "arn"    = "arn:aws:kms:us-east-1:111122223333:key/10000000-0000-0000-0000-000000000004"
+      "key_id" = "10000000-0000-0000-0000-000000000004"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_secretsmanager_secret.configuration["access"]
+    values = {
+      "arn" = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/access/config-Abcd03"
+    }
+  }
+  assert {
+    condition     = (!output.session_key_binding_ready && !output.log_key_binding_ready && output.session_key_binding == null && output.operational_log_keys == null && alltrue([for n, p in aws_iam_policy.task_boundary : jsondecode(p.policy).Statement[0].Effect == "Deny" && jsondecode(p.policy).Statement[0].Action == "*"]))
+    error_message = "Preparing endpoint references must not turn unbound task identities into usable compute authority."
+  }
+}
+run "endpoints_consume_actual_modules" {
+  command = plan
+  variables {
+    network  = run.actual_foundation_reference_contract.network
+    identity = { workloads = run.actual_identity_reference_contract.workloads, configuration = run.actual_identity_reference_contract.configuration }
+  }
+  assert {
+    condition = (aws_vpc_endpoint.layers.route_table_ids == toset([run.actual_foundation_reference_contract.network.application_route_table_id]) &&
+      !contains(aws_vpc_endpoint.layers.route_table_ids, run.actual_foundation_reference_contract.network.database_route_table_id) &&
+      alltrue([for name, w in run.actual_identity_reference_contract.workloads : one([for s in jsondecode(aws_vpc_endpoint.interface["ecr-api"].policy).Statement : s if s.Sid == "Pull${title(name)}"]).Resource == w.repository_arn && one([for s in jsondecode(aws_vpc_endpoint.interface["logs"].policy).Statement : s if s.Sid == "Write${title(name)}Streams"]).Resource == "${w.log_group_arn}:log-stream:*"]) &&
+    alltrue([for name, c in run.actual_identity_reference_contract.configuration : one([for s in jsondecode(aws_vpc_endpoint.interface["configuration"].policy).Statement : s if s.Sid == "Read${title(name)}Version"]).Resource == c.arn && one([for s in jsondecode(aws_vpc_endpoint.interface["configuration"].policy).Statement : s if s.Sid == "Read${title(name)}Version"]).Condition.StringEquals["secretsmanager:VersionId"] == c.version_id]))
+    error_message = "Use the actual foundation and identity outputs unchanged for routes and exact per-execution resource/version filters. Mocks are not IAM or reachability evidence."
+  }
+}
+run "actual_shared_table_contract_fails" {
+  command = plan
+  variables {
+    network = merge(run.actual_foundation_reference_contract.network, { application_route_table_id = run.actual_foundation_reference_contract.network.database_route_table_id })
+  }
+  expect_failures = [var.network]
+}

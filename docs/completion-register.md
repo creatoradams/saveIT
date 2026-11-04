@@ -17,6 +17,8 @@ Updated 2026-11-03. The original brief and all 145 prior capability entries rema
 
 ## External prerequisites confirmed by the user
 
+ADR 034 adds only unapplied private runtime service endpoints, application-only regional S3 layer routing and separated application/database table references. Scoped endpoint filters and module contract tests are not IAM grants, running tasks, complete unfiltered route/SG/DNS isolation or managed ingestion evidence. Exact tests/reviews are in progress; service TLS/trusted forwarding/CA delivery, restricted egress/ingress, protected launch/services/operators/promotion and live verification remain unfinished.
+
 ADR 033 adds only unapplied three-application task definitions, concrete identity/EFS/log contract checks, bounded shell-free API readiness and private nonroot scratch preparation. No cluster/services/launch, cloud account, secret population or managed enforcement has been completed. Current tests and requested read-only reviews are recorded in progress. Private endpoints/egress/ingress, authenticated encrypted inter-service transport, trusted forwarding/CA delivery and protected jobs/promotion/telemetry remain account-free engineering before live-provider verification.
 
 Verified application-task source **4549980** has all three workflows green: **450 backend/zero skipped, 61 Chromium, 140 mocked plans and four packaged Production-mode flows**, including corrected Linux scratch permissions and API/worker outage readiness. Both agents completed final read-only rechecks without remaining actionable findings in this delta. Immutable links, scan snapshot and lower findings are recorded in progress. No account-side enforcement or production approval is implied.

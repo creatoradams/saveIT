@@ -86,6 +86,12 @@ jobs:
           terraform -chdir=infra/terraform/ecs-tasks init -backend=false -lockfile=readonly
           terraform -chdir=infra/terraform/ecs-tasks validate
           terraform -chdir=infra/terraform/ecs-tasks test
+      - name: Verify private runtime endpoints without credentials
+        run: |
+          terraform -chdir=infra/terraform/runtime-endpoints fmt -check -recursive
+          terraform -chdir=infra/terraform/runtime-endpoints init -backend=false -lockfile=readonly
+          terraform -chdir=infra/terraform/runtime-endpoints validate
+          terraform -chdir=infra/terraform/runtime-endpoints test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -1,5 +1,7 @@
 # SaveIT infrastructure preparation
 
+The [runtime-endpoints root](runtime-endpoints/README.md) adds unapplied private ECR API/DKR, Logs/configuration interface endpoints and an application-only regional S3 image-layer gateway (ADR 034). Foundation now exports separate application/database route tables. Endpoint filters add no IAM/task/tenant grant. Pinned provider route filtering, SG/DNS drift and actual IAM/presigned/ingestion behavior remain unverified; no account resource or running service exists.
+
 The [ecs-tasks root](ecs-tasks/README.md) adds three unapplied guarded Fargate application task definitions (ADR 033). Concrete EFS/log identity bindings, exact digest/secret selectors and nonroot/read-only scratch/health settings are checked with provider mocks and an actual alternate-module contract. It creates no cluster/services/launch/networking or PassRole. Private endpoints, egress/ingress, encrypted inter-service transport, trusted forwarding/RDS CA delivery and protected operations/promotion remain unfinished.
 
 The [artifact-stores root](artifact-stores/README.md) now defines unapplied private immutable ECR repositories and protected finite-retention operational log stores, matching the workload-identity references through real alternate-module mocked plan checks (ADR 032). It creates no images, logs, identity grants, promotion or compute. Six declared rotating KMS keys isolate registry and per-workload log encryption. Runtime/publisher/operator enforcement and actual cloud behavior remain unverified.

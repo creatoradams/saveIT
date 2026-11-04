@@ -1,11 +1,13 @@
 output "network" {
   description = "Unapplied private network identifiers for future reviewed compute wiring."
   value = {
-    vpc_id                  = aws_vpc.cell.id
-    application_subnet_ids  = [for subnet in aws_subnet.application : subnet.id]
-    database_subnet_ids     = [for subnet in aws_subnet.database : subnet.id]
-    client_security_groups  = { for name, group in aws_security_group.client : name => group.id }
-    database_security_group = aws_security_group.database.id
+    vpc_id                     = aws_vpc.cell.id
+    application_subnet_ids     = [for subnet in aws_subnet.application : subnet.id]
+    database_subnet_ids        = [for subnet in aws_subnet.database : subnet.id]
+    client_security_groups     = { for name, group in aws_security_group.client : name => group.id }
+    database_security_group    = aws_security_group.database.id
+    application_route_table_id = aws_route_table.application.id
+    database_route_table_id    = aws_route_table.isolated.id
   }
 }
 output "database" {

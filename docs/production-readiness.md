@@ -2,6 +2,8 @@
 
 ## Current checkpoint — 2026-11-03
 
+Current ADR 034 engineering delta adds only unapplied private runtime endpoint/image-layer wiring and separated application/database routes, with actual-module mocked contracts. Exact local/CI status is recorded in progress. Provider-filtered route data is not a complete route audit; SG/NACL/DHCP/resolver drift, actual IAM/presigned-layer/ingestion checks and DNS containment remain gates. Authenticated encrypted web/API transport, trusted forwarding/CA delivery, restricted Okta egress, ingress, services and protected operations still require account-free work before live verification.
+
 SaveIT remains a tested development preview. Verified source **4549980** passes all three workflows with **450 backend/zero skipped, 61 Chromium, four packaged Production-mode flows, eight load-harness cases and 140 infrastructure mock plans**. ADR 033 adds guarded application task definitions, shell-free API readiness and verified private nonroot scratch support. Exact immutable links and scan snapshot are in [progress](progress.md). Source and actual same-image vulnerability gates pass at that snapshot, with lower findings still visible. Both requested agents completed final bounded read-only rechecks after remediation; this is not independent assurance. No managed deployment or customer production approval exists.
 
 | Production path | Implemented and evidenced | Further engineering / actual environment evidence |

@@ -25,7 +25,7 @@ resource "aws_subnet" "application" {
   availability_zone       = each.value
   cidr_block              = cidrsubnet(var.vpc_cidr, 8, tonumber(each.key))
   map_public_ip_on_launch = false
-  tags                    = { Name = "${local.name}-application-${each.key}" }
+  tags                    = { Name = "${local.name}-application-${each.key}", Tier = "application" }
 }
 resource "aws_subnet" "database" {
   for_each                = local.zones
@@ -33,17 +33,23 @@ resource "aws_subnet" "database" {
   availability_zone       = each.value
   cidr_block              = cidrsubnet(var.vpc_cidr, 8, 16 + tonumber(each.key))
   map_public_ip_on_launch = false
-  tags                    = { Name = "${local.name}-database-${each.key}" }
+  tags                    = { Name = "${local.name}-database-${each.key}", Tier = "database" }
 }
 resource "aws_route_table" "isolated" {
   vpc_id = aws_vpc.cell.id
   route  = []
-  tags   = { Name = "${local.name}-isolated" }
+  tags   = { Name = "${local.name}-isolated", Tier = "database" }
+}
+resource "aws_route_table" "application" {
+  vpc_id = aws_vpc.cell.id
+  # No inline route management: the separate runtime-endpoints root owns the
+  # S3 gateway association. Database routing remains explicitly local-only.
+  tags = { Name = "${local.name}-application", Tier = "application" }
 }
 resource "aws_route_table_association" "application" {
   for_each       = local.zones
   subnet_id      = aws_subnet.application[each.key].id
-  route_table_id = aws_route_table.isolated.id
+  route_table_id = aws_route_table.application.id
 }
 resource "aws_route_table_association" "database" {
   for_each       = local.zones
@@ -60,6 +66,7 @@ resource "aws_security_group" "client" {
   name_prefix = "${local.name}-${each.key}-"
   description = "Future ${each.key} process; no inbound or internet authority"
   vpc_id      = aws_vpc.cell.id
+  tags        = { Process = each.key }
   # Only standalone rules below; provider removes AWS default egress at creation.
   # Account-side drift/extra rules must be monitored during actual operations.
 }

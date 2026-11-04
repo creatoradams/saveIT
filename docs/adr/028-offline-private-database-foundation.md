@@ -1,5 +1,7 @@
 # ADR 028: isolated network and managed-database foundation
 
+Extension 2026-11-03: ADR 034 separates application and database route tables before the separate runtime-endpoints root adds application-only S3 image-layer routing. Database routes and existing database/NFS rule ownership remain unchanged. Both roots remain unapplied; the original foundation-only scope below is historical.
+
 Accepted for implementation 2026-11-02. Extends ADRs 004/022/024. This is a separate unapplied root, not a deployed or complete application cell. Only mocked provider plans are executed without AWS credentials/API calls. Progress records actual checks.
 
 Require explicit commercial account/region, cell/environment, two distinct actual AZs, a reviewed nonoverlapping canonical private /16, bounded key-administration roles and explicit PostgreSQL 18 major-prefix/class/storage intent. Pin the same AWS 6.71.0 provider and signed Linux/Windows hashes. Do not infer an account from ambient credentials or default region/budget/residency. Mocks cannot prove region/class/engine availability; verify actual orderability before an authorized plan/apply.

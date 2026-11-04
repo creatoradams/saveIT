@@ -1,5 +1,7 @@
 # SaveIT private network/database foundation
 
+ADR 034 separates application routing from the database's still-local-only table and adds explicit tier/process metadata plus route-table outputs. The application table intentionally omits inline route ownership; the separate [runtime-endpoints](../runtime-endpoints/README.md) root owns its S3 gateway association and standalone endpoint paths. No endpoint/public/default route or database-path widening is created by this foundation. Plan-time contract tests retain distinct table IDs/associations. Both roots remain unapplied; direct unfiltered route/drift checks remain necessary because the pinned provider's route data hides several service/propagation paths.
+
 Unapplied partial application-cell infrastructure under ADR 028. No AWS credentials/API calls, paid resources or application deployment are used by the tests. The parent root remains a scaffold; this root does not run the app or provide operator connectivity.
 
 Credential-free checks (Terraform 1.13.5, pinned AWS 6.71.0):

@@ -1,0 +1,65 @@
+# Synthetic metadata only. No actual account/resource/secret is configured; do not apply.
+account_id = "111122223333"
+region = "us-east-1"
+cell = "pilot"
+environment = "staging"
+network = {
+"vpc_id" = "vpc-00000000000000001"
+"application_subnet_ids" = ["subnet-00000000000000001", "subnet-00000000000000002"]
+"database_subnet_ids" = ["subnet-00000000000000003", "subnet-00000000000000004"]
+"application_route_table_id" = "rtb-00000000000000001"
+"database_route_table_id" = "rtb-00000000000000002"
+"database_security_group" = "sg-00000000000000001"
+"client_security_groups" = {
+"api" = "sg-00000000000000002"
+"worker" = "sg-00000000000000003"
+"deployment" = "sg-00000000000000004"
+}
+}
+identity = {
+"workloads" = {
+"api" = {
+"execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+"repository_arn" = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/api"
+"log_group_arn" = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/api"
+}
+"web" = {
+"execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution"
+"repository_arn" = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/web"
+"log_group_arn" = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/web"
+}
+"worker" = {
+"execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+"repository_arn" = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/worker"
+"log_group_arn" = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/worker"
+}
+"migration" = {
+"execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+"repository_arn" = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment"
+"log_group_arn" = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/migration"
+}
+"access" = {
+"execution_role_arn" = "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+"repository_arn" = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment"
+"log_group_arn" = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/access"
+}
+}
+"configuration" = {
+"api" = {
+"arn" = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00"
+"version_id" = "10000000-0000-0000-0000-000000000001"
+}
+"worker" = {
+"arn" = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/worker/config-Abcd01"
+"version_id" = "10000000-0000-0000-0000-000000000002"
+}
+"migration" = {
+"arn" = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/migration/config-Abcd02"
+"version_id" = "10000000-0000-0000-0000-000000000003"
+}
+"access" = {
+"arn" = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/access/config-Abcd03"
+"version_id" = "10000000-0000-0000-0000-000000000004"
+}
+}
+}
