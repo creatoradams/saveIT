@@ -6,9 +6,9 @@ RUN dotnet restore SaveIT.slnx --locked-mode \
  && dotnet publish services/api -c Release --no-restore --no-self-contained -p:UseAppHost=false -o /out/api \
  && dotnet publish services/workers -c Release --no-restore --no-self-contained -p:UseAppHost=false -o /out/worker \
  && dotnet publish services/deployment -c Release --no-restore --no-self-contained -p:UseAppHost=false -o /out/deployment \
- && mkdir -p /out/runtime /out/keys \
- && chown 1654:1654 /out/runtime /out/keys \
- && chmod 0700 /out/runtime /out/keys
+ && mkdir -p /out/volumes/runtime /out/key-volumes/keys \
+ && chown 1654:1654 /out/volumes/runtime /out/key-volumes/keys \
+ && chmod 0700 /out/volumes/runtime /out/key-volumes/keys
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-noble-chiseled-extra@sha256:9b755ea799ae649141a073e30d8b62d8095a5465af2b7694d17866e8c05131d8 AS runtime
 ARG SAVEIT_REVISION
@@ -16,13 +16,15 @@ LABEL org.opencontainers.image.revision=$SAVEIT_REVISION org.opencontainers.imag
 WORKDIR /app
 ENV DOTNET_ENVIRONMENT=Production ASPNETCORE_ENVIRONMENT=Production DOTNET_EnableDiagnostics=0
 ENV TMPDIR=/var/saveit/runtime
-COPY --from=build --chown=1654:1654 --chmod=0700 /out/runtime /var/saveit/runtime
+# Copy the parent contents so runtime itself carries its directory mode; copying
+# an empty runtime directory directly would create the destination with 0755.
+COPY --from=build --chown=1654:1654 --chmod=0700 /out/volumes/ /var/saveit/
 VOLUME ["/var/saveit/runtime"]
 USER $APP_UID
 
 FROM runtime AS api
 COPY --from=build /out/api .
-COPY --from=build --chown=1654:1654 --chmod=0700 /out/keys /var/saveit/keys
+COPY --from=build --chown=1654:1654 --chmod=0700 /out/key-volumes/ /var/saveit/
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["dotnet", "SaveIT.Api.dll", "--healthcheck"]

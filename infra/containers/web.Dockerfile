@@ -6,7 +6,7 @@ COPY apps/web/package.json ./apps/web/
 RUN npm ci
 COPY apps/web ./apps/web
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN mkdir -p apps/web/public /out/runtime && chown 1654:1654 /out/runtime && chmod 0700 /out/runtime && npm run build
+RUN mkdir -p apps/web/public /out/volumes/runtime && chown 1654:1654 /out/volumes/runtime && chmod 0700 /out/volumes/runtime && npm run build
 
 # Only the official Node executable and standalone application enter this minimal
 # glibc-compatible Ubuntu runtime: no npm, shell, compiler or Debian package set.
@@ -16,7 +16,7 @@ LABEL org.opencontainers.image.revision=$SAVEIT_REVISION org.opencontainers.imag
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 ENV TMPDIR=/var/saveit/runtime
-COPY --from=build --chown=1654:1654 --chmod=0700 /out/runtime /var/saveit/runtime
+COPY --from=build --chown=1654:1654 --chmod=0700 /out/volumes/ /var/saveit/
 VOLUME ["/var/saveit/runtime"]
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 COPY --from=build --chown=1654:1654 /src/apps/web/.next/standalone ./
