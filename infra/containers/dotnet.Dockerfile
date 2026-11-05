@@ -26,7 +26,7 @@ FROM runtime AS api
 COPY --from=build /out/api .
 COPY --from=build --chown=1654:1654 --chmod=0700 /out/key-volumes/ /var/saveit/
 ENV ASPNETCORE_HTTP_PORTS=8080
-EXPOSE 8080
+EXPOSE 8443
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["dotnet", "SaveIT.Api.dll", "--healthcheck"]
 ENTRYPOINT ["dotnet", "SaveIT.Api.dll"]
 

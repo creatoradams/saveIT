@@ -38,6 +38,8 @@ services:
     environment:
       ConnectionStrings__App: Host=db;Database=saveit;Username=saveit_app;Password=synthetic-app-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
       AllowedHosts: api;saveit.localhost;localhost;127.0.0.1
+      # Deliberately conflicting host shorthand: fixed code listeners must win.
+      ASPNETCORE_URLS: http://0.0.0.0:9999
       DevelopmentIdentity__Enabled: "false"
       Identity__Okta__Enabled: "true"
       Identity__Okta__Issuer: https://idp.localhost:8443
@@ -51,10 +53,15 @@ services:
       Identity__PreviousKeyCertificates__0__Path: /run/config/previous.pfx
       Identity__PreviousKeyCertificates__0__Password: synthetic-container-only
       SSL_CERT_FILE: /run/config/ca.crt
-      Deployment__TrustedProxies__0: 172.30.100.20
+      Deployment__ApiTls__Enabled: "true"
+      Deployment__ApiTls__CertificatePath: /run/config/api.pfx
+      Deployment__ApiTls__CertificatePassword: synthetic-transport-only
     volumes:
       - ../../.local/container-fixture:/run/config:ro
       - keyring:/keys
+    networks:
+      default:
+        aliases: ["api-wrong"]
   worker:
     image: saveit-worker:test
     read_only: true
@@ -70,9 +77,12 @@ services:
     read_only: true
     tmpfs: ["/tmp:uid=1654,gid=1654,mode=0700"]
     environment:
-      SAVEIT_API_ORIGIN: http://api:8080
+      SAVEIT_API_ORIGIN: https://api:8443
+      NODE_EXTRA_CA_CERTS: /run/trust/ca.crt
       SAVEIT_PUBLIC_ORIGIN: https://saveit.localhost:8443
       SAVEIT_OKTA_ISSUER: https://idp.localhost:8443
+    volumes:
+      - ../../.local/container-fixture/ca.crt:/run/trust/ca.crt:ro
     networks:
       default:
         ipv4_address: 172.30.100.20

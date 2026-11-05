@@ -12,7 +12,7 @@ locals {
   })
   environment = {
     api = {
-      ASPNETCORE_ENVIRONMENT       = "Production", DOTNET_ENVIRONMENT = "Production", ASPNETCORE_HTTP_PORTS = "8080", DOTNET_EnableDiagnostics = "0"
+      ASPNETCORE_ENVIRONMENT       = "Production", DOTNET_ENVIRONMENT = "Production", Deployment__ApiTls__Enabled = "true", DOTNET_EnableDiagnostics = "0"
       AllowedHosts                 = "${local.api_host};${trimprefix(var.runtime.public_origin, "https://")};127.0.0.1"
       DevelopmentIdentity__Enabled = "false", Identity__Okta__Enabled = "true"
       Identity__Okta__Issuer       = var.runtime.okta_issuer, Identity__Okta__PublicOrigin = var.runtime.public_origin
@@ -21,7 +21,7 @@ locals {
     }
     web = {
       NODE_ENV          = "production", NEXT_TELEMETRY_DISABLED = "1", HOSTNAME = "0.0.0.0", PORT = "3000", TMPDIR = "/var/saveit/runtime"
-      SAVEIT_API_ORIGIN = "http://${local.api_host}:8080", SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer
+      SAVEIT_API_ORIGIN = "https://${local.api_host}:8443", SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer
     }
     worker = merge({
       DOTNET_ENVIRONMENT = "Production", DOTNET_EnableDiagnostics = "0", SearchWorker__HealthPath = "/var/saveit/runtime/saveit-worker-health.json", TMPDIR = "/var/saveit/runtime"
@@ -138,7 +138,7 @@ resource "aws_ecs_task_definition" "application" {
     mountPoints = concat([{ sourceVolume = "runtime", containerPath = "/var/saveit/runtime", readOnly = false }], each.key == "api" ? [
       { sourceVolume = "session-keys", containerPath = "/var/saveit/keys", readOnly = false }
     ] : [])
-    portMappings = each.key == "worker" ? [] : [{ containerPort = each.key == "api" ? 8080 : 3000, hostPort = each.key == "api" ? 8080 : 3000, protocol = "tcp" }]
+    portMappings = each.key == "worker" ? [] : [{ containerPort = each.key == "api" ? 8443 : 3000, hostPort = each.key == "api" ? 8443 : 3000, protocol = "tcp" }]
     healthCheck  = { command = local.health[each.key], interval = 10, timeout = 5, retries = 3, startPeriod = 30 }
     logConfiguration = {
       logDriver = "awslogs"

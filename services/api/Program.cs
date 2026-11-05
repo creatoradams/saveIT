@@ -33,6 +33,7 @@ var appConnection = ConnectionPolicy.RuntimeConnection(builder.Configuration.Get
 if (!builder.Environment.IsDevelopment())
     ConnectionPolicy.Validate(appConnection, builder.Configuration.GetValue<bool>("Deployment:AllowLoopbackDatabase"));
 Ingress.Configure(builder);
+using var transportCertificate = ApiTls.Configure(builder);
 
 builder.Services.AddScoped<TenantScope>();
 builder.Services.AddDbContext<SaveItDb>(o => o.UseNpgsql(appConnection));
@@ -89,6 +90,7 @@ await using (var connection = new NpgsqlConnection(appConnection))
     if (!app.Environment.IsDevelopment()) await DatabaseRoleGuard.ValidateSchemaAsync(connection, requireMigration: true);
 }
 
+if (transportCertificate is not null) ApiTls.RestrictPlaintext(app);
 app.UseRouting();
 app.Use(async (context, next) => {
     context.RequestServices.GetRequiredService<ResponseRegistry>().Initialize(context);

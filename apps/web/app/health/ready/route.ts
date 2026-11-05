@@ -5,9 +5,10 @@ export async function GET() {
     publicOrigin();
     const result = await fetch(new URL("/health/ready", apiOrigin()), {
       cache: "no-store",
+      redirect: "error",
       signal: AbortSignal.timeout(3000),
     });
-    if (!result.ok) throw new Error("Upstream is unavailable.");
+    if (result.status !== 200) throw new Error("Upstream is unavailable.");
     return Response.json(
       { status: "ready" },
       { headers: { "Cache-Control": "no-store" } },

@@ -4,7 +4,10 @@ export function apiOrigin(): URL {
     (process.env.NODE_ENV === "development" ? "http://127.0.0.1:5080" : "");
   const url = new URL(value);
   if (
-    !["http:", "https:"].includes(url.protocol) ||
+    !(process.env.NODE_ENV === "development"
+      ? ["http:", "https:"].includes(url.protocol)
+      : url.protocol === "https:") ||
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0" ||
     url.username ||
     url.password ||
     url.pathname !== "/" ||

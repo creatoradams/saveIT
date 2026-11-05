@@ -1,5 +1,7 @@
 # SaveIT completion register
 
+2026-11-04 transport delta: [ADR 035](adr/035-packaged-api-server-tls.md) adds optional Linux API TLS, public web CA trust, Production HTTPS origin enforcement, health-only loopback and narrow proxy-error query redaction. Exact validation/reviews belong in progress. Task declarations require TLS but still lack certificate/CA delivery, so cannot start successfully; workload client authentication, managed PKI/rotation/intermediates, ingress transport, general telemetry and live deployment remain unfinished. No enterprise inventory item is removed or promoted to complete by this partial transport work.
+
 Updated 2026-11-03. The original brief and all 145 prior capability entries remain in scope, with a separate organization-administration row bringing the inventory to 146. This register distinguishes working code from missing implementation and real-account prerequisites. It does not mark the enterprise program complete.
 
 | Area | Completed and tested | Still required |

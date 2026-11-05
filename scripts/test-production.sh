@@ -28,13 +28,25 @@ cleanup() {
 }
 trap cleanup EXIT
 openssl req -x509 -newkey rsa:2048 -nodes -keyout "$fixture/ca.key" -out "$fixture/ca.crt" -days 2 -subj '/CN=SaveIT synthetic fixture CA' >/dev/null 2>&1
-for name in tls pg; do
-  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; else san='DNS:db'; fi
+for name in tls pg api; do
+  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api'; else san='DNS:db'; fi
   openssl req -newkey rsa:2048 -nodes -keyout "$fixture/$name.new.key" -out "$fixture/$name.csr" -subj "/CN=$name" >/dev/null 2>&1
   mv -f "$fixture/$name.new.key" "$fixture/$name.key"
   printf 'subjectAltName=%s\nextendedKeyUsage=serverAuth\n' "$san" > "$fixture/$name.ext"
   openssl x509 -req -in "$fixture/$name.csr" -CA "$fixture/ca.crt" -CAkey "$fixture/ca.key" -CAcreateserial -out "$fixture/$name.crt" -days 2 -extfile "$fixture/$name.ext" >/dev/null 2>&1
 done
+openssl pkcs12 -export -out "$fixture/api.pfx" -inkey "$fixture/api.key" -in "$fixture/api.crt" -passout pass:synthetic-transport-only >/dev/null 2>&1
+chmod 644 "$fixture/api.pfx" "$fixture/api.crt"
+chmod 600 "$fixture/api.key"
+# Separate synthetic leaf for local redirect/expiry canaries, never mounted into
+# the ordinary web service. Only the isolated test runner receives this key.
+openssl req -newkey rsa:2048 -nodes -keyout "$fixture/canary.key" -out "$fixture/canary.csr" -subj '/CN=localhost' >/dev/null 2>&1
+printf 'subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\n' > "$fixture/canary.ext"
+for validity in valid expired; do
+  days=2; if [[ "$validity" == expired ]]; then days=-1; fi
+  openssl x509 -req -in "$fixture/canary.csr" -CA "$fixture/ca.crt" -CAkey "$fixture/ca.key" -CAcreateserial -out "$fixture/canary-$validity.crt" -days "$days" -extfile "$fixture/canary.ext" >/dev/null 2>&1
+done
+chmod 644 "$fixture/canary.key" "$fixture/canary-valid.crt" "$fixture/canary-expired.crt"
 openssl pkcs12 -export -out "$fixture/protection.pfx" -inkey "$fixture/tls.key" -in "$fixture/tls.crt" -passout pass:synthetic-container-only >/dev/null 2>&1
 cp "$fixture/protection.pfx" "$fixture/previous.pfx"
 chmod 644 "$fixture/ca.crt" "$fixture/pg.crt" "$fixture/tls.crt" "$fixture/protection.pfx"
@@ -75,6 +87,9 @@ refuses_startup 'Enterprise identity requires an explicit persisted, certificate
 refuses_startup 'Data Protection requires exactly one bounded protected PFX source' -e Identity__KeyCertificateBase64=synthetic-invalid-source api
 refuses_startup 'Synthetic migration/seed command requires explicit development identity opt-in.' api --migrate
 refuses_startup 'Synthetic identity fixture requires ContainerTest environment.' -e ASPNETCORE_ENVIRONMENT=Production -e DOTNET_ENVIRONMENT=Production identity
+refuses_startup 'API TLS requires a separate bounded valid server certificate' -e Deployment__TrustedProxies__0=172.30.100.20 api
+refuses_startup 'API TLS requires a separate bounded valid server certificate' -e Kestrel__Endpoints__Plain__Url=http://0.0.0.0:9999 api
+refuses_startup 'API TLS requires a separate bounded valid server certificate' -e Deployment__ApiTls__CertificatePassword=wrong-synthetic-password api
 "${compose[@]}" up -d api worker identity web edge
 for attempt in $(seq 1 60); do
   if curl --silent --fail --cacert "$fixture/ca.crt" --resolve saveit.localhost:8443:127.0.0.1 https://saveit.localhost:8443/health/ready >/dev/null; then break; fi
@@ -97,6 +112,10 @@ wait_for_worker() {
   done
 }
 wait_for_worker
+"${compose[@]}" run --rm --no-deps \
+  -v "$root/tests/production/transport-canaries.mjs:/app/transport-canaries.mjs:ro" \
+  -v "$fixture/canary.key:/run/canary/key:ro" -v "$fixture/canary-valid.crt:/run/canary/cert:ro" \
+  -v "$fixture/canary-expired.crt:/run/canary/expired:ro" web transport-canaries.mjs
 "${compose[@]}" exec -T api dotnet SaveIT.Api.dll --healthcheck
 if "${compose[@]}" exec -T api dotnet SaveIT.Api.dll --healthcheck --migrate; then echo 'Mixed health arguments unexpectedly succeeded.' >&2; exit 1; fi
 if "${compose[@]}" exec -T -e SAVEIT_HEALTH_HOST=http://api api dotnet SaveIT.Api.dll --healthcheck; then echo 'Malformed health host unexpectedly succeeded.' >&2; exit 1; fi

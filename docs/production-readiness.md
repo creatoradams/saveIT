@@ -1,5 +1,7 @@
 # SaveIT production-readiness reassessment
 
+2026-11-04 engineering delta: [ADR 035](adr/035-packaged-api-server-tls.md) implements a packaged Linux API TLS/public-CA slice, health-only plaintext loopback and narrowly redacted pinned-Next transport errors. Exact execution/reviews are tracked in progress. This is server certificate validation, not client workload authentication or a deployed PKI. Terraform task TLS metadata now fails startup until missing certificate/CA delivery is implemented; ingress/discovery/network launch, general redaction, protected operations and live verification remain gates.
+
 ## Current checkpoint — 2026-11-03
 
 Current ADR 034 engineering delta adds only unapplied private runtime endpoint/image-layer wiring and separated application/database routes, with actual-module mocked contracts. Exact local/CI status is recorded in progress. Provider-filtered route data is not a complete route audit; SG/NACL/DHCP/resolver drift, actual IAM/presigned-layer/ingestion checks and DNS containment remain gates. Authenticated encrypted web/API transport, trusted forwarding/CA delivery, restricted Okta egress, ingress, services and protected operations still require account-free work before live verification.

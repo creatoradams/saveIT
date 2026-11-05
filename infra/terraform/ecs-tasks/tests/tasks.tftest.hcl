@@ -37,10 +37,12 @@ run "bounded_nonroot_tasks_and_exact_wiring" {
       { for e in one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).environment : e.name => e.value } == local.environment.api &&
       local.environment.api.DevelopmentIdentity__Enabled == "false" && local.environment.api.Identity__Okta__Enabled == "true" &&
       local.environment.api.Identity__KeyDirectory == "/var/saveit/keys" &&
+      local.environment.api.Deployment__ApiTls__Enabled == "true" &&
+      local.environment.web.SAVEIT_API_ORIGIN == "https://api.pilot.staging.saveit.internal:8443" &&
       local.environment.worker.SearchWorker__HealthPath == "/var/saveit/runtime/saveit-worker-health.json" &&
       local.environment.worker.SearchWorker__Tenants__0 == var.runtime.worker_tenants[0] &&
       one(jsondecode(aws_ecs_task_definition.application["worker"].container_definitions)).portMappings == [] &&
-      one(one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).portMappings).containerPort == 8080 &&
+      one(one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).portMappings).containerPort == 8443 &&
       one(one(jsondecode(aws_ecs_task_definition.application["web"].container_definitions)).portMappings).containerPort == 3000
     )
     error_message = "Production identity and server-configured tenant metadata must remain fixed; workers expose no port or extra configuration path."
