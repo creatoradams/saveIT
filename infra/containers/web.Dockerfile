@@ -1,4 +1,7 @@
 # syntax=docker/dockerfile:1
+FROM scratch AS saveit-trust
+COPY infra/trust/unconfigured/api-ca.crt /api-ca.crt
+
 FROM node:24.22.2-trixie-slim@sha256:54f84b4cf8432b21aaffd5d3ce8d41e12cea0d10d33c09d2f3c9879d49d6b446 AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
@@ -23,6 +26,8 @@ COPY --from=build --chown=1654:1654 /src/apps/web/.next/standalone ./
 COPY --from=build --chown=1654:1654 /src/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=1654:1654 /src/apps/web/public ./apps/web/public
 COPY --from=build --chown=1654:1654 /src/apps/web/runtime.cjs ./runtime.cjs
+COPY --from=build --chown=1654:1654 /src/apps/web/public-trust.cjs ./public-trust.cjs
+COPY --from=saveit-trust --chmod=0444 /api-ca.crt /opt/saveit/trust/api-ca.crt
 USER 1654
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["/usr/local/bin/node", "-e", "fetch('http://127.0.0.1:3000/health/ready',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]

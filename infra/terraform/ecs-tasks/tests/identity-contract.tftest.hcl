@@ -123,10 +123,11 @@ override_data {
   }
 }
 variables {
-  account_id  = "111122223333"
-  region      = "us-east-1"
-  cell        = "pilot"
-  environment = "staging"
+  public_trust = { api_ca_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", database_ca_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+  account_id   = "111122223333"
+  region       = "us-east-1"
+  cell         = "pilot"
+  environment  = "staging"
   identity = {
     session_key_binding_ready = true
     log_key_binding_ready     = true
@@ -147,7 +148,9 @@ variables {
         secrets = [{ name = "ConnectionStrings__App", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:ConnectionStrings__App::10000000-0000-0000-0000-000000000001" },
           { name = "Identity__Okta__ClientSecret", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__Okta__ClientSecret::10000000-0000-0000-0000-000000000001" },
           { name = "Identity__KeyCertificateBase64", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__KeyCertificateBase64::10000000-0000-0000-0000-000000000001" },
-        { name = "Identity__KeyCertificatePassword", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__KeyCertificatePassword::10000000-0000-0000-0000-000000000001" }]
+          { name = "Identity__KeyCertificatePassword", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__KeyCertificatePassword::10000000-0000-0000-0000-000000000001" },
+          { name = "Deployment__ApiTls__CertificateBase64", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Deployment__ApiTls__CertificateBase64::10000000-0000-0000-0000-000000000001" },
+        { name = "Deployment__ApiTls__CertificatePassword", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Deployment__ApiTls__CertificatePassword::10000000-0000-0000-0000-000000000001" }]
       }
       web = {
         task_role_arn      = "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task"

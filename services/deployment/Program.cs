@@ -11,16 +11,16 @@ try
 {
     if (args is ["access", var operation, var accessFile] && operation is "apply" or "inspect")
     {
-        var accessConnection = Environment.GetEnvironmentVariable("SAVEIT_ACCESS_CONNECTION")
-            ?? throw new InvalidOperationException("Separate access operator connection is required.");
+        var accessConnection = SaveIT.Search.PublicTrust.DatabaseConnection(Environment.GetEnvironmentVariable("SAVEIT_ACCESS_CONNECTION")
+            ?? throw new InvalidOperationException("Separate access operator connection is required."), Environment.GetEnvironmentVariable("Deployment__Trust__DatabaseCaSha256"));
         var manifest = await DeploymentRunner.ReadManifestAsync(accessFile);
         var local = Environment.GetEnvironmentVariable("SAVEIT_ACCESS_ALLOW_LOOPBACK") == "true";
         if (operation == "inspect") Console.WriteLine(await AccessRunner.InspectAsync(accessConnection, manifest, local));
         else Console.WriteLine($"SaveIT access operation committed at version {await AccessRunner.ChangeAsync(accessConnection, manifest, local)}.");
         return 0;
     }
-    var connection = Environment.GetEnvironmentVariable("SAVEIT_DEPLOYMENT_CONNECTION")
-        ?? throw new InvalidOperationException("Deployment connection is required through protected configuration.");
+    var connection = SaveIT.Search.PublicTrust.DatabaseConnection(Environment.GetEnvironmentVariable("SAVEIT_DEPLOYMENT_CONNECTION")
+        ?? throw new InvalidOperationException("Deployment connection is required through protected configuration."), Environment.GetEnvironmentVariable("Deployment__Trust__DatabaseCaSha256"));
     var allowLoopback = Environment.GetEnvironmentVariable("SAVEIT_DEPLOYMENT_ALLOW_LOOPBACK") == "true";
     if (args is ["migrate"]) await DeploymentRunner.MigrateAsync(connection, allowLoopback);
     else if (args is ["provision", var file])

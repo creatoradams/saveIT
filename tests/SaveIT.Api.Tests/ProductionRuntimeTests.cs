@@ -1,7 +1,9 @@
 using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using SaveIT.Api.Operations;
 using SaveIT.Search;
 using Xunit;
 
@@ -10,6 +12,21 @@ namespace SaveIT.Api.Tests;
 [Collection("database")]
 public sealed class ProductionRuntimeTests(DatabaseFixture fixture)
 {
+    [Fact]
+    public async Task Readiness_uses_the_startup_bound_connection_instead_of_raw_configuration()
+    {
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.Environment.EnvironmentName = "Development";
+        builder.Configuration["ConnectionStrings:App"] = "Host=must-not-use.invalid;SSL Mode=VerifyFull;Root Certificate=/must-not-read";
+        builder.WebHost.UseTestServer();
+        await using var app = builder.Build();
+        app.MapOperationalHealth(ConnectionPolicy.RuntimeConnection(fixture.AppConnection));
+        await app.StartAsync();
+        using var client = app.GetTestClient();
+        var response = await client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("{\"status\":\"ready\"}", await response.Content.ReadAsStringAsync());
+    }
     private sealed class Peer(string address) : IStartupFilter
     {
         public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app => {

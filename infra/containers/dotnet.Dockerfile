@@ -1,4 +1,7 @@
 # syntax=docker/dockerfile:1
+FROM scratch AS saveit-trust
+COPY infra/trust/unconfigured/database-ca.crt /database-ca.crt
+
 FROM mcr.microsoft.com/dotnet/sdk:10.0.401-noble@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317 AS build
 WORKDIR /src
 COPY . .
@@ -16,6 +19,7 @@ LABEL org.opencontainers.image.revision=$SAVEIT_REVISION org.opencontainers.imag
 WORKDIR /app
 ENV DOTNET_ENVIRONMENT=Production ASPNETCORE_ENVIRONMENT=Production DOTNET_EnableDiagnostics=0
 ENV TMPDIR=/var/saveit/runtime
+COPY --from=saveit-trust --chmod=0444 /database-ca.crt /opt/saveit/trust/database-ca.crt
 # Copy the parent contents so runtime itself carries its directory mode; copying
 # an empty runtime directory directly would create the destination with 0755.
 COPY --from=build --chown=1654:1654 --chmod=0700 /out/volumes/ /var/saveit/

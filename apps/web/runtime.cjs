@@ -10,4 +10,5 @@ console.error = (...args) => {
   }
   originalError(...args);
 };
+require("./public-trust.cjs").configure();
 require("./apps/web/server.js");

@@ -28,8 +28,8 @@ if (devIdentity && !builder.Environment.IsDevelopment())
     throw new InvalidOperationException("Development identity requires the Development environment.");
 if (!builder.Environment.IsDevelopment() && !oktaEnabled)
     throw new InvalidOperationException("Production identity is unconfigured. Configure and review an enterprise identity adapter before deployment.");
-var appConnection = ConnectionPolicy.RuntimeConnection(builder.Configuration.GetConnectionString("App")
-    ?? throw new InvalidOperationException("ConnectionStrings:App is required."));
+var appConnection = ConnectionPolicy.RuntimeConnection(PublicTrust.DatabaseConnection(builder.Configuration.GetConnectionString("App")
+    ?? throw new InvalidOperationException("ConnectionStrings:App is required."), builder.Configuration["Deployment:Trust:DatabaseCaSha256"]));
 if (!builder.Environment.IsDevelopment())
     ConnectionPolicy.Validate(appConnection, builder.Configuration.GetValue<bool>("Deployment:AllowLoopbackDatabase"));
 Ingress.Configure(builder);
@@ -122,7 +122,7 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "SaveIT" }));
-app.MapOperationalHealth();
+app.MapOperationalHealth(appConnection);
 app.MapOpenApi();
 app.MapGet("/api/v1/csrf", (HttpContext c, IAntiforgery antiforgery) => Results.Ok(new { token = antiforgery.GetAndStoreTokens(c).RequestToken! }));
 app.MapGet("/api/v1/auth/options", () => Results.Ok(new { development = devIdentity, okta = oktaEnabled }));

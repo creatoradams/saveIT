@@ -25,18 +25,20 @@ services:
     image: saveit-deployment:test
     profiles: ["tools"]
     environment:
-      SAVEIT_DEPLOYMENT_CONNECTION: Host=db;Database=saveit;Username=synthetic_deployer;Password=synthetic-deployer-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
-      SAVEIT_ACCESS_CONNECTION: Host=db;Database=saveit;Username=synthetic_access;Password=synthetic-access-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
+      SAVEIT_DEPLOYMENT_CONNECTION: Host=db;Database=saveit;Username=synthetic_deployer;Password=synthetic-deployer-only;SSL Mode=VerifyFull
+      SAVEIT_ACCESS_CONNECTION: Host=db;Database=saveit;Username=synthetic_access;Password=synthetic-access-only;SSL Mode=VerifyFull
+      Deployment__Trust__DatabaseCaSha256: ${SAVEIT_DATABASE_CA_SHA256:?Prepare public trust before running the fixture}
     volumes:
       - ../../.local/container-fixture:/run/config:ro
       - ./provision.json:/run/provision.json:ro
       - ./foreign-provision.json:/run/foreign-provision.json:ro
   api:
     image: saveit-api:test
+    env_file: ["../../.local/container-fixture/api-tls.env"]
     read_only: true
     tmpfs: ["/tmp:uid=1654,gid=1654,mode=0700"]
     environment:
-      ConnectionStrings__App: Host=db;Database=saveit;Username=saveit_app;Password=synthetic-app-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
+      ConnectionStrings__App: Host=db;Database=saveit;Username=saveit_app;Password=synthetic-app-only;SSL Mode=VerifyFull
       AllowedHosts: api;saveit.localhost;localhost;127.0.0.1
       # Deliberately conflicting host shorthand: fixed code listeners must win.
       ASPNETCORE_URLS: http://0.0.0.0:9999
@@ -52,10 +54,9 @@ services:
       Identity__KeyCertificatePassword: synthetic-container-only
       Identity__PreviousKeyCertificates__0__Path: /run/config/previous.pfx
       Identity__PreviousKeyCertificates__0__Password: synthetic-container-only
-      SSL_CERT_FILE: /run/config/ca.crt
+      SSL_CERT_FILE: /opt/saveit/trust/database-ca.crt
       Deployment__ApiTls__Enabled: "true"
-      Deployment__ApiTls__CertificatePath: /run/config/api.pfx
-      Deployment__ApiTls__CertificatePassword: synthetic-transport-only
+      Deployment__Trust__DatabaseCaSha256: ${SAVEIT_DATABASE_CA_SHA256:?Prepare public trust before running the fixture}
     volumes:
       - ../../.local/container-fixture:/run/config:ro
       - keyring:/keys
@@ -67,9 +68,10 @@ services:
     read_only: true
     tmpfs: ["/tmp:uid=1654,gid=1654,mode=0700"]
     environment:
-      ConnectionStrings__SearchWorker: Host=db;Database=saveit;Username=saveit_search_worker;Password=synthetic-worker-only;SSL Mode=VerifyFull;Root Certificate=/run/config/ca.crt
+      ConnectionStrings__SearchWorker: Host=db;Database=saveit;Username=saveit_search_worker;Password=synthetic-worker-only;SSL Mode=VerifyFull
       SearchWorker__Tenants__0: 30000000-0000-0000-0000-000000000001
       SearchWorker__HealthPath: /var/saveit/runtime/saveit-worker-health.json
+      Deployment__Trust__DatabaseCaSha256: ${SAVEIT_DATABASE_CA_SHA256:?Prepare public trust before running the fixture}
     volumes:
       - ../../.local/container-fixture:/run/config:ro
   web:
@@ -78,11 +80,10 @@ services:
     tmpfs: ["/tmp:uid=1654,gid=1654,mode=0700"]
     environment:
       SAVEIT_API_ORIGIN: https://api:8443
-      NODE_EXTRA_CA_CERTS: /run/trust/ca.crt
+      NODE_EXTRA_CA_CERTS: /opt/saveit/trust/api-ca.crt
+      SAVEIT_API_CA_SHA256: ${SAVEIT_API_CA_SHA256:?Prepare public trust before running the fixture}
       SAVEIT_PUBLIC_ORIGIN: https://saveit.localhost:8443
       SAVEIT_OKTA_ISSUER: https://idp.localhost:8443
-    volumes:
-      - ../../.local/container-fixture/ca.crt:/run/trust/ca.crt:ro
   identity:
     image: saveit-identity-fixture:test
     read_only: true

@@ -5,6 +5,8 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 fixture="$root/.local/container-fixture"
 mkdir -p "$fixture"
+export SAVEIT_API_CA_SHA256="$(node -e "process.stdout.write(JSON.parse(require('node:fs').readFileSync('.local/public-trust/manifest.json','utf8')).apiCaSha256)")"
+export SAVEIT_DATABASE_CA_SHA256="$(node -e "process.stdout.write(JSON.parse(require('node:fs').readFileSync('.local/public-trust/manifest.json','utf8')).databaseCaSha256)")"
 compose=(docker compose -p saveit-release -f tests/production/compose.yml)
 # The custom minimal web runtime must execute the actual patched binary under its
 # declared nonroot identity, before any application/network fixture is started.
@@ -27,7 +29,7 @@ cleanup() {
   return "$status"
 }
 trap cleanup EXIT
-openssl req -x509 -newkey rsa:2048 -nodes -keyout "$fixture/ca.key" -out "$fixture/ca.crt" -days 2 -subj '/CN=SaveIT synthetic fixture CA' >/dev/null 2>&1
+test -s "$fixture/ca.key" && test -s "$fixture/ca.crt"
 for name in tls pg api; do
   if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api'; else san='DNS:db'; fi
   openssl req -newkey rsa:2048 -nodes -keyout "$fixture/$name.new.key" -out "$fixture/$name.csr" -subj "/CN=$name" >/dev/null 2>&1
@@ -38,6 +40,9 @@ done
 openssl pkcs12 -export -out "$fixture/api.pfx" -inkey "$fixture/api.key" -in "$fixture/api.crt" -passout pass:synthetic-transport-only >/dev/null 2>&1
 chmod 644 "$fixture/api.pfx" "$fixture/api.crt"
 chmod 600 "$fixture/api.key"
+# Protected synthetic injection file. No encoded private value enters arguments,
+# Terraform, a tracked file or test output; Compose reads this fixture carrier.
+node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('.local/container-fixture/api-tls.env','Deployment__ApiTls__CertificateBase64='+fs.readFileSync('.local/container-fixture/api.pfx').toString('base64')+'\nDeployment__ApiTls__CertificatePassword=synthetic-transport-only\n',{mode:0o600});"
 # Separate synthetic leaf for local redirect/expiry canaries, never mounted into
 # the ordinary web service. Only the isolated test runner receives this key.
 openssl req -newkey rsa:2048 -nodes -keyout "$fixture/canary.key" -out "$fixture/canary.csr" -subj '/CN=localhost' >/dev/null 2>&1
@@ -90,6 +95,9 @@ refuses_startup 'Synthetic identity fixture requires ContainerTest environment.'
 refuses_startup 'API TLS requires a separate bounded valid server certificate' -e Deployment__TrustedProxies__0=172.30.100.20 api
 refuses_startup 'API TLS requires a separate bounded valid server certificate' -e Kestrel__Endpoints__Plain__Url=http://0.0.0.0:9999 api
 refuses_startup 'API TLS requires a separate bounded valid server certificate' -e Deployment__ApiTls__CertificatePassword=wrong-synthetic-password api
+refuses_startup 'Public CA release configuration is invalid.' -e Deployment__Trust__DatabaseCaSha256=invalid api
+refuses_startup 'Public CA release configuration is invalid.' -e SAVEIT_API_CA_SHA256=invalid web
+refuses_startup 'SaveIT deployment operation failed.' -e Deployment__Trust__DatabaseCaSha256=invalid deployment migrate
 "${compose[@]}" up -d api worker identity web edge
 for attempt in $(seq 1 60); do
   if curl --silent --fail --cacert "$fixture/ca.crt" --resolve saveit.localhost:8443:127.0.0.1 https://saveit.localhost:8443/health/ready >/dev/null; then break; fi
@@ -112,6 +120,7 @@ wait_for_worker() {
   done
 }
 wait_for_worker
+docker run --rm --read-only -e SAVEIT_API_CA_SHA256 -e NODE_EXTRA_CA_CERTS=/opt/saveit/trust/api-ca.crt saveit-web:test -e "const fs=require('node:fs'),a=require('node:assert/strict');require('./public-trust.cjs').configure();a.deepEqual(fs.readdirSync('/opt/saveit/trust'),['api-ca.crt']);const s=fs.statSync('/opt/saveit/trust/api-ca.crt');a.equal(s.uid,0);a.equal(s.mode&0o777,0o444);"
 "${compose[@]}" run --rm --no-deps \
   -v "$root/tests/production/transport-canaries.mjs:/app/transport-canaries.mjs:ro" \
   -v "$fixture/canary.key:/run/canary/key:ro" -v "$fixture/canary-valid.crt:/run/canary/cert:ro" \

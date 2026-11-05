@@ -125,6 +125,56 @@ async function check(name, environment, ready, api) {
   }
 }
 
+async function rejectsStartup(name, environment) {
+  let diagnostics = "";
+  const child = spawn(process.execPath, ["runtime.cjs"], {
+    env: { ...process.env, ...environment },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  for (const stream of [child.stdout, child.stderr])
+    stream.on("data", (data) => {
+      diagnostics = (diagnostics + data.toString()).slice(-65536);
+    });
+  const closed = new Promise((resolve, reject) => {
+    child.once("close", resolve);
+    child.once("error", reject);
+  });
+  let deadline;
+  try {
+    const code = await Promise.race([
+      closed,
+      new Promise((_, reject) => {
+        deadline = setTimeout(
+          () => reject(new Error("Startup rejection deadline exceeded.")),
+          5000,
+        );
+      }),
+    ]);
+    assert.notEqual(code, 0);
+    assert.ok(
+      diagnostics.includes("Public CA release configuration is invalid."),
+    );
+    console.log(`Packaged transport canary passed: ${name}`);
+  } finally {
+    clearTimeout(deadline);
+    child.kill("SIGKILL");
+    let cleanupDeadline;
+    try {
+      await Promise.race([
+        closed,
+        new Promise((_, reject) => {
+          cleanupDeadline = setTimeout(
+            () => reject(new Error("Startup cleanup deadline exceeded.")),
+            5000,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(cleanupDeadline);
+    }
+  }
+}
+
 let redirectedRequests = 0;
 const sink = http.createServer((_, res) => {
   redirectedRequests++;
@@ -159,7 +209,12 @@ try {
   await listen(redirect, 9443);
   await listen(expired, 9445);
   await check("trusted CA and exact API hostname", {}, 200, 200);
-  await check("untrusted CA", { NODE_EXTRA_CA_CERTS: "" }, 503, 500);
+  await check(
+    "untrusted CA",
+    { NODE_EXTRA_CA_CERTS: "", SAVEIT_API_CA_SHA256: undefined },
+    503,
+    500,
+  );
   await check(
     "wrong API hostname",
     { SAVEIT_API_ORIGIN: "https://api-wrong:8443" },
@@ -178,12 +233,15 @@ try {
     503,
     503,
   );
-  await check(
-    "TLS validation bypass prohibited",
-    { NODE_TLS_REJECT_UNAUTHORIZED: "0" },
-    503,
-    503,
-  );
+  await rejectsStartup("TLS validation bypass prohibited", {
+    NODE_TLS_REJECT_UNAUTHORIZED: "0",
+  });
+  await rejectsStartup("wrong public CA release hash", {
+    SAVEIT_API_CA_SHA256: "0".repeat(64),
+  });
+  await rejectsStartup("alternate extra CA path prohibited", {
+    NODE_EXTRA_CA_CERTS: "/must-not-use-a-different-ca",
+  });
   await check(
     "readiness and rewrite do not follow redirects",
     { SAVEIT_API_ORIGIN: "https://localhost:9443" },

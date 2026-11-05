@@ -12,19 +12,22 @@ locals {
   })
   environment = {
     api = {
-      ASPNETCORE_ENVIRONMENT       = "Production", DOTNET_ENVIRONMENT = "Production", Deployment__ApiTls__Enabled = "true", DOTNET_EnableDiagnostics = "0"
-      AllowedHosts                 = "${local.api_host};${trimprefix(var.runtime.public_origin, "https://")};127.0.0.1"
-      DevelopmentIdentity__Enabled = "false", Identity__Okta__Enabled = "true"
-      Identity__Okta__Issuer       = var.runtime.okta_issuer, Identity__Okta__PublicOrigin = var.runtime.public_origin
-      Identity__Okta__TenantId     = var.runtime.okta_tenant_id, Identity__Okta__ClientId = var.runtime.okta_client_id
-      Identity__KeyDirectory       = "/var/saveit/keys", SAVEIT_HEALTH_PORT = "8080", SAVEIT_HEALTH_HOST = "127.0.0.1", TMPDIR = "/var/saveit/runtime"
+      ASPNETCORE_ENVIRONMENT              = "Production", DOTNET_ENVIRONMENT = "Production", Deployment__ApiTls__Enabled = "true", DOTNET_EnableDiagnostics = "0"
+      AllowedHosts                        = "${local.api_host};${trimprefix(var.runtime.public_origin, "https://")};127.0.0.1"
+      DevelopmentIdentity__Enabled        = "false", Identity__Okta__Enabled = "true"
+      Identity__Okta__Issuer              = var.runtime.okta_issuer, Identity__Okta__PublicOrigin = var.runtime.public_origin
+      Identity__Okta__TenantId            = var.runtime.okta_tenant_id, Identity__Okta__ClientId = var.runtime.okta_client_id
+      Identity__KeyDirectory              = "/var/saveit/keys", SAVEIT_HEALTH_PORT = "8080", SAVEIT_HEALTH_HOST = "127.0.0.1", TMPDIR = "/var/saveit/runtime"
+      Deployment__Trust__DatabaseCaSha256 = var.public_trust.database_ca_sha256
     }
     web = {
-      NODE_ENV          = "production", NEXT_TELEMETRY_DISABLED = "1", HOSTNAME = "0.0.0.0", PORT = "3000", TMPDIR = "/var/saveit/runtime"
-      SAVEIT_API_ORIGIN = "https://${local.api_host}:8443", SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer
+      NODE_ENV             = "production", NEXT_TELEMETRY_DISABLED = "1", HOSTNAME = "0.0.0.0", PORT = "3000", TMPDIR = "/var/saveit/runtime"
+      SAVEIT_API_ORIGIN    = "https://${local.api_host}:8443", SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer
+      SAVEIT_API_CA_SHA256 = var.public_trust.api_ca_sha256, NODE_EXTRA_CA_CERTS = "/opt/saveit/trust/api-ca.crt"
     }
     worker = merge({
-      DOTNET_ENVIRONMENT = "Production", DOTNET_EnableDiagnostics = "0", SearchWorker__HealthPath = "/var/saveit/runtime/saveit-worker-health.json", TMPDIR = "/var/saveit/runtime"
+      DOTNET_ENVIRONMENT                  = "Production", DOTNET_EnableDiagnostics = "0", SearchWorker__HealthPath = "/var/saveit/runtime/saveit-worker-health.json", TMPDIR = "/var/saveit/runtime"
+      Deployment__Trust__DatabaseCaSha256 = var.public_trust.database_ca_sha256
     }, { for i, id in var.runtime.worker_tenants : "SearchWorker__Tenants__${i}" => id })
   }
   health = {

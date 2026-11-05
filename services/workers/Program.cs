@@ -5,8 +5,8 @@ using Microsoft.Extensions.Logging;
 using SaveIT.Search;
 
 var builder = Host.CreateApplicationBuilder(args);
-var connection = builder.Configuration.GetConnectionString("SearchWorker")
-    ?? throw new InvalidOperationException("ConnectionStrings:SearchWorker is required; never use an owner connection.");
+var connection = PublicTrust.DatabaseConnection(builder.Configuration.GetConnectionString("SearchWorker")
+    ?? throw new InvalidOperationException("ConnectionStrings:SearchWorker is required; never use an owner connection."), builder.Configuration["Deployment:Trust:DatabaseCaSha256"]);
 if (!builder.Environment.IsDevelopment())
     ConnectionPolicy.Validate(connection, builder.Configuration.GetValue<bool>("Deployment:AllowLoopbackDatabase"));
 var healthPath = builder.Configuration["SearchWorker:HealthPath"] ?? Path.Combine(Path.GetTempPath(), "saveit-worker-health.json");

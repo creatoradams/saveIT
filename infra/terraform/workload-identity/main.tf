@@ -22,7 +22,7 @@ locals {
     }]
   })
   fields = {
-    api = concat(["ConnectionStrings__App", "Identity__Okta__ClientSecret", "Identity__KeyCertificateBase64", "Identity__KeyCertificatePassword"], flatten([
+    api = concat(["ConnectionStrings__App", "Identity__Okta__ClientSecret", "Identity__KeyCertificateBase64", "Identity__KeyCertificatePassword", "Deployment__ApiTls__CertificateBase64", "Deployment__ApiTls__CertificatePassword"], flatten([
       for i in range(max(0, min(4, floor(var.api_retired_certificates)))) : ["Identity__PreviousKeyCertificates__${i}__Base64", "Identity__PreviousKeyCertificates__${i}__Password"]
     ]))
     worker    = ["ConnectionStrings__SearchWorker"]

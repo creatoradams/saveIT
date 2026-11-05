@@ -15,13 +15,15 @@ jobs:
           node-version: "24.22.2"
           cache: npm
       - run: npm ci
+      - name: Prepare synthetic public-only trust release input
+        run: bash scripts/prepare-production-trust.sh
       - name: Build immutable non-root process images
         run: |
           for target in api worker deployment identity-fixture; do
             if [ "$target" = identity-fixture ]; then name=identity-fixture; else name=$target; fi
-            docker build -f infra/containers/dotnet.Dockerfile --build-arg "SAVEIT_REVISION=$GITHUB_SHA" --target "$target" -t "saveit-$name:test" .
+            docker build -f infra/containers/dotnet.Dockerfile --build-context saveit-trust=.local/public-trust --build-arg "SAVEIT_REVISION=$GITHUB_SHA" --target "$target" -t "saveit-$name:test" .
           done
-          docker build -f infra/containers/web.Dockerfile --build-arg "SAVEIT_REVISION=$GITHUB_SHA" -t saveit-web:test .
+          docker build -f infra/containers/web.Dockerfile --build-context saveit-trust=.local/public-trust --build-arg "SAVEIT_REVISION=$GITHUB_SHA" -t saveit-web:test .
       - run: npx playwright install --with-deps chromium
       - name: Verify packaged Production-mode behavior with synthetic external identity
         run: bash scripts/test-production.sh

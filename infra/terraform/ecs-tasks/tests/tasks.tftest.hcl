@@ -38,6 +38,10 @@ run "bounded_nonroot_tasks_and_exact_wiring" {
       local.environment.api.DevelopmentIdentity__Enabled == "false" && local.environment.api.Identity__Okta__Enabled == "true" &&
       local.environment.api.Identity__KeyDirectory == "/var/saveit/keys" &&
       local.environment.api.Deployment__ApiTls__Enabled == "true" &&
+      local.environment.api.Deployment__Trust__DatabaseCaSha256 == var.public_trust.database_ca_sha256 &&
+      local.environment.worker.Deployment__Trust__DatabaseCaSha256 == var.public_trust.database_ca_sha256 &&
+      local.environment.web.SAVEIT_API_CA_SHA256 == var.public_trust.api_ca_sha256 &&
+      local.environment.web.NODE_EXTRA_CA_CERTS == "/opt/saveit/trust/api-ca.crt" &&
       local.environment.web.SAVEIT_API_ORIGIN == "https://api.pilot.staging.saveit.internal:8443" &&
       local.environment.worker.SearchWorker__HealthPath == "/var/saveit/runtime/saveit-worker-health.json" &&
       local.environment.worker.SearchWorker__Tenants__0 == var.runtime.worker_tenants[0] &&
@@ -55,7 +59,7 @@ run "maximum_task_transport_tenants_fit_budget" {
   }
   assert {
     condition = (length(aws_ecs_task_definition.application["worker"].container_definitions) < 16000 &&
-    length(one(jsondecode(aws_ecs_task_definition.application["worker"].container_definitions)).environment) == 104)
+    length(one(jsondecode(aws_ecs_task_definition.application["worker"].container_definitions)).environment) == 105)
     error_message = "The largest accepted task tenant list must fit comfortably below the guarded container JSON budget."
   }
 }
@@ -70,7 +74,7 @@ run "all_four_retired_pairs_remain_pinned_and_bounded" {
     }) }) })
   }
   assert {
-    condition     = length(one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).secrets) == 12 && length(aws_ecs_task_definition.application["api"].container_definitions) < 16000
+    condition     = length(one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).secrets) == 14 && length(aws_ecs_task_definition.application["api"].container_definitions) < 16000
     error_message = "Current plus all four contiguous retired PFX/password pairs must fit the task transport and retain one exact version."
   }
 }
@@ -78,6 +82,31 @@ run "unbound_efs" {
   command = plan
   variables { identity = merge(var.identity, { session_key_binding_ready = false }) }
   expect_failures = [var.identity]
+}
+run "missing_transport_certificate_field" {
+  command = plan
+  variables { identity = merge(var.identity, { workloads = merge(var.identity.workloads, { api = merge(var.identity.workloads.api, { secrets = [for s in var.identity.workloads.api.secrets : s if s.name != "Deployment__ApiTls__CertificateBase64"] }) }) }) }
+  expect_failures = [var.identity]
+}
+run "transport_certificate_version_mismatch" {
+  command = plan
+  variables { identity = merge(var.identity, { workloads = merge(var.identity.workloads, { api = merge(var.identity.workloads.api, { secrets = [for s in var.identity.workloads.api.secrets : s.name == "Deployment__ApiTls__CertificatePassword" ? merge(s, { valueFrom = replace(s.valueFrom, "10000000-0000-0000-0000-000000000001", "10000000-0000-0000-0000-000000000002") }) : s] }) }) }) }
+  expect_failures = [var.identity]
+}
+run "unapproved_transport_file_selector" {
+  command = plan
+  variables { identity = merge(var.identity, { workloads = merge(var.identity.workloads, { api = merge(var.identity.workloads.api, { secrets = [for s in var.identity.workloads.api.secrets : { name = replace(s.name, "Deployment__ApiTls__CertificateBase64", "Deployment__ApiTls__CertificatePath"), valueFrom = replace(s.valueFrom, "Deployment__ApiTls__CertificateBase64", "Deployment__ApiTls__CertificatePath") }] }) }) }) }
+  expect_failures = [var.identity]
+}
+run "public_trust_never_accepts_pem_payloads" {
+  command = plan
+  variables { public_trust = { api_ca_sha256 = "-----BEGIN CERTIFICATE-----", database_ca_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } }
+  expect_failures = [var.public_trust]
+}
+run "public_trust_requires_canonical_hashes" {
+  command = plan
+  variables { public_trust = { api_ca_sha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", database_ca_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } }
+  expect_failures = [var.public_trust]
 }
 run "unbound_logs" {
   command = plan
@@ -357,10 +386,11 @@ override_data {
   }
 }
 variables {
-  account_id  = "111122223333"
-  region      = "us-east-1"
-  cell        = "pilot"
-  environment = "staging"
+  public_trust = { api_ca_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", database_ca_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+  account_id   = "111122223333"
+  region       = "us-east-1"
+  cell         = "pilot"
+  environment  = "staging"
   identity = {
     session_key_binding_ready = true
     log_key_binding_ready     = true
@@ -381,7 +411,9 @@ variables {
         secrets = [{ name = "ConnectionStrings__App", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:ConnectionStrings__App::10000000-0000-0000-0000-000000000001" },
           { name = "Identity__Okta__ClientSecret", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__Okta__ClientSecret::10000000-0000-0000-0000-000000000001" },
           { name = "Identity__KeyCertificateBase64", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__KeyCertificateBase64::10000000-0000-0000-0000-000000000001" },
-        { name = "Identity__KeyCertificatePassword", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__KeyCertificatePassword::10000000-0000-0000-0000-000000000001" }]
+          { name = "Identity__KeyCertificatePassword", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__KeyCertificatePassword::10000000-0000-0000-0000-000000000001" },
+          { name = "Deployment__ApiTls__CertificateBase64", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Deployment__ApiTls__CertificateBase64::10000000-0000-0000-0000-000000000001" },
+        { name = "Deployment__ApiTls__CertificatePassword", valueFrom = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Deployment__ApiTls__CertificatePassword::10000000-0000-0000-0000-000000000001" }]
       }
       web = {
         task_role_arn      = "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task"

@@ -213,7 +213,7 @@ run "separate_configuration_and_same_version_selectors" {
     error_message = "Four separate encrypted configuration containers must pin all of each workload's fields to one version; web has none."
   }
   assert {
-    condition = (output.configuration.api.fields == ["ConnectionStrings__App", "Identity__Okta__ClientSecret", "Identity__KeyCertificateBase64", "Identity__KeyCertificatePassword"] &&
+    condition = (output.configuration.api.fields == ["ConnectionStrings__App", "Identity__Okta__ClientSecret", "Identity__KeyCertificateBase64", "Identity__KeyCertificatePassword", "Deployment__ApiTls__CertificateBase64", "Deployment__ApiTls__CertificatePassword"] &&
       output.configuration.worker.fields == ["ConnectionStrings__SearchWorker"] && output.configuration.migration.fields == ["SAVEIT_DEPLOYMENT_CONNECTION"] &&
     output.configuration.access.fields == ["SAVEIT_ACCESS_CONNECTION"])
     error_message = "Configuration selectors must use the exact runtime field names and isolate privileged connections."
@@ -328,7 +328,7 @@ run "bound_api_mount_only_and_maximum_retired_selectors" {
     error_message = "Only the bound API may mount/write the exact protected ring; root/other AWS operations must remain explicitly denied."
   }
   assert {
-    condition = (length(output.workloads.api.secrets) == 12 && slice(output.configuration.api.fields, 4, 12) == flatten([for index in range(4) : ["Identity__PreviousKeyCertificates__${index}__Base64", "Identity__PreviousKeyCertificates__${index}__Password"]]) &&
+    condition = (length(output.workloads.api.secrets) == 14 && slice(output.configuration.api.fields, 6, 14) == flatten([for index in range(4) : ["Identity__PreviousKeyCertificates__${index}__Base64", "Identity__PreviousKeyCertificates__${index}__Password"]]) &&
     alltrue([for selector in output.workloads.api.secrets : selector.valueFrom == "${output.configuration.api.arn}:${selector.name}::${var.configuration_versions.api}"]))
     error_message = "All current and four retired PFX/password pairs must reference one pinned API configuration version."
   }

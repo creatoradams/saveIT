@@ -68,10 +68,10 @@ variable "identity" {
     condition = try(
       toset([for s in var.identity.workloads.worker.secrets : s.name]) == toset(["ConnectionStrings__SearchWorker"]) &&
       anytrue([for count in range(5) : toset([for s in var.identity.workloads.api.secrets : s.name]) == toset(concat(
-        ["ConnectionStrings__App", "Identity__Okta__ClientSecret", "Identity__KeyCertificateBase64", "Identity__KeyCertificatePassword"],
+        ["ConnectionStrings__App", "Identity__Okta__ClientSecret", "Identity__KeyCertificateBase64", "Identity__KeyCertificatePassword", "Deployment__ApiTls__CertificateBase64", "Deployment__ApiTls__CertificatePassword"],
         flatten([for i in range(count) : ["Identity__PreviousKeyCertificates__${i}__Base64", "Identity__PreviousKeyCertificates__${i}__Password"]])
     ))]), false)
-    error_message = "Require exact API current fields and zero-to-four contiguous retired pairs, and only the worker connection field."
+    error_message = "Require exact API session and transport certificate fields and zero-to-four contiguous retired session pairs, and only the worker connection field."
   }
 }
 variable "images" {
@@ -81,6 +81,15 @@ variable "images" {
     condition = toset(keys(var.images)) == toset(["api", "web", "worker"]) && alltrue([for name, image in var.images :
     can(regex("^${var.account_id}\\.dkr\\.ecr\\.${var.region}\\.amazonaws\\.com/saveit/${var.cell}/${var.environment}/${name}@sha256:[0-9a-f]{64}$", image))])
     error_message = "Supply three exact own-repository lowercase sha256 registry digest references; no mutable tags or image configuration IDs."
+  }
+}
+variable "public_trust" {
+  description = "Expected SHA256 of reviewed public CA release files baked into images. Hashes only, never PEM, private keys or secret values. Not signature/promotion or managed PKI evidence."
+  nullable    = false
+  type        = object({ api_ca_sha256 = string, database_ca_sha256 = string })
+  validation {
+    condition     = alltrue([for hash in [var.public_trust.api_ca_sha256, var.public_trust.database_ca_sha256] : can(regex("^[0-9a-f]{64}$", hash))])
+    error_message = "Require canonical lowercase SHA256 metadata for both public CA release files."
   }
 }
 variable "session_key_storage" {
