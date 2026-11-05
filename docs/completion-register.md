@@ -1,5 +1,7 @@
 # SaveIT completion register
 
+Verified packaged TLS source **946a3ee** passes general/source-security/packaged workflows with **477 backend/zero skipped, 61 Chromium, 179 infrastructure mock plans, eight TLS canaries and four Production-mode flows**. Both agent rechecks closed; [progress](progress.md) retains exact immutable links, scan findings and the observed Docker/Chromium fixture failure/rerun history. Certificate/API and RDS CA delivery, workload/ingress authentication, service launch and all previously unimplemented enterprise/operations capabilities remain unfinished.
+
 2026-11-04 transport delta: [ADR 035](adr/035-packaged-api-server-tls.md) adds optional Linux API TLS, public web CA trust, Production HTTPS origin enforcement, health-only loopback and narrow proxy-error query redaction. Exact validation/reviews belong in progress. Task declarations require TLS but still lack certificate/CA delivery, so cannot start successfully; workload client authentication, managed PKI/rotation/intermediates, ingress transport, general telemetry and live deployment remain unfinished. No enterprise inventory item is removed or promoted to complete by this partial transport work.
 
 Updated 2026-11-03. The original brief and all 145 prior capability entries remain in scope, with a separate organization-administration row bringing the inventory to 146. This register distinguishes working code from missing implementation and real-account prerequisites. It does not mark the enterprise program complete.

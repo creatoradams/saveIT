@@ -1,5 +1,7 @@
 # SaveIT production-readiness reassessment
 
+Verified ADR035 source **946a3ee** passes all three workflows: **477 backend/zero skipped, 61 Chromium, 179 mocked plans, eight packaged TLS canaries and four packaged Production-mode flows**. Exact links, fresh image/security snapshots, the fixed fixture-IP collision and observed Chromium network-change rerun limitation are in [progress](progress.md). Both requested agents completed final bounded rechecks. Server-authenticated packaged TLS does not complete certificate/CA delivery, client workload authentication, ingress/service wiring or operated PKI; no managed deployment is approved.
+
 2026-11-04 engineering delta: [ADR 035](adr/035-packaged-api-server-tls.md) implements a packaged Linux API TLS/public-CA slice, health-only plaintext loopback and narrowly redacted pinned-Next transport errors. Exact execution/reviews are tracked in progress. This is server certificate validation, not client workload authentication or a deployed PKI. Terraform task TLS metadata now fails startup until missing certificate/CA delivery is implemented; ingress/discovery/network launch, general redaction, protected operations and live verification remain gates.
 
 ## Current checkpoint — 2026-11-03
