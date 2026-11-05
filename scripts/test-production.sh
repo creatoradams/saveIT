@@ -57,6 +57,7 @@ cp "$fixture/protection.pfx" "$fixture/previous.pfx"
 chmod 644 "$fixture/ca.crt" "$fixture/pg.crt" "$fixture/tls.crt" "$fixture/protection.pfx"
 chmod 644 "$fixture/previous.pfx"
 chmod 600 "$fixture/pg.key" "$fixture/tls.key" "$fixture/ca.key"
+node tests/production/configuration-preflight.mjs
 sudo chown 999:999 "$fixture/pg.key"
 "${compose[@]}" up -d --wait db
 "${compose[@]}" exec -T db psql -U postgres -d saveit -v ON_ERROR_STOP=1 < infra/postgres/bootstrap-roles.sql

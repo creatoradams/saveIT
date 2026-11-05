@@ -7,6 +7,24 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
+if (args.FirstOrDefault() == "check-configuration")
+{
+    try
+    {
+        if (args is not ["check-configuration", var workload, var retired] || retired.Length != 1 || retired[0] is < '0' or > '4' || !Console.IsInputRedirected)
+            throw new InvalidOperationException();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var input = Console.OpenStandardInput();
+        await ProtectedConfiguration.ValidateAsync(input, workload, retired[0] - '0', timeout.Token);
+        Console.WriteLine(ProtectedConfiguration.Success);
+        return 0;
+    }
+    catch (Exception)
+    {
+        Console.Error.WriteLine(ProtectedConfiguration.Failure);
+        return 1;
+    }
+}
 try
 {
     if (args is ["access", var operation, var accessFile] && operation is "apply" or "inspect")

@@ -1,5 +1,7 @@
 # SaveIT workload identities and configuration references
 
+[ADR037](../../../docs/adr/037-offline-protected-configuration-preflight.md) provides the deployment image's stdin-only `check-configuration` preflight for the whole original JSON. Match its workload/retired count to reviewed reference metadata before separately protected population. No value enters Terraform; local validation does not attest ARN/version/IAM, populate secrets or verify managed roles/PKI. Usage and exact-byte binding limits are in [deployment](../../../docs/deployment.md).
+
 ADR036 extends API selectors with Deployment__ApiTls__CertificateBase64 and Deployment__ApiTls__CertificatePassword on the existing exact own ARN/UUID. No new secret resource/read authority or payload input is added; web has no secret. With four retired session pairs there are fourteen API selectors; validate the complete actual JSON against64KiB before protected population. Public CA release files/hashes are separate from this secret root; see [the trust guide](../../trust/README.md). Real population/injection/PKI/rotation and managed enforcement remain gates.
 
 Unapplied preparation under [ADR 031](../../../docs/adr/031-workload-identities-and-configuration-references.md). No ECS tasks, registry/log groups, secret values or AWS resources have been created. This root does not make the application deployable or production ready.
