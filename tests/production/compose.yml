@@ -83,9 +83,6 @@ services:
       SAVEIT_OKTA_ISSUER: https://idp.localhost:8443
     volumes:
       - ../../.local/container-fixture/ca.crt:/run/trust/ca.crt:ro
-    networks:
-      default:
-        ipv4_address: 172.30.100.20
   identity:
     image: saveit-identity-fixture:test
     read_only: true
