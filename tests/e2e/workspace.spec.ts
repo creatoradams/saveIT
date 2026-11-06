@@ -41,6 +41,79 @@ async function openAsset(page: Page, name: string) {
   await target.click();
 }
 
+test("a cancelled startup response cannot reset the selected organization", async ({
+  page,
+}) => {
+  await login(page);
+  // Deliberately finish the obsolete StrictMode read despite cancellation:
+  // transport cancellation alone must not permit stale state publication.
+  await page.addInitScript(() => {
+    const original = window.fetch.bind(window);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fixture = {
+      held: false,
+      released: false,
+      cancelled: false,
+      lateSessionReads: 0,
+      release() {
+        fixture.released = true;
+        release();
+      },
+    };
+    Object.assign(window, { saveitBootstrapFixture: fixture });
+    window.fetch = async (input, init) => {
+      const path = new URL(
+        input instanceof Request ? input.url : String(input),
+        location.origin,
+      ).pathname;
+      if (path === "/api/v1/auth/options" && !fixture.held) {
+        fixture.held = true;
+        await gate;
+        fixture.cancelled = init?.signal?.aborted === true;
+        return Response.json({ development: true, okta: false });
+      }
+      if (fixture.released && path === "/api/v1/session")
+        fixture.lateSessionReads++;
+      return original(input, init);
+    };
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Everything has a home." }),
+  ).toBeVisible();
+  const picker = page.getByRole("combobox", {
+    name: "ORGANIZATION",
+    exact: true,
+  });
+  const selected = "10000000-0000-0000-0000-000000000011";
+  await picker.selectOption(selected);
+  const result = await page.evaluate(async () => {
+    const fixture = (
+      window as unknown as {
+        saveitBootstrapFixture: {
+          release(): void;
+          cancelled: boolean;
+          lateSessionReads: number;
+        };
+      }
+    ).saveitBootstrapFixture;
+    fixture.release();
+    // Flush the deliberately synchronous response's microtasks and React render.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+    return {
+      cancelled: fixture.cancelled,
+      lateSessionReads: fixture.lateSessionReads,
+    };
+  });
+  expect(result).toEqual({ cancelled: true, lateSessionReads: 0 });
+  await expect(picker).toHaveValue(selected);
+});
+
 test("persistent asset → linked document → revision → audit, plus organization switching", async ({
   page,
 }) => {

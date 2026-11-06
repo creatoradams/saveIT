@@ -171,9 +171,11 @@ export default function Workspace() {
     setRevisionSelection(null);
   }, [document?.id, document?.version]);
 
-  async function loadSession() {
-    const current = await api<Session>("/session");
-    const orgs = await api<Page<Organization>>("/organizations");
+  async function loadSession(signal?: AbortSignal) {
+    const current = await api<Session>("/session", { signal });
+    if (signal?.aborted) return;
+    const orgs = await api<Page<Organization>>("/organizations", { signal });
+    if (signal?.aborted) return;
     setSession(current);
     setOrganizations(orgs.items);
     setOrganizationCursor(orgs.nextCursor);
@@ -181,27 +183,37 @@ export default function Workspace() {
   }
 
   useEffect(() => {
+    const abort = new AbortController();
     (async () => {
       let development = false;
       try {
         const options = await api<{ development: boolean; okta: boolean }>(
           "/auth/options",
+          { signal: abort.signal },
         );
+        if (abort.signal.aborted) return;
         setAuthOptions(options);
         development = options.development;
-        await loadSession();
+        await loadSession(abort.signal);
       } catch (err) {
+        if (abort.signal.aborted) return;
         if (!(err instanceof ApiError && err.status === 401))
           setError(errorText(err));
         try {
-          if (development) setProfiles(await api<Profile[]>("/dev/profiles"));
+          if (development) {
+            const profiles = await api<Profile[]>("/dev/profiles", {
+              signal: abort.signal,
+            });
+            if (!abort.signal.aborted) setProfiles(profiles);
+          }
         } catch (err) {
-          setError(errorText(err));
+          if (!abort.signal.aborted) setError(errorText(err));
         }
       } finally {
-        setLoading(false);
+        if (!abort.signal.aborted) setLoading(false);
       }
     })();
+    return () => abort.abort();
   }, []);
 
   useEffect(() => {
