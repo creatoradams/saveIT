@@ -1,0 +1,13 @@
+# API client-certificate admission review — 2026-11-05
+
+The two user-requested agents independently reviewed the ADR039 receiver, native TLS policy, trust-loader ownership, public release contexts, packaged fixtures, task guard and documentation. They made no edits and ran no tests, containers or AWS calls. This is bounded source review, not whole-product or managed-environment assurance.
+
+The efficiency reviewer found an HTTP Host mismatch in the initial isolated client: its socket target api-client-auth was outside the ordinary API AllowedHosts. The runner now sends fixed Host api while retaining socket target api-client-auth, SNI api and certificate validation. The security reviewer independently confirmed the fix. Neither AllowedHosts nor certificate enforcement was relaxed.
+
+The security reviewer identified an evidence gap: the packaged server-purpose leaf is also unpinned, so its refusal cannot independently establish EKU enforcement. Direct leaf tests already reject that exact pinned certificate. The native-chain test now also pins it and requires Build=false, NotValidForUsage and callback rejection. ADR039 and the packaged label explicitly retain the coverage distinction.
+
+Final read-only rechecks closed without remaining actionable findings in this delta. They also checked one-time bounded public anchor loading, lifetime ownership, pre-native custom trust/download controls, bounded request-time checks, fail-closed configuration, fresh-output-directory refusal with preservation tests and tools-profile cleanup of the extra API. No certificate or header maps to a user/tenant principal; web receives no key, secret grant or new AWS authority.
+
+Implementer local verification passes169 affected tests, a zero-warning backend build, TypeScript, optimized web build, ignore policy, seven security-gate groups, eight HTTP harness cases and38 task mock plans. A subsequent108-test certificate subset passes the final pinned-purpose assertion. Shell/JavaScript syntax and unchanged original brief/146-entry inventory checks also pass. Exact-source Linux/PostgreSQL/browser and packaged execution remain pending in [progress](../progress.md).
+
+This implements the optional API receiver only. The unapplied cloud API deliberately enables the requirement without client/public bindings and remains startup-blocked. Actual client delivery, authenticated web-to-API deployment, managed issuance/rotation/revocation, cloud IAM/network/PKI and operated recovery remain unfinished. Revocation mode NoCheck is explicit; synthetic tests do not establish managed revocation or production readiness.

@@ -1,5 +1,7 @@
 # Guarded application task definitions (unapplied)
 
+ADR039 requires API client-certificate admission. The task enables it but has **no client/public binding yet**, so startup must fail until reviewed anchors/pins and an authenticated client carrier are implemented. Web receives no secret or additional IAM action. Receiver tests are not an end-to-end managed client identity or launch approval; [details](../../../docs/adr/039-api-client-certificate-admission.md).
+
 Use ADR037's offline deployment-image preflight on complete protected configuration before population; [usage and limits](../../../docs/deployment.md). Match the selected retired count to this task's exact references. Passing local validation neither binds an ARN/version nor proves actual injection/IAM/managed roles/PKI, and does not authorize launch. Terraform remains payload-free.
 
 ADR036 update: API declares enabled Linux TLS/8443 and two exact transport-PFX fields in its existing pinned secret version. Required `public_trust` API/database SHA256 metadata binds fixed public CA files baked through a separate public-only image context; see [the trust guide](../../trust/README.md). **These definitions must not be launched** until actual bounded protected payload population/injection, approved image trust inputs/publication, discovery/networking and managed identity/PKI verification exist. No additional secret permission, payload input or lookup is introduced. Packaged synthetic TLS tests are not AWS or client-workload authentication evidence.

@@ -4,6 +4,8 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
+- [x] Account-free opt-in API client-certificate receiver with separate public anchors/exact pins, native offline policy and request-time expiry checks (ADR039; tests/reviews in [progress](progress.md)). Client identity delivery, cloud metadata binding, end-to-end authenticated web/API deployment and managed issuance/rotation/revocation remain unfinished; cloud API stays startup-blocked.
+
 - [x] Account-free private DNS/API registry and referenced-group web/API TCP8443 definitions, with actual adjacent-module mock contracts (ADR038; execution/reviews in [progress](progress.md)). Client workload authentication, actual registry health/drain/registration, services/ingress/restricted egress, protected operations and managed proof remain unfinished.
 
 - [x] Account-free offline whole-configuration preflight with original64KiB byte/EOF limits, exact fields and actual PFX/key-separation checks (ADR037; verified execution/reviews in [progress](progress.md)). Exact-byte/version-bound protected population, authenticated custodian lifecycle and actual injection/role/PKI proof remain unfinished.

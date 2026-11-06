@@ -12,13 +12,14 @@ locals {
   })
   environment = {
     api = {
-      ASPNETCORE_ENVIRONMENT              = "Production", DOTNET_ENVIRONMENT = "Production", Deployment__ApiTls__Enabled = "true", DOTNET_EnableDiagnostics = "0"
-      AllowedHosts                        = "${local.api_host};${trimprefix(var.runtime.public_origin, "https://")};127.0.0.1"
-      DevelopmentIdentity__Enabled        = "false", Identity__Okta__Enabled = "true"
-      Identity__Okta__Issuer              = var.runtime.okta_issuer, Identity__Okta__PublicOrigin = var.runtime.public_origin
-      Identity__Okta__TenantId            = var.runtime.okta_tenant_id, Identity__Okta__ClientId = var.runtime.okta_client_id
-      Identity__KeyDirectory              = "/var/saveit/keys", SAVEIT_HEALTH_PORT = "8080", SAVEIT_HEALTH_HOST = "127.0.0.1", TMPDIR = "/var/saveit/runtime"
-      Deployment__Trust__DatabaseCaSha256 = var.public_trust.database_ca_sha256
+      ASPNETCORE_ENVIRONMENT                            = "Production", DOTNET_ENVIRONMENT = "Production", Deployment__ApiTls__Enabled = "true", DOTNET_EnableDiagnostics = "0"
+      Deployment__ApiTls__ClientAuthentication__Enabled = "true"
+      AllowedHosts                                      = "${local.api_host};${trimprefix(var.runtime.public_origin, "https://")};127.0.0.1"
+      DevelopmentIdentity__Enabled                      = "false", Identity__Okta__Enabled = "true"
+      Identity__Okta__Issuer                            = var.runtime.okta_issuer, Identity__Okta__PublicOrigin = var.runtime.public_origin
+      Identity__Okta__TenantId                          = var.runtime.okta_tenant_id, Identity__Okta__ClientId = var.runtime.okta_client_id
+      Identity__KeyDirectory                            = "/var/saveit/keys", SAVEIT_HEALTH_PORT = "8080", SAVEIT_HEALTH_HOST = "127.0.0.1", TMPDIR = "/var/saveit/runtime"
+      Deployment__Trust__DatabaseCaSha256               = var.public_trust.database_ca_sha256
     }
     web = {
       NODE_ENV             = "production", NEXT_TELEMETRY_DISABLED = "1", HOSTNAME = "0.0.0.0", PORT = "3000", TMPDIR = "/var/saveit/runtime"

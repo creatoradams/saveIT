@@ -1,5 +1,7 @@
 # SaveIT completion register
 
+ADR039 adds the API-side client certificate receiver with public anchor/pin and native/per-request checks; see [progress](progress.md) for tests/reviews. Client identity delivery and an authenticated web deployment remain unfinished; cloud task startup is deliberately blocked until those bindings exist. No web secret/IAM, tenant principal, schema or enterprise completion is introduced.
+
 Verified ADR038 source **b13e3ef** passes general/source-security/packaged workflows on their first attempt: **569 backend/zero skipped, 61 Chromium, 219 infrastructure mock plans, fourteen packaged configuration checks, ten transport canaries and four Production-mode flows**. Both requested reviews closed. Exact links, the accepted provider deprecation/readback tradeoff, lower scan findings and Windows host-run limitations remain in [progress](progress.md). This completes private registry/network definitions only; no running service, client workload authentication, managed DNS/packet/IAM proof or enterprise completion is claimed.
 
 ADR038 adds unapplied private namespace/API registry and standalone web/API TCP8443 directions, with scoped endpoint-network/task-transport reference contracts. Exact execution/reviews are in [progress](progress.md). Actual client identity, registration/health/drain, services/ingress/restricted egress, managed DNS/IAM/network/PKI and all other enterprise/operations gaps remain unfinished.

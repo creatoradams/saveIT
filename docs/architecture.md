@@ -1,5 +1,7 @@
 # SaveIT architecture
 
+[ADR039](adr/039-api-client-certificate-admission.md) implements optional API-side client-certificate admission with separate immutable public CA/pin metadata, native offline custom trust and request-time expiry checks. It grants no user/tenant principal or web secret/IAM authority. Cloud API tasks declare this required but lack the client/public binding, so remain startup-blocked; managed client delivery, end-to-end authentication and launch remain unfinished.
+
 [ADR038](adr/038-private-api-discovery-and-network-path.md) adds unapplied private DNS/API registry and exact standalone web/API TCP8443 directions, bound to actual task-transport and endpoint-network reference contracts. DNS health and SG membership do not supply client identity or tenant authority. No instance registration, service, public ingress, IAM/secret grant or cloud operation exists; client authentication, launch and managed proof remain gates.
 
 [ADR037](adr/037-offline-protected-configuration-preflight.md) adds an offline deployment-image preflight for the exact whole protected JSON carrier: bounded original UTF-8 bytes/EOF, per-workload fields, connection syntax and actual PFX/key separation. It accepts stdin only and emits fixed pass/fail output. It does not populate/read AWS secrets, prove ARN/version/IAM/role or PKI bindings, write payloads, or alter runtime tenant/access authority.

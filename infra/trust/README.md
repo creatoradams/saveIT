@@ -1,5 +1,7 @@
 # Public CA release inputs
 
+ADR039 adds a separate client-anchor context: `node scripts/prepare-client-trust.mjs /reviewed/client-roots.crt .local/new-client-trust`, then `--build-context saveit-client-trust=.local/new-client-trust` for API builds. Only API receives client-ca.crt; web/worker/deployment receive none. Public metadata supplies its hash and exact permitted leaf hashes; private client delivery is unfinished. Both preparers now refuse **all existing output directories**, including empty paths, to exclude unrelated leftovers before a public build-context upload. Choose a new ignored path; never place a client key in these directories.
+
 This is the account-free implementation in [ADR036](../../docs/adr/036-public-trust-release-delivery.md). The tracked `unconfigured` files are placeholders, not trusted certificates. Do not add private keys/PFX, secret configuration, real environment files or test evidence here.
 
 Prepare reviewed **public-only** API root and regional RDS root bundles into a new ignored directory:

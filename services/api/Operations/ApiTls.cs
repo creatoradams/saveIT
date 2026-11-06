@@ -12,7 +12,13 @@ public static class ApiTls
 {
     private const string Invalid = "API TLS requires a separate bounded valid server certificate and fixed listeners without forwarded trust. This transport mode requires Linux.";
 
-    public static X509Certificate2? Configure(WebApplicationBuilder builder)
+    public sealed class Lease(X509Certificate2 certificate, ApiClientAuthentication? clients) : IDisposable
+    {
+        public ApiClientAuthentication? Clients { get; } = clients;
+        public void Dispose() { Clients?.Dispose(); certificate.Dispose(); }
+    }
+
+    public static Lease? Configure(WebApplicationBuilder builder)
     {
         var section = builder.Configuration.GetSection("Deployment:ApiTls");
         if (!section.GetValue<bool>("Enabled"))
@@ -26,6 +32,9 @@ public static class ApiTls
             throw new InvalidOperationException(Invalid);
 
         var certificate = Load(section["CertificatePath"], section["CertificateBase64"], section["CertificatePassword"]);
+        ApiClientAuthentication? clients;
+        try { clients = ApiClientAuthentication.Read(section.GetSection("ClientAuthentication")); }
+        catch { certificate.Dispose(); throw; }
         builder.WebHost.ConfigureKestrel(options =>
         {
             // Replace the default reloadable loader: configuration must not append
@@ -35,10 +44,11 @@ public static class ApiTls
             {
                 https.ServerCertificate = certificate;
                 https.SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13;
+                clients?.Configure(https);
             }));
             options.Listen(IPAddress.Loopback, 8080);
         });
-        return certificate;
+        return new Lease(certificate, clients);
     }
 
     public static X509Certificate2 Load(string? path, string? base64, string? password)
@@ -67,7 +77,7 @@ public static class ApiTls
         finally { certificate?.Dispose(); }
     }
 
-    public static void RestrictPlaintext(WebApplication app)
+    public static void RestrictPlaintext(WebApplication app, ApiClientAuthentication? clients = null)
     {
         app.Use(async (context, next) =>
         {
@@ -77,6 +87,14 @@ public static class ApiTls
                   (context.Request.Path == "/health/live" || context.Request.Path == "/health/ready")))
             {
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
+                context.Response.Headers.CacheControl = "no-store";
+                return;
+            }
+            // Recheck expiry/pins on keepalive HTTP requests, using only the
+            // actual TLS certificate. Headers cannot substitute a peer identity.
+            if (clients is not null && context.Features.Get<ITlsConnectionFeature>() is not null && !clients.AcceptLeaf(context.Connection.ClientCertificate))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 context.Response.Headers.CacheControl = "no-store";
                 return;
             }

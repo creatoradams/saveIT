@@ -7,6 +7,7 @@ fixture="$root/.local/container-fixture"
 mkdir -p "$fixture"
 export SAVEIT_API_CA_SHA256="$(node -e "process.stdout.write(JSON.parse(require('node:fs').readFileSync('.local/public-trust/manifest.json','utf8')).apiCaSha256)")"
 export SAVEIT_DATABASE_CA_SHA256="$(node -e "process.stdout.write(JSON.parse(require('node:fs').readFileSync('.local/public-trust/manifest.json','utf8')).databaseCaSha256)")"
+export SAVEIT_CLIENT_CA_SHA256="$(node -e "process.stdout.write(JSON.parse(require('node:fs').readFileSync('.local/client-trust/manifest.json','utf8')).clientCaSha256)")"
 compose=(docker compose -p saveit-release -f tests/production/compose.yml)
 # The custom minimal web runtime must execute the actual patched binary under its
 # declared nonroot identity, before any application/network fixture is started.
@@ -19,7 +20,7 @@ cleanup() {
     mkdir -p test-results
     "${compose[@]}" logs --no-color > test-results/production-containers.log 2>&1 || true
   fi
-  "${compose[@]}" down --volumes --remove-orphans
+  "${compose[@]}" --profile tools down --volumes --remove-orphans
   # The base service graph no longer references the override-only recovery volume.
   if docker volume inspect saveit-release_recovered_keyring >/dev/null 2>&1; then
     owner="$(docker volume inspect saveit-release_recovered_keyring --format '{{index .Labels "com.docker.compose.project"}}')"
@@ -57,6 +58,21 @@ cp "$fixture/protection.pfx" "$fixture/previous.pfx"
 chmod 644 "$fixture/ca.crt" "$fixture/pg.crt" "$fixture/tls.crt" "$fixture/protection.pfx"
 chmod 644 "$fixture/previous.pfx"
 chmod 600 "$fixture/pg.key" "$fixture/tls.key" "$fixture/ca.key"
+for name in valid spare unapproved expired foreign server; do
+  issuer=client-ca; days=2; purpose=clientAuth
+  if [[ "$name" == foreign ]]; then issuer=ca; fi
+  if [[ "$name" == expired ]]; then days=-1; fi
+  if [[ "$name" == server ]]; then purpose=serverAuth; fi
+  openssl req -newkey rsa:2048 -nodes -keyout "$fixture/client-$name.key" -out "$fixture/client-$name.csr" -subj '/CN=SaveIT synthetic workload client' >/dev/null 2>&1
+  printf 'basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=%s\n' "$purpose" > "$fixture/client-$name.ext"
+  openssl x509 -req -in "$fixture/client-$name.csr" -CA "$fixture/$issuer.crt" -CAkey "$fixture/$issuer.key" -CAcreateserial -out "$fixture/client-$name.crt" -days "$days" -extfile "$fixture/client-$name.ext" >/dev/null 2>&1
+  chmod 600 "$fixture/client-$name.key"
+  chmod 644 "$fixture/client-$name.crt"
+done
+export SAVEIT_CLIENT_PIN_VALID="$(openssl x509 -in "$fixture/client-valid.crt" -outform DER | sha256sum | cut -d ' ' -f1)"
+export SAVEIT_CLIENT_PIN_SPARE="$(openssl x509 -in "$fixture/client-spare.crt" -outform DER | sha256sum | cut -d ' ' -f1)"
+export SAVEIT_CLIENT_PIN_EXPIRED="$(openssl x509 -in "$fixture/client-expired.crt" -outform DER | sha256sum | cut -d ' ' -f1)"
+export SAVEIT_CLIENT_PIN_FOREIGN="$(openssl x509 -in "$fixture/client-foreign.crt" -outform DER | sha256sum | cut -d ' ' -f1)"
 node tests/production/configuration-preflight.mjs
 sudo chown 999:999 "$fixture/pg.key"
 "${compose[@]}" up -d --wait db
@@ -134,6 +150,18 @@ for image in api worker deployment web; do
   [[ -n "$user" && "$user" != 0 && "$user" != root ]]
 done
 npx playwright test --config playwright.production.config.ts
+# Separate opt-in API instance; ordinary web still has no client key or secret.
+refuses_startup 'API client TLS authentication requires bounded public trust' -e Deployment__ApiTls__ClientAuthentication__CaSha256=invalid api-client-auth
+"${compose[@]}" up -d --wait api-client-auth
+"${compose[@]}" exec -T api-client-auth dotnet SaveIT.Api.dll --healthcheck
+"${compose[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" \
+  -v "$root/tests/production/client-auth-canaries.mjs:/app/client-auth-canaries.mjs:ro" \
+  -v "$fixture/client-valid.key:/run/client/valid.key:ro" -v "$fixture/client-valid.crt:/run/client/valid.crt:ro" \
+  -v "$fixture/client-spare.key:/run/client/spare.key:ro" -v "$fixture/client-spare.crt:/run/client/spare.crt:ro" \
+  -v "$fixture/client-unapproved.key:/run/client/unapproved.key:ro" -v "$fixture/client-unapproved.crt:/run/client/unapproved.crt:ro" \
+  -v "$fixture/client-expired.key:/run/client/expired.key:ro" -v "$fixture/client-expired.crt:/run/client/expired.crt:ro" \
+  -v "$fixture/client-foreign.key:/run/client/foreign.key:ro" -v "$fixture/client-foreign.crt:/run/client/foreign.crt:ro" \
+  -v "$fixture/client-server.key:/run/client/server.key:ro" -v "$fixture/client-server.crt:/run/client/server.crt:ro" web client-auth-canaries.mjs
 # Real DB outage must invalidate worker progress readiness, independently of process liveness.
 wait_for_worker
 "${compose[@]}" stop db

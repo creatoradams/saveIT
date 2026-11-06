@@ -38,6 +38,7 @@ run "bounded_nonroot_tasks_and_exact_wiring" {
       local.environment.api.DevelopmentIdentity__Enabled == "false" && local.environment.api.Identity__Okta__Enabled == "true" &&
       local.environment.api.Identity__KeyDirectory == "/var/saveit/keys" &&
       local.environment.api.Deployment__ApiTls__Enabled == "true" &&
+      local.environment.api.Deployment__ApiTls__ClientAuthentication__Enabled == "true" &&
       local.environment.api.Deployment__Trust__DatabaseCaSha256 == var.public_trust.database_ca_sha256 &&
       local.environment.worker.Deployment__Trust__DatabaseCaSha256 == var.public_trust.database_ca_sha256 &&
       local.environment.web.SAVEIT_API_CA_SHA256 == var.public_trust.api_ca_sha256 &&

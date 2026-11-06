@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS saveit-trust
 COPY infra/trust/unconfigured/database-ca.crt /database-ca.crt
+FROM scratch AS saveit-client-trust
+COPY infra/trust/unconfigured/client-ca.crt /client-ca.crt
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0.401-noble@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317 AS build
 WORKDIR /src
@@ -27,6 +29,7 @@ VOLUME ["/var/saveit/runtime"]
 USER $APP_UID
 
 FROM runtime AS api
+COPY --from=saveit-client-trust --chmod=0444 /client-ca.crt /opt/saveit/trust/client-ca.crt
 COPY --from=build /out/api .
 COPY --from=build --chown=1654:1654 --chmod=0700 /out/key-volumes/ /var/saveit/
 ENV ASPNETCORE_HTTP_PORTS=8080

@@ -90,7 +90,7 @@ await using (var connection = new NpgsqlConnection(appConnection))
     if (!app.Environment.IsDevelopment()) await DatabaseRoleGuard.ValidateSchemaAsync(connection, requireMigration: true);
 }
 
-if (transportCertificate is not null) ApiTls.RestrictPlaintext(app);
+if (transportCertificate is not null) ApiTls.RestrictPlaintext(app, transportCertificate.Clients);
 app.UseRouting();
 app.Use(async (context, next) => {
     context.RequestServices.GetRequiredService<ResponseRegistry>().Initialize(context);

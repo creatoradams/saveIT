@@ -142,10 +142,13 @@ public sealed class PublicTrustTests
     }
 
     [Theory]
-    [InlineData("valid")]
-    [InlineData("private")]
-    [InlineData("der-private")]
-    public async Task Release_preparation_copies_only_validated_public_files_and_refuses_overwrite_or_private_input(string variant)
+    [InlineData("valid", false)]
+    [InlineData("private", false)]
+    [InlineData("der-private", false)]
+    [InlineData("valid", true)]
+    [InlineData("private", true)]
+    [InlineData("der-private", true)]
+    public async Task Release_preparation_copies_only_validated_public_files_and_refuses_overwrite_or_private_input(string variant, bool client)
     {
         var pem = Pem();
         if (variant == "private") pem += "\n" + PemEncoding.WriteString("PRIVATE KEY", Encoding.ASCII.GetBytes("sensitive-input-marker"));
@@ -156,30 +159,48 @@ public sealed class PublicTrustTests
             try
             {
                 var root = RepositoryRoot();
-                var result = await RunNodeAsync([Path.Combine(root, "scripts", "prepare-public-trust.mjs"), path, path, directory]);
+                var arguments = client ? new[] { Path.Combine(root, "scripts", "prepare-client-trust.mjs"), path, directory }
+                    : new[] { Path.Combine(root, "scripts", "prepare-public-trust.mjs"), path, path, directory };
+                var failure = client ? "Public client CA release preparation failed." : "Public CA release preparation failed.";
+                var result = await RunNodeAsync(arguments);
                 if (variant != "valid")
                 {
                     Assert.Equal(1, result.Code); Assert.Equal("", result.Output);
-                    Assert.Equal("Public CA release preparation failed.", result.Error.Trim());
+                    Assert.Equal(failure, result.Error.Trim());
                     Assert.False(Directory.Exists(directory));
                     return;
                 }
                 Assert.Equal(0, result.Code); Assert.Equal("", result.Error);
-                Assert.Equal(3, Directory.GetFiles(directory).Length);
-                foreach (var name in new[] { "api-ca.crt", "database-ca.crt" }) Assert.Equal(await File.ReadAllBytesAsync(path), await File.ReadAllBytesAsync(Path.Combine(directory, name)));
+                Assert.Equal(client ? 2 : 3, Directory.GetFiles(directory).Length);
+                foreach (var name in client ? new[] { "client-ca.crt" } : new[] { "api-ca.crt", "database-ca.crt" }) Assert.Equal(await File.ReadAllBytesAsync(path), await File.ReadAllBytesAsync(Path.Combine(directory, name)));
                 using var manifest = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, "manifest.json")));
-                Assert.Equal(hash, manifest.RootElement.GetProperty("apiCaSha256").GetString());
-                Assert.Equal(hash, manifest.RootElement.GetProperty("databaseCaSha256").GetString());
-                var duplicate = await RunNodeAsync([Path.Combine(root, "scripts", "prepare-public-trust.mjs"), path, path, directory]);
+                if (client) Assert.Equal(hash, manifest.RootElement.GetProperty("clientCaSha256").GetString());
+                else {
+                    Assert.Equal(hash, manifest.RootElement.GetProperty("apiCaSha256").GetString());
+                    Assert.Equal(hash, manifest.RootElement.GetProperty("databaseCaSha256").GetString());
+                }
+                var duplicate = await RunNodeAsync(arguments);
                 Assert.Equal(1, duplicate.Code); Assert.Equal("", duplicate.Output);
-                Assert.Equal("Public CA release preparation failed.", duplicate.Error.Trim());
+                Assert.Equal(failure, duplicate.Error.Trim());
+                var occupied = Path.Combine(Path.GetTempPath(), "saveit-occupied-release-" + Guid.NewGuid());
+                Directory.CreateDirectory(occupied);
+                var retained = Path.Combine(occupied, "unrelated-sensitive-marker");
+                try
+                {
+                    await File.WriteAllTextAsync(retained, "synthetic-marker");
+                    var occupiedArguments = arguments.ToArray(); occupiedArguments[^1] = occupied;
+                    var rejected = await RunNodeAsync(occupiedArguments);
+                    Assert.Equal(1, rejected.Code); Assert.Equal("", rejected.Output); Assert.Equal(failure, rejected.Error.Trim());
+                    Assert.Single(Directory.GetFiles(occupied)); Assert.Equal("synthetic-marker", await File.ReadAllTextAsync(retained));
+                }
+                finally { File.Delete(retained); Directory.Delete(occupied); }
             }
             finally
             {
                 // Only known synthetic public files from this test's fresh directory.
                 if (Directory.Exists(directory))
                 {
-                    foreach (var name in new[] { "api-ca.crt", "database-ca.crt", "manifest.json" }) File.Delete(Path.Combine(directory, name));
+                    foreach (var name in new[] { "api-ca.crt", "database-ca.crt", "client-ca.crt", "manifest.json" }) File.Delete(Path.Combine(directory, name));
                     Directory.Delete(directory);
                 }
             }

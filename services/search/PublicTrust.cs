@@ -29,6 +29,14 @@ public static partial class PublicTrust
 
     public static void Validate(string path, string expectedHash)
     {
+        var certificates = Load(path, expectedHash);
+        foreach (var certificate in certificates) certificate.Dispose();
+    }
+
+    // Ownership transfers only after validation of the same bounded file read.
+    // Callers must dispose every certificate in the returned public collection.
+    public static X509Certificate2Collection Load(string path, string expectedHash)
+    {
         var certificates = new X509Certificate2Collection();
         try
         {
@@ -70,11 +78,12 @@ public static partial class PublicTrust
                     ec.ExportParameters(false).Curve.Oid.Value is "1.2.840.10045.3.1.7" or "1.3.132.0.34" or "1.3.132.0.35")) throw new InvalidOperationException(Invalid);
             }
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or CryptographicException or ArgumentException or NotSupportedException or RegexMatchTimeoutException or FormatException)
+        catch (Exception)
         {
+            foreach (var certificate in certificates) certificate.Dispose();
             throw new InvalidOperationException(Invalid);
         }
-        finally { foreach (var certificate in certificates) certificate.Dispose(); }
+        return certificates;
     }
 
     [GeneratedRegex(@"\A[0-9a-f]{64}\z", RegexOptions.CultureInvariant)]

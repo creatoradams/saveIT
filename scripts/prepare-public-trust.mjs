@@ -2,7 +2,7 @@
 // no private key, PEM payload, credential or certificate subject is printed.
 import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 const { readBundle } = createRequire(import.meta.url)(
   "../apps/web/public-trust.cjs",
 );
@@ -12,7 +12,8 @@ try {
   const api = readBundle(apiPath);
   const database = readBundle(databasePath);
   const directory = resolve(output);
-  mkdirSync(directory, { recursive: true });
+  mkdirSync(dirname(directory), { recursive: true });
+  mkdirSync(directory);
   writeFileSync(resolve(directory, "api-ca.crt"), api.bytes, {
     mode: 0o644,
     flag: "wx",
