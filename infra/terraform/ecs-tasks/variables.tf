@@ -92,6 +92,19 @@ variable "public_trust" {
     error_message = "Require canonical lowercase SHA256 metadata for both public CA release files."
   }
 }
+variable "api_client_trust" {
+  description = "Optional public receiver metadata only: exact client-CA file SHA256 and ordered DER leaf SHA256 pins. Null keeps API client authentication enabled but unconfigured; no private delivery, issuance or launch approval."
+  default     = null
+  type        = object({ ca_sha256 = string, leaf_sha256 = list(string) })
+  validation {
+    condition = var.api_client_trust == null ? true : try(
+      can(regex("^[0-9a-f]{64}$", var.api_client_trust.ca_sha256)) &&
+      length(var.api_client_trust.leaf_sha256) >= 1 && length(var.api_client_trust.leaf_sha256) <= 4 &&
+      length(distinct(var.api_client_trust.leaf_sha256)) == length(var.api_client_trust.leaf_sha256) &&
+    alltrue([for hash in var.api_client_trust.leaf_sha256 : hash != null && can(regex("^[0-9a-f]{64}$", hash))]), false)
+    error_message = "Supply only a canonical lowercase client-CA SHA256 and one-to-four distinct ordered lowercase DER leaf SHA256 fingerprints, or null for the startup-blocked bootstrap."
+  }
+}
 variable "session_key_storage" {
   nullable = false
   type = object({

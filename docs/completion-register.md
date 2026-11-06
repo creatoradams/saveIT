@@ -1,5 +1,7 @@
 # SaveIT completion register
 
+ADR040 adds public receiver task wiring only; see [progress](progress.md) for execution/reviews. The default null binding is still startup-blocked, while populated public metadata can configure API. Client delivery/end-to-end web authentication, managed PKI, launch and the full enterprise roadmap remain unfinished. No secret, IAM or tenant/application authority is added.
+
 Verified ADR039/follow-up source **57bfe33** passes general/source-security/packaged workflows:606 backend/zero skipped,62 Chromium,219 mock plans,14 configuration/10 transport/10 client-certificate canaries and four Production-mode flows. Both bounded source rechecks closed. This completes optional API-side client admission and the trace-confirmed stale startup-response correction; it does not complete client delivery, managed PKI/rotation/revocation, cloud bindings/launch or enterprise scope. Exact links, retained findings and limitations remain in [progress](progress.md).
 
 ADR039 adds the API-side client certificate receiver with public anchor/pin and native/per-request checks; see [progress](progress.md) for tests/reviews. Client identity delivery and an authenticated web deployment remain unfinished; cloud task startup is deliberately blocked until those bindings exist. No web secret/IAM, tenant principal, schema or enterprise completion is introduced.

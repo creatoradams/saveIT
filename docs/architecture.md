@@ -1,5 +1,7 @@
 # SaveIT architecture
 
+[ADR040](adr/040-public-client-admission-task-bindings.md) adds optional public API receiver hashes/pins to the unapplied task definition, with null preserving required-but-unconfigured startup refusal. Bound metadata can configure the receiver; it does not supply a private client carrier, change web/worker/IAM/secret authority or establish an authenticated deployment. Runtime validation and all managed PKI/ingress/service/operations gates remain.
+
 [ADR039](adr/039-api-client-certificate-admission.md) implements optional API-side client-certificate admission with separate immutable public CA/pin metadata, native offline custom trust and request-time expiry checks. It grants no user/tenant principal or web secret/IAM authority. Cloud API tasks declare this required but lack the client/public binding, so remain startup-blocked; managed client delivery, end-to-end authentication and launch remain unfinished.
 
 [ADR038](adr/038-private-api-discovery-and-network-path.md) adds unapplied private DNS/API registry and exact standalone web/API TCP8443 directions, bound to actual task-transport and endpoint-network reference contracts. DNS health and SG membership do not supply client identity or tenant authority. No instance registration, service, public ingress, IAM/secret grant or cloud operation exists; client authentication, launch and managed proof remain gates.

@@ -1,4 +1,7 @@
 # Synthetic metadata only. These digests are NOT published images. Do not apply.
+api_client_trust = null # Required receiver stays unconfigured and refuses startup.
+# Public-only shape after review; synthetic values below are not certificates:
+# api_client_trust = { ca_sha256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", leaf_sha256 = ["dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"] }
 account_id = "111122223333"
 region = "us-east-1"
 cell = "pilot"

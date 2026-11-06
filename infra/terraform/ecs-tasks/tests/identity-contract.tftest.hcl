@@ -448,6 +448,7 @@ run "actual_bound_identity_contract" {
 run "tasks_consume_actual_identity_outputs" {
   command = plan
   variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1), format("%064x", 2)] }
     identity = {
       workloads                 = run.actual_bound_identity_contract.workloads
       session_key_binding_ready = run.actual_bound_identity_contract.session_key_binding_ready
@@ -459,6 +460,15 @@ run "tasks_consume_actual_identity_outputs" {
   assert {
     condition     = alltrue([for name, d in aws_ecs_task_definition.application : d.task_role_arn == run.actual_bound_identity_contract.workloads[name].task_role_arn && d.execution_role_arn == run.actual_bound_identity_contract.workloads[name].execution_role_arn && one(jsondecode(d.container_definitions)).secrets == [for s in run.actual_bound_identity_contract.workloads[name].secrets : { name = s.name, valueFrom = s.valueFrom }]])
     error_message = "Real alternate-module outputs must wire unchanged into task identities and exact pinned field selectors; mocks are not IAM/injection evidence."
+  }
+  assert {
+    condition = ({ for e in one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).environment : e.name => e.value if startswith(e.name, "Deployment__ApiTls__ClientAuthentication__") } == {
+      Deployment__ApiTls__ClientAuthentication__Enabled       = "true"
+      Deployment__ApiTls__ClientAuthentication__CaSha256      = format("%064x", 192)
+      Deployment__ApiTls__ClientAuthentication__LeafSha256__0 = format("%064x", 1)
+      Deployment__ApiTls__ClientAuthentication__LeafSha256__1 = format("%064x", 2)
+    })
+    error_message = "Public receiver bindings coexist with actual unchanged workload-identity outputs and do not add secret selectors."
   }
 }
 run "actual_identity_access_point_disagreement_fails" {

@@ -10,8 +10,12 @@ locals {
       Condition = { StringEquals = { "aws:SourceAccount" = var.account_id }, ArnLike = { "aws:SourceArn" = "arn:aws:ecs:${var.region}:${var.account_id}:*" } }
     }]
   })
+  # Public metadata only. Null never disables the receiver's required mode.
+  api_client_environment = var.api_client_trust == null ? {} : try(merge({
+    Deployment__ApiTls__ClientAuthentication__CaSha256 = var.api_client_trust.ca_sha256
+  }, { for i, hash in var.api_client_trust.leaf_sha256 : "Deployment__ApiTls__ClientAuthentication__LeafSha256__${i}" => hash }), {})
   environment = {
-    api = {
+    api = merge({
       ASPNETCORE_ENVIRONMENT                            = "Production", DOTNET_ENVIRONMENT = "Production", Deployment__ApiTls__Enabled = "true", DOTNET_EnableDiagnostics = "0"
       Deployment__ApiTls__ClientAuthentication__Enabled = "true"
       AllowedHosts                                      = "${local.api_host};${trimprefix(var.runtime.public_origin, "https://")};127.0.0.1"
@@ -20,7 +24,7 @@ locals {
       Identity__Okta__TenantId                          = var.runtime.okta_tenant_id, Identity__Okta__ClientId = var.runtime.okta_client_id
       Identity__KeyDirectory                            = "/var/saveit/keys", SAVEIT_HEALTH_PORT = "8080", SAVEIT_HEALTH_HOST = "127.0.0.1", TMPDIR = "/var/saveit/runtime"
       Deployment__Trust__DatabaseCaSha256               = var.public_trust.database_ca_sha256
-    }
+    }, local.api_client_environment)
     web = {
       NODE_ENV             = "production", NEXT_TELEMETRY_DISABLED = "1", HOSTNAME = "0.0.0.0", PORT = "3000", TMPDIR = "/var/saveit/runtime"
       SAVEIT_API_ORIGIN    = "https://${local.api_host}:8443", SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer

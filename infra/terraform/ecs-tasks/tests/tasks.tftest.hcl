@@ -79,6 +79,39 @@ run "all_four_retired_pairs_remain_pinned_and_bounded" {
     error_message = "Current plus all four contiguous retired PFX/password pairs must fit the task transport and retain one exact version."
   }
 }
+run "null_client_binding_keeps_required_receiver_unconfigured" {
+  command = plan
+  variables { api_client_trust = null }
+  assert {
+    condition = ({ for e in one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).environment : e.name => e.value if startswith(e.name, "Deployment__ApiTls__ClientAuthentication__") } == {
+      Deployment__ApiTls__ClientAuthentication__Enabled = "true"
+    })
+    error_message = "Null bootstrap must retain required authentication without inventing public hashes or disabling the receiver."
+  }
+}
+run "single_public_client_pin_is_api_only" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] } }
+  assert {
+    condition = ({ for e in one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).environment : e.name => e.value if startswith(e.name, "Deployment__ApiTls__ClientAuthentication__") } == {
+      Deployment__ApiTls__ClientAuthentication__Enabled       = "true"
+      Deployment__ApiTls__ClientAuthentication__CaSha256      = format("%064x", 192)
+      Deployment__ApiTls__ClientAuthentication__LeafSha256__0 = format("%064x", 1)
+      } && alltrue([for name in ["web", "worker"] : length([for e in one(jsondecode(aws_ecs_task_definition.application[name].container_definitions)).environment : e if startswith(e.name, "Deployment__ApiTls__ClientAuthentication__")]) == 0]) &&
+    alltrue([for name in ["api", "web", "worker"] : one(jsondecode(aws_ecs_task_definition.application[name].container_definitions)).secrets == [for s in var.identity.workloads[name].secrets : { name = s.name, valueFrom = s.valueFrom }]]))
+    error_message = "Only API receives exact public receiver metadata; every process retains its unchanged secret selectors."
+  }
+}
+run "maximum_public_pins_preserve_order_and_contiguous_indexes" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [for i in [4, 2, 3, 1] : format("%064x", i)] } }
+  assert {
+    condition = ({ for e in one(jsondecode(aws_ecs_task_definition.application["api"].container_definitions)).environment : e.name => e.value if startswith(e.name, "Deployment__ApiTls__ClientAuthentication__LeafSha256__") } == {
+      for index, value in [4, 2, 3, 1] : "Deployment__ApiTls__ClientAuthentication__LeafSha256__${index}" => format("%064x", value)
+    })
+    error_message = "All four reviewed pins retain their supplied order at exact contiguous runtime indexes without extra slots."
+  }
+}
 run "unbound_efs" {
   command = plan
   variables { identity = merge(var.identity, { session_key_binding_ready = false }) }
@@ -456,4 +489,76 @@ variables {
     okta_tenant_id = "30000000-0000-0000-0000-000000000001"
     worker_tenants = ["30000000-0000-0000-0000-000000000001"]
   }
+}
+
+run "client_binding_refuses_empty_pins" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_too_many_pins" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [for i in range(5) : format("%064x", i + 1)] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_duplicate_pins" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1), format("%064x", 1)] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_null_pin" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [null] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_null_pins" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = null } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_null_ca" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = null, leaf_sha256 = [format("%064x", 1)] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_uppercase_ca" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = upper(format("%064x", 192)), leaf_sha256 = [format("%064x", 1)] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_uppercase_pin" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [upper(format("%064x", 171))] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_short_hash" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = "abcd", leaf_sha256 = [format("%064x", 1)] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_whitespace_ca" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = " ${format("%064x", 192)}", leaf_sha256 = [format("%064x", 1)] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_ca_payload" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = "-----BEGIN CERTIFICATE-----", leaf_sha256 = [format("%064x", 1)] } }
+  expect_failures = [var.api_client_trust]
+}
+
+run "client_binding_refuses_leaf_payload" {
+  command = plan
+  variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = ["-----BEGIN CERTIFICATE-----"] } }
+  expect_failures = [var.api_client_trust]
 }
