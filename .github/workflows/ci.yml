@@ -92,6 +92,12 @@ jobs:
           terraform -chdir=infra/terraform/runtime-endpoints init -backend=false -lockfile=readonly
           terraform -chdir=infra/terraform/runtime-endpoints validate
           terraform -chdir=infra/terraform/runtime-endpoints test
+      - name: Verify private API discovery without credentials
+        run: |
+          terraform -chdir=infra/terraform/private-discovery fmt -check -recursive
+          terraform -chdir=infra/terraform/private-discovery init -backend=false -lockfile=readonly
+          terraform -chdir=infra/terraform/private-discovery validate
+          terraform -chdir=infra/terraform/private-discovery test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

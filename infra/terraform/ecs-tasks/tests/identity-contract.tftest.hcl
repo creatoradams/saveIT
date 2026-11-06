@@ -194,6 +194,147 @@ variables {
   }
 }
 
+override_data {
+  override_during = plan
+  target          = data.aws_vpc.cell
+  values = {
+    "id" : "vpc-00000000000000001",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:vpc/vpc-00000000000000001",
+    "owner_id" : "111122223333",
+    "default" : false,
+    "enable_dns_support" : true,
+    "enable_dns_hostnames" : true,
+    "cidr_block" : "10.84.0.0/16",
+    "cidr_block_associations" : [
+      {
+        "association_id" : "vpc-cidr-assoc-00000000000000001",
+        "cidr_block" : "10.84.0.0/16",
+        "state" : "associated"
+      }
+    ],
+    "ipv6_cidr_block_associations" : [],
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging"
+    }
+  }
+}
+override_data {
+  override_during = plan
+  target          = data.aws_subnet.cell["application-0"]
+  values = {
+    "id" : "subnet-00000000000000001",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:subnet/subnet-00000000000000001",
+    "vpc_id" : "vpc-00000000000000001",
+    "availability_zone" : "us-east-1a",
+    "map_public_ip_on_launch" : false,
+    "ipv6_cidr_block" : "",
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging",
+      "Tier" : "application"
+    }
+  }
+}
+override_data {
+  override_during = plan
+  target          = data.aws_subnet.cell["application-1"]
+  values = {
+    "id" : "subnet-00000000000000002",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:subnet/subnet-00000000000000002",
+    "vpc_id" : "vpc-00000000000000001",
+    "availability_zone" : "us-east-1b",
+    "map_public_ip_on_launch" : false,
+    "ipv6_cidr_block" : "",
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging",
+      "Tier" : "application"
+    }
+  }
+}
+override_data {
+  override_during = plan
+  target          = data.aws_security_group.client["api"]
+  values = {
+    "id" : "sg-00000000000000002",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000002",
+    "vpc_id" : "vpc-00000000000000001",
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging",
+      "Process" : "api"
+    }
+  }
+}
+override_data {
+  override_during = plan
+  target          = data.aws_security_group.client["worker"]
+  values = {
+    "id" : "sg-00000000000000003",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000003",
+    "vpc_id" : "vpc-00000000000000001",
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging",
+      "Process" : "worker"
+    }
+  }
+}
+override_data {
+  override_during = plan
+  target          = data.aws_security_group.client["deployment"]
+  values = {
+    "id" : "sg-00000000000000004",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000004",
+    "vpc_id" : "vpc-00000000000000001",
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging",
+      "Process" : "deployment"
+    }
+  }
+}
+override_data {
+  override_during = plan
+  target          = data.aws_security_group.client["web"]
+  values = {
+    "id" : "sg-00000000000000005",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000005",
+    "vpc_id" : "vpc-00000000000000001",
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging",
+      "Process" : "web"
+    }
+  }
+}
+override_resource {
+  override_during = plan
+  target          = aws_service_discovery_private_dns_namespace.cell
+  values = {
+    "id" : "ns-0000000000000001",
+    "arn" : "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001",
+    "hosted_zone" : "Z0000000000000001"
+  }
+}
+override_resource {
+  override_during = plan
+  target          = aws_service_discovery_service.api
+  values = {
+    "id" : "srv-0000000000000001",
+    "arn" : "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000001"
+  }
+}
+
+
 run "actual_bound_identity_contract" {
   command = plan
   module { source = "../workload-identity" }
@@ -345,4 +486,50 @@ run "actual_identity_log_key_disagreement_fails" {
     }
   }
   expect_failures = [data.aws_cloudwatch_log_group.workload["api"]]
+}
+
+run "discovery_consumes_actual_task_transport" {
+  command = plan
+  module { source = "../private-discovery" }
+  variables {
+    network = {
+      "vpc_id" : "vpc-00000000000000001",
+      "application_subnet_ids" : [
+        "subnet-00000000000000001",
+        "subnet-00000000000000002"
+      ],
+      "client_security_groups" : {
+        "api" : "sg-00000000000000002",
+        "worker" : "sg-00000000000000003",
+        "deployment" : "sg-00000000000000004",
+        "web" : "sg-00000000000000005"
+      }
+    }
+    api_transport = run.tasks_consume_actual_identity_outputs.api_transport
+  }
+  assert {
+    condition     = output.api_discovery.origin == run.tasks_consume_actual_identity_outputs.api_transport.origin && output.api_discovery.port == 8443 && output.api_discovery.hostname == "api.pilot.staging.saveit.internal" && aws_vpc_security_group_ingress_rule.api_https.to_port == run.tasks_consume_actual_identity_outputs.api_transport.port
+    error_message = "Actual guarded task outputs must agree with the private DNS and fixed TLS path; not live identity or TLS evidence."
+  }
+}
+run "actual_task_plaintext_port_disagreement_fails" {
+  command = plan
+  module { source = "../private-discovery" }
+  variables {
+    network = {
+      "vpc_id" : "vpc-00000000000000001",
+      "application_subnet_ids" : [
+        "subnet-00000000000000001",
+        "subnet-00000000000000002"
+      ],
+      "client_security_groups" : {
+        "api" : "sg-00000000000000002",
+        "worker" : "sg-00000000000000003",
+        "deployment" : "sg-00000000000000004",
+        "web" : "sg-00000000000000005"
+      }
+    }
+    api_transport = merge(run.tasks_consume_actual_identity_outputs.api_transport, { port = 8080 })
+  }
+  expect_failures = [var.api_transport]
 }

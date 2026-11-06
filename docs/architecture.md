@@ -1,5 +1,7 @@
 # SaveIT architecture
 
+[ADR038](adr/038-private-api-discovery-and-network-path.md) adds unapplied private DNS/API registry and exact standalone web/API TCP8443 directions, bound to actual task-transport and endpoint-network reference contracts. DNS health and SG membership do not supply client identity or tenant authority. No instance registration, service, public ingress, IAM/secret grant or cloud operation exists; client authentication, launch and managed proof remain gates.
+
 [ADR037](adr/037-offline-protected-configuration-preflight.md) adds an offline deployment-image preflight for the exact whole protected JSON carrier: bounded original UTF-8 bytes/EOF, per-workload fields, connection syntax and actual PFX/key separation. It accepts stdin only and emits fixed pass/fail output. It does not populate/read AWS secrets, prove ARN/version/IAM/role or PKI bindings, write payloads, or alter runtime tenant/access authority.
 
 [ADR036](adr/036-public-trust-release-delivery.md) adds public-only named image trust inputs, bounded cross-runtime CA/DER/hash validation, fixed database-root normalization shared with readiness and two exact API transport-PFX selectors in the existing pinned configuration. Task inputs contain hashes/references only; web has no secret grant. This implements delivery carriers, not populated secrets, promoted images, PKI lifecycle, client workload authentication or running services. Managed verification and all enterprise/operations gates remain.

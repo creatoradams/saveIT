@@ -1,5 +1,7 @@
 # SaveIT infrastructure preparation
 
+The [private-discovery root](private-discovery/README.md) adds an unapplied private API namespace/registry and standalone web/API TCP8443 rules (ADR038), consuming guarded task-transport and endpoint-network reference outputs. It grants no AWS/secret authority and launches/registers no instance or service. DNS health is not fail-closed access and SG metadata is not workload identity. Client/ingress authentication, registration/health/drain, service launch/protected operations and managed verification remain gates.
+
 The [runtime-endpoints root](runtime-endpoints/README.md) adds unapplied private ECR API/DKR, Logs/configuration interface endpoints and an application-only regional S3 image-layer gateway (ADR 034). Foundation now exports separate application/database route tables. Endpoint filters add no IAM/task/tenant grant. Pinned provider route filtering, SG/DNS drift and actual IAM/presigned/ingestion behavior remain unverified; no account resource or running service exists.
 
 The [ecs-tasks root](ecs-tasks/README.md) adds three unapplied guarded Fargate application task definitions (ADR 033). Concrete EFS/log identity bindings, exact digest/secret selectors and nonroot/read-only scratch/health settings are checked with provider mocks and an actual alternate-module contract. It creates no cluster/services/launch/networking or PassRole. Private endpoints, egress/ingress, encrypted inter-service transport, trusted forwarding/RDS CA delivery and protected operations/promotion remain unfinished.

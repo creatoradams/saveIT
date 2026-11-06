@@ -1,5 +1,7 @@
 # SaveIT production-readiness reassessment
 
+ADR038 adds unapplied private API discovery and exact standalone web/API TLS-port references, with actual-module mocks and explicit unhealthy-DNS/SG metadata limitations. Exact results/reviews are in [progress](progress.md). Service/client authentication, registration/health/drain, ingress/restricted egress and actual IAM/DNS/network/PKI enforcement remain unfinished; no running service or launch approval exists.
+
 ADR037 verified source **e87fc63** passes all three workflows on their first attempt: **569 backend/zero skipped, 61 Chromium, 184 mocked plans, fourteen packaged preflight cases, ten transport canaries and four Production-mode flows**. Both requested source rechecks closed. [Progress](progress.md) records exact immutable links, lower scan findings and remaining Windows host-run limitations. Whole-configuration preflight is implemented; exact-byte/version-bound protected population and managed IAM/role/PKI verification remain gates. Credentials are still not the sole production dependency.
 
 2026-11-05 ADR037 adds account-free offline validation of complete protected JSON against the aggregate carrier/field/connection/PFX contract; exact test/review status is in [progress](progress.md). It does not populate secrets, attest version/ARN/count/IAM or managed roles, verify certificate hostname/chain, or launch a workload. Exact-byte-bound protected population/custodian operations, client workload authentication, service discovery/ingress/launch and all managed verification remain gates.

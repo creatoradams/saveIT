@@ -1,5 +1,7 @@
 # SaveIT release artifacts and local production verification
 
+[ADR038](adr/038-private-api-discovery-and-network-path.md) and [private-discovery](../infra/terraform/private-discovery/README.md) add an unapplied private API registry and referenced-group web/API TCP8443 path. Bind `runtime-endpoints.runtime_network` and `ecs-tasks.api_transport` without substituting arbitrary groups/origins. This root creates no ECS service, registered instance, health updater or client identity; do not launch from its references. Private DNS can return unhealthy records, and SG membership is not authenticated workload or tenant authority. Client/ingress authentication, actual registration/health/drain, restricted egress/DNS, protected operations and managed verification remain gates.
+
 [ADR037](adr/037-offline-protected-configuration-preflight.md) adds the offline preflight. Send the **complete original protected JSON** to the deployment image's redirected stdin; arguments contain only the workload and canonical retired count, never values. For example, with a protected producer and shell tracing disabled:
 
 ```sh

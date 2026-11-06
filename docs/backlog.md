@@ -4,6 +4,8 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
+- [x] Account-free private DNS/API registry and referenced-group web/API TCP8443 definitions, with actual adjacent-module mock contracts (ADR038; execution/reviews in [progress](progress.md)). Client workload authentication, actual registry health/drain/registration, services/ingress/restricted egress, protected operations and managed proof remain unfinished.
+
 - [x] Account-free offline whole-configuration preflight with original64KiB byte/EOF limits, exact fields and actual PFX/key-separation checks (ADR037; verified execution/reviews in [progress](progress.md)). Exact-byte/version-bound protected population, authenticated custodian lifecycle and actual injection/role/PKI proof remain unfinished.
 
 - [x] Account-free public CA image delivery/hash guards and exact pinned API transport-PFX selectors (ADR036; exact tests/reviews in progress). Protected aggregate configuration population/injection, actual RDS/PKI/rotation, client workload authentication, service launch/promotion and managed operations remain unfinished.

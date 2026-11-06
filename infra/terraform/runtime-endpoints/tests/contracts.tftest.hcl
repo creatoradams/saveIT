@@ -526,3 +526,67 @@ run "actual_shared_table_contract_fails" {
   }
   expect_failures = [var.network]
 }
+
+run "discovery_consumes_actual_endpoint_network" {
+  command = plan
+  module { source = "../private-discovery" }
+  variables {
+    network = run.endpoints_consume_actual_modules.runtime_network
+    api_transport = {
+      "origin" : "https://api.pilot.staging.saveit.internal:8443",
+      "port" : 8443,
+      "server_tls_declared" : true
+    }
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.client["web"]
+    values = {
+      "id" : "sg-00000000000000005",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000005",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "web"
+      }
+    }
+  }
+
+  override_resource {
+    override_during = plan
+    target          = aws_service_discovery_private_dns_namespace.cell
+    values = {
+      "id" : "ns-0000000000000001",
+      "arn" : "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001",
+      "hosted_zone" : "Z0000000000000001"
+    }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_service_discovery_service.api
+    values = {
+      "id" : "srv-0000000000000001",
+      "arn" : "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000001"
+    }
+  }
+
+  assert {
+    condition     = output.api_discovery.vpc_id == run.endpoints_consume_actual_modules.runtime_network.vpc_id && output.api_discovery.application_subnet_ids == run.endpoints_consume_actual_modules.runtime_network.application_subnet_ids && output.api_discovery.client_security_groups == tomap(run.endpoints_consume_actual_modules.runtime_network.client_security_groups) && aws_vpc_security_group_ingress_rule.api_https.referenced_security_group_id == run.endpoints_consume_actual_modules.runtime_network.client_security_groups.web
+    error_message = "Actual endpoint-network outputs must flow unchanged into private discovery and the exact web/API path."
+  }
+}
+run "actual_network_shared_web_api_group_fails" {
+  command = plan
+  module { source = "../private-discovery" }
+  variables {
+    network = merge(run.endpoints_consume_actual_modules.runtime_network, { client_security_groups = merge(run.endpoints_consume_actual_modules.runtime_network.client_security_groups, { web = run.endpoints_consume_actual_modules.runtime_network.client_security_groups.api }) })
+    api_transport = {
+      "origin" : "https://api.pilot.staging.saveit.internal:8443",
+      "port" : 8443,
+      "server_tls_declared" : true
+    }
+  }
+  expect_failures = [var.network]
+}

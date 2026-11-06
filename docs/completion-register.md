@@ -1,5 +1,7 @@
 # SaveIT completion register
 
+ADR038 adds unapplied private namespace/API registry and standalone web/API TCP8443 directions, with scoped endpoint-network/task-transport reference contracts. Exact execution/reviews are in [progress](progress.md). Actual client identity, registration/health/drain, services/ingress/restricted egress, managed DNS/IAM/network/PKI and all other enterprise/operations gaps remain unfinished.
+
 Verified ADR037 source **e87fc63** passes general/source-security/packaged workflows on their first attempt: **569 backend/zero skipped, 61 Chromium, 184 infrastructure mock plans, fourteen packaged preflight cases, ten transport canaries and four Production-mode flows**. Both source rechecks closed; exact evidence, lower findings and unresolved Windows host-run limitations are in [progress](progress.md). No tenant/runtime authority, schema/contract, IAM/reference boundary or enterprise inventory item changed.
 
 ADR037 adds the offline complete protected-configuration preflight with bounded stdin/EOF, exact fields, connection syntax and real certificate/key-separation checks; see [progress](progress.md) for execution/reviews. Exact-byte/version-bound protected population and custodian lifecycle remain unfinished, alongside workload/ingress authentication, service launch, managed PKI/RDS and all unimplemented enterprise capabilities.

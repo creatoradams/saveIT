@@ -1,0 +1,23 @@
+# Synthetic metadata only; no account/resource is configured. Do not apply.
+account_id = "111122223333"
+region = "us-east-1"
+cell = "pilot"
+environment = "staging"
+network = {
+  "vpc_id": "vpc-00000000000000001",
+  "application_subnet_ids": [
+    "subnet-00000000000000001",
+    "subnet-00000000000000002"
+  ],
+  "client_security_groups": {
+    "api": "sg-00000000000000002",
+    "worker": "sg-00000000000000003",
+    "deployment": "sg-00000000000000004",
+    "web": "sg-00000000000000005"
+  }
+}
+api_transport = {
+  "origin": "https://api.pilot.staging.saveit.internal:8443",
+  "port": 8443,
+  "server_tls_declared": true
+}
