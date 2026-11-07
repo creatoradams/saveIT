@@ -1,5 +1,6 @@
 using SaveIT.Deployment;
 using Npgsql;
+using Microsoft.Extensions.Hosting;
 
 namespace SaveIT.Deployment;
 
@@ -7,6 +8,19 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
+if (args.FirstOrDefault() == "serve-api-relay")
+{
+    try
+    {
+        if (!OperatingSystem.IsLinux() || args is not ["serve-api-relay", var api, var relay] || !Console.IsInputRedirected) throw new InvalidOperationException();
+        using var input = Console.OpenStandardInput();
+        using var configuration = await ApiRelayConfiguration.ReadAsync(api, relay, input);
+        await using var app = ApiRelay.Build(configuration);
+        await app.StartAsync(); Console.WriteLine(ApiRelayConfiguration.Started);
+        await app.WaitForShutdownAsync(); return 0;
+    }
+    catch (Exception) { Console.Error.WriteLine(ApiRelayConfiguration.Failure); return 1; }
+}
 if (args.FirstOrDefault() == "probe-api-peer")
 {
     try

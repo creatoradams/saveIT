@@ -1,6 +1,4 @@
 using System.Net;
-using System.Net.Security;
-using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using SaveIT.Api.Operations;
@@ -75,36 +73,7 @@ public static class ApiPeerProbe
             if (!ApiClientAuthentication.EligibleLeaf(certificate) || !certificate.HasPrivateKey || roots.Count is < 1 or > 16) throw new InvalidOperationException();
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             deadline.CancelAfter(TimeSpan.FromSeconds(5));
-            var chain = new X509ChainPolicy {
-                TrustMode = X509ChainTrustMode.CustomRootTrust, VerificationFlags = X509VerificationFlags.NoFlag,
-                RevocationMode = X509RevocationMode.NoCheck, DisableCertificateDownloads = true, UrlRetrievalTimeout = TimeSpan.Zero
-            };
-            chain.CustomTrustStore.AddRange(roots);
-            chain.ApplicationPolicy.Add(new Oid("1.3.6.1.5.5.7.3.1"));
-            var localHash = certificate.GetCertHash(HashAlgorithmName.SHA256);
-            var tlsOptions = new SslClientAuthenticationOptions {
-                CertificateChainPolicy = chain, EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
-                AllowTlsResume = false, AllowRenegotiation = false
-            };
-            // Schannel starts anonymously and must select this exact certificate
-            // when challenged to retain correct LocalCertificate bookkeeping.
-            // Its callback path constructs no managed issuer-matching chain.
-            if (OperatingSystem.IsWindows()) tlsOptions.LocalCertificateSelectionCallback = (_, _, _, _, _) => certificate;
-            else tlsOptions.ClientCertificateContext = SslStreamCertificateContext.Create(certificate, null, offline: true);
-            using var handler = new SocketsHttpHandler {
-                UseProxy = false, UseCookies = false, AllowAutoRedirect = false, AutomaticDecompression = DecompressionMethods.None,
-                ConnectTimeout = TimeSpan.FromSeconds(3), MaxConnectionsPerServer = 1, MaxResponseHeadersLength = 4,
-                // A server-TLS-only200 cannot establish that a client credential
-                // was used. Reject before HTTP bytes if no mutual TLS occurred.
-                PlaintextStreamFilter = (context, token) => {
-                    token.ThrowIfCancellationRequested();
-                    if (context.PlaintextStream is not SslStream tls || !tls.IsMutuallyAuthenticated || tls.LocalCertificate is null ||
-                        !CryptographicOperations.FixedTimeEquals(localHash, tls.LocalCertificate.GetCertHash(HashAlgorithmName.SHA256)))
-                        throw new InvalidOperationException();
-                    return ValueTask.FromResult(context.PlaintextStream);
-                },
-                SslOptions = tlsOptions
-            };
+            using var handler = ApiPeerTransport.CreateHandler(certificate, roots);
             using var client = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
             using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(origin, "/health/ready")) {
                 Version = HttpVersion.Version11, VersionPolicy = HttpVersionPolicy.RequestVersionExact

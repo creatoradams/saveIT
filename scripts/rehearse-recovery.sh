@@ -12,7 +12,11 @@ sdk='mcr.microsoft.com/dotnet/sdk:10.0.401-noble@sha256:e70cdb7f80b0348f5cb85f19
 backup="$fixture/recovery-backup"
 mkdir -p "$backup"
 started="$(date +%s)"
-"${compose[@]}" stop api worker
+"${compose[@]}" stop api api-server-only worker
+for service in api api-server-only worker; do
+  stopped_id="$("${compose[@]}" ps -aq "$service")"
+  [[ -n "$stopped_id" && "$(docker inspect --format '{{.State.Running}}' "$stopped_id")" == false ]]
+done
 "${compose[@]}" exec -T db psql -XAt -U postgres -d saveit -v ON_ERROR_STOP=1 < tests/production/inventory.sql > "$backup/before-counts.txt"
 [[ "$(wc -l < "$backup/before-counts.txt")" == 29 ]]
 "${compose[@]}" exec -T db pg_dump -U postgres -d saveit --format=custom > "$backup/database.dump"

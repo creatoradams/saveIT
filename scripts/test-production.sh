@@ -9,6 +9,7 @@ export SAVEIT_API_CA_SHA256="$(node -e "process.stdout.write(JSON.parse(require(
 export SAVEIT_DATABASE_CA_SHA256="$(node -e "process.stdout.write(JSON.parse(require('node:fs').readFileSync('.local/public-trust/manifest.json','utf8')).databaseCaSha256)")"
 export SAVEIT_CLIENT_CA_SHA256="$(node -e "process.stdout.write(JSON.parse(require('node:fs').readFileSync('.local/client-trust/manifest.json','utf8')).clientCaSha256)")"
 compose=(docker compose -p saveit-release -f tests/production/compose.yml)
+relay_pid=''
 # The custom minimal web runtime must execute the actual patched binary under its
 # declared nonroot identity, before any application/network fixture is started.
 test "$(docker run --rm saveit-web:test --version)" = 'v24.22.2'
@@ -16,9 +17,32 @@ test "$(docker run --rm saveit-web:test --version)" = 'v24.22.2'
 docker run --rm --read-only saveit-web:test -e "const fs=require('node:fs'),a=require('node:assert/strict');const p='/var/saveit/runtime',s=fs.statSync(p);a.equal(process.getuid(),1654);a.equal(s.uid,1654);a.equal(s.gid,1654);a.equal(s.mode&0o777,0o700);fs.writeFileSync(p+'/probe','synthetic');fs.unlinkSync(p+'/probe');"
 cleanup() {
   status=$?
+  if [[ -n "$relay_pid" ]]; then
+    owner="$(timeout 5s docker inspect --format '{{index .Config.Labels "com.saveit.relay-fixture"}}' saveit-release-relay 2>/dev/null)" || status=1
+    if [[ -n "$owner" && "$owner" != saveit-release ]]; then echo 'Refusing to remove an unowned relay fixture.' >&2; status=1; fi
+    if [[ "$owner" == saveit-release ]]; then
+      if ! timeout 10s docker stop --time 5 saveit-release-relay >/dev/null; then
+        status=1
+        timeout 5s docker rm --force saveit-release-relay >/dev/null || true
+      fi
+    fi
+    for attempt in $(seq 1 50); do
+      if ! kill -0 "$relay_pid" 2>/dev/null; then break; fi
+      sleep 0.1
+    done
+    if kill -0 "$relay_pid" 2>/dev/null; then kill -KILL "$relay_pid"; status=1; fi
+    wait "$relay_pid" 2>/dev/null || status=1
+    # Check only after graceful stop and owned CLI/stdio completion. The earlier
+    # live snapshot alone cannot exclude delayed diagnostic output.
+    if grep -Fq 'synthetic-relay-query-must-stay-private' "$fixture/relay.log" || [[ "$(wc -c < "$fixture/relay.log")" -gt 65536 ]]; then
+      echo 'Relay diagnostics failed their content/size boundary.' >&2; status=1
+    elif [[ "$status" == 0 ]]; then
+      echo 'Packaged API relay canary passed: bounded shutdown and flushed diagnostics'
+    fi
+  fi
   if [[ "$status" != 0 ]]; then
     mkdir -p test-results
-    "${compose[@]}" logs --no-color > test-results/production-containers.log 2>&1 || true
+    timeout 10s "${compose[@]}" logs --no-color > test-results/production-containers.log 2>&1 || true
   fi
   "${compose[@]}" --profile tools down --volumes --remove-orphans
   # The base service graph no longer references the override-only recovery volume.
@@ -31,13 +55,15 @@ cleanup() {
 }
 trap cleanup EXIT
 test -s "$fixture/ca.key" && test -s "$fixture/ca.crt"
-for name in tls pg api; do
-  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth'; else san='DNS:db'; fi
+for name in tls pg api relay; do
+  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth,DNS:api-server-only'; elif [[ "$name" == relay ]]; then san='DNS:relay'; else san='DNS:db'; fi
   openssl req -newkey rsa:2048 -nodes -keyout "$fixture/$name.new.key" -out "$fixture/$name.csr" -subj "/CN=$name" >/dev/null 2>&1
   mv -f "$fixture/$name.new.key" "$fixture/$name.key"
   printf 'subjectAltName=%s\nextendedKeyUsage=serverAuth\n' "$san" > "$fixture/$name.ext"
   openssl x509 -req -in "$fixture/$name.csr" -CA "$fixture/ca.crt" -CAkey "$fixture/ca.key" -CAcreateserial -out "$fixture/$name.crt" -days 2 -extfile "$fixture/$name.ext" >/dev/null 2>&1
 done
+openssl pkcs12 -export -out "$fixture/relay.pfx" -inkey "$fixture/relay.key" -in "$fixture/relay.crt" -passout pass:synthetic-relay-only >/dev/null 2>&1
+chmod 600 "$fixture/relay.pfx"
 openssl pkcs12 -export -out "$fixture/api.pfx" -inkey "$fixture/api.key" -in "$fixture/api.crt" -passout pass:synthetic-transport-only >/dev/null 2>&1
 chmod 644 "$fixture/api.pfx" "$fixture/api.crt"
 chmod 600 "$fixture/api.key"
@@ -117,7 +143,16 @@ refuses_startup 'API TLS requires a separate bounded valid server certificate' -
 refuses_startup 'Public CA release configuration is invalid.' -e Deployment__Trust__DatabaseCaSha256=invalid api
 refuses_startup 'Public CA release configuration is invalid.' -e SAVEIT_API_CA_SHA256=invalid web
 refuses_startup 'SaveIT deployment operation failed.' -e Deployment__Trust__DatabaseCaSha256=invalid deployment migrate
-"${compose[@]}" up -d api worker identity web edge
+"${compose[@]}" up -d api api-server-only worker identity
+node tests/production/prepare-relay.mjs
+"${compose[@]}" run --rm -T --no-deps --use-aliases --name saveit-release-relay relay serve-api-relay https://api:8443 https://relay:8443 < "$fixture/relay-input.json" > "$fixture/relay.log" 2>&1 &
+relay_pid=$!
+for attempt in $(seq 1 100); do
+  if grep -Fxq 'SaveIT API relay started.' "$fixture/relay.log"; then break; fi
+  if ! kill -0 "$relay_pid" 2>/dev/null || [[ "$attempt" == 100 ]]; then echo 'Synthetic API relay did not start.' >&2; exit 1; fi
+  sleep 0.1
+done
+"${compose[@]}" up -d web edge
 for attempt in $(seq 1 60); do
   if curl --silent --fail --cacert "$fixture/ca.crt" --resolve saveit.localhost:8443:127.0.0.1 https://saveit.localhost:8443/health/ready >/dev/null; then break; fi
   if [[ "$attempt" == 60 ]]; then echo 'Production readiness did not become healthy.' >&2; exit 1; fi
@@ -139,11 +174,13 @@ wait_for_worker() {
   done
 }
 wait_for_worker
+"${compose[@]}" run --rm --no-deps -v "$root/tests/production/relay-canaries.mjs:/app/relay-canaries.mjs:ro" web relay-canaries.mjs
+if grep -Fq 'synthetic-relay-query-must-stay-private' "$fixture/relay.log"; then echo 'Relay diagnostic exposed request metadata.' >&2; exit 1; fi
 docker run --rm --read-only -e SAVEIT_API_CA_SHA256 -e NODE_EXTRA_CA_CERTS=/opt/saveit/trust/api-ca.crt saveit-web:test -e "const fs=require('node:fs'),a=require('node:assert/strict');require('./public-trust.cjs').configure();a.deepEqual(fs.readdirSync('/opt/saveit/trust'),['api-ca.crt']);const s=fs.statSync('/opt/saveit/trust/api-ca.crt');a.equal(s.uid,0);a.equal(s.mode&0o777,0o444);"
 "${compose[@]}" run --rm --no-deps \
   -v "$root/tests/production/transport-canaries.mjs:/app/transport-canaries.mjs:ro" \
   -v "$fixture/canary.key:/run/canary/key:ro" -v "$fixture/canary-valid.crt:/run/canary/cert:ro" \
-  -v "$fixture/canary-expired.crt:/run/canary/expired:ro" web transport-canaries.mjs
+  -v "$fixture/canary-expired.crt:/run/canary/expired:ro" -e SAVEIT_API_ORIGIN=https://api-server-only:8443 web transport-canaries.mjs
 "${compose[@]}" exec -T api dotnet SaveIT.Api.dll --healthcheck
 if "${compose[@]}" exec -T api dotnet SaveIT.Api.dll --healthcheck --migrate; then echo 'Mixed health arguments unexpectedly succeeded.' >&2; exit 1; fi
 if "${compose[@]}" exec -T -e SAVEIT_HEALTH_HOST=http://api api dotnet SaveIT.Api.dll --healthcheck; then echo 'Malformed health host unexpectedly succeeded.' >&2; exit 1; fi
@@ -152,7 +189,10 @@ for image in api worker deployment web; do
   [[ -n "$user" && "$user" != 0 && "$user" != root ]]
 done
 npx playwright test --config playwright.production.config.ts
-# Separate opt-in API instance; ordinary web still has no client key or secret.
+# Recovery quiesces every source writer, including this test-only TLS control.
+# Restart it only after the recovered primary's verification has finished.
+"${compose[@]}" up -d --wait api-server-only
+# Separate receiver canaries; primary API and recovery already require relay mTLS.
 refuses_startup 'API client TLS authentication requires bounded public trust' -e Deployment__ApiTls__ClientAuthentication__CaSha256=invalid api-client-auth
 "${compose[@]}" up -d --wait api-client-auth
 "${compose[@]}" exec -T api-client-auth dotnet SaveIT.Api.dll --healthcheck
@@ -168,6 +208,11 @@ node tests/production/api-peer-probe.mjs
 # Real DB outage must invalidate worker progress readiness, independently of process liveness.
 wait_for_worker
 "${compose[@]}" stop db
+for attempt in $(seq 1 15); do
+  if [[ "$(curl --silent --max-time 5 --cacert "$fixture/ca.crt" --resolve saveit.localhost:8443:127.0.0.1 -o /dev/null -w '%{http_code}' https://saveit.localhost:8443/health/ready)" == 503 ]]; then break; fi
+  if [[ "$attempt" == 15 ]]; then echo 'Relayed web readiness stayed healthy after database failure.' >&2; exit 1; fi
+  sleep 1
+done
 for attempt in $(seq 1 15); do
   if ! "${compose[@]}" exec -T api dotnet SaveIT.Api.dll --healthcheck >/dev/null 2>&1; then break; fi
   if [[ "$attempt" == 15 ]]; then echo 'API readiness stayed healthy after database failure.' >&2; exit 1; fi

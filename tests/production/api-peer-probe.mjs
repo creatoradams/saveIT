@@ -45,7 +45,7 @@ try {
     valid,
     false,
     "server-only TLS is insufficient",
-    "https://api:8443",
+    "https://api-server-only:8443",
   );
   await run(await payload("spare"), true, "second approved pin");
   await run(await payload("unapproved"), false, "same CA unapproved peer");

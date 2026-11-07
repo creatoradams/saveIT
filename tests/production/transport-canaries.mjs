@@ -210,6 +210,12 @@ try {
   await listen(expired, 9445);
   await check("trusted CA and exact API hostname", {}, 200, 200);
   await check(
+    "keyless web cannot bypass relay client admission",
+    { SAVEIT_API_ORIGIN: "https://api:8443" },
+    503,
+    500,
+  );
+  await check(
     "untrusted CA",
     { NODE_EXTRA_CA_CERTS: "", SAVEIT_API_CA_SHA256: undefined },
     503,
