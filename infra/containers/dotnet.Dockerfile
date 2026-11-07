@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS saveit-trust
 COPY infra/trust/unconfigured/database-ca.crt /database-ca.crt
+COPY infra/trust/unconfigured/api-ca.crt /api-ca.crt
 FROM scratch AS saveit-client-trust
 COPY infra/trust/unconfigured/client-ca.crt /client-ca.crt
 
@@ -43,6 +44,7 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["dotnet", "SaveI
 ENTRYPOINT ["dotnet", "SaveIT.Workers.dll"]
 
 FROM runtime AS deployment
+COPY --from=saveit-trust --chmod=0444 /api-ca.crt /opt/saveit/trust/api-ca.crt
 COPY --from=build /out/deployment .
 ENTRYPOINT ["dotnet", "SaveIT.Deployment.dll"]
 

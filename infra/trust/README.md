@@ -1,5 +1,7 @@
 # Public CA release inputs
 
+ADR041 also copies the prepared public API-server roots to the isolated deployment image for its Linux stdin-only outbound API peer health probe. It validates actual file bytes/hash and custom server trust; no private PFX or client CA/key is introduced into that public context or web/worker. The default Docker context includes deliberately unconfigured API/database placeholders. This probe does not deliver web's private client or prove managed PKI/admission/IAM; see [ADR041](../../docs/adr/041-bounded-outbound-api-peer-probe.md).
+
 ADR039 adds a separate client-anchor context: `node scripts/prepare-client-trust.mjs /reviewed/client-roots.crt .local/new-client-trust`, then `--build-context saveit-client-trust=.local/new-client-trust` for API builds. Only API receives client-ca.crt; web/worker/deployment receive none. Public metadata supplies its hash and exact permitted leaf hashes; private client delivery is unfinished. Both preparers now refuse **all existing output directories**, including empty paths, to exclude unrelated leftovers before a public build-context upload. Choose a new ignored path; never place a client key in these directories.
 
 This is the account-free implementation in [ADR036](../../docs/adr/036-public-trust-release-delivery.md). The tracked `unconfigured` files are placeholders, not trusted certificates. Do not add private keys/PFX, secret configuration, real environment files or test evidence here.

@@ -67,6 +67,7 @@ services:
     extends: { service: api }
     profiles: ["tools"]
     environment:
+      AllowedHosts: api;api-client-auth;saveit.localhost;localhost;127.0.0.1
       Deployment__ApiTls__ClientAuthentication__Enabled: "true"
       Deployment__ApiTls__ClientAuthentication__CaSha256: ${SAVEIT_CLIENT_CA_SHA256:-unconfigured}
       Deployment__ApiTls__ClientAuthentication__LeafSha256__0: ${SAVEIT_CLIENT_PIN_VALID:-unconfigured}

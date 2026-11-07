@@ -247,7 +247,8 @@ public sealed class ApiClientAuthenticationTests : IClassFixture<ApiClientAuthen
             return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-3), DateTimeOffset.UtcNow.AddDays(3));
         }
         public X509Certificate2 ShortLived() => Issue(Root, "valid", DateTimeOffset.UtcNow.AddSeconds(7));
-        private static X509Certificate2 Issue(X509Certificate2 root, string variant, DateTimeOffset? expiry = null)
+        public X509Certificate2 ServerForName(string name) => Issue(Root, "server", serverName: name);
+        private static X509Certificate2 Issue(X509Certificate2 root, string variant, DateTimeOffset? expiry = null, string serverName = "localhost")
         {
             using var rsa = RSA.Create(variant == "weak" ? 1024 : 2048);
             var request = new CertificateRequest("CN=SaveIT synthetic peer", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -259,11 +260,11 @@ public sealed class ApiClientAuthenticationTests : IClassFixture<ApiClientAuthen
                 if (variant == "dual-eku") purpose.Add(new Oid("1.3.6.1.5.5.7.3.1"));
                 request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(purpose, true));
             }
-            if (variant == "server") { var san = new SubjectAlternativeNameBuilder(); san.AddDnsName("localhost"); request.CertificateExtensions.Add(san.Build()); }
+            if (variant == "server") { var san = new SubjectAlternativeNameBuilder(); san.AddDnsName(serverName); request.CertificateExtensions.Add(san.Build()); }
             using var issued = request.Create(root, DateTimeOffset.UtcNow.AddDays(variant == "future" ? 1 : -2), expiry ?? DateTimeOffset.UtcNow.AddDays(variant == "expired" ? -1 : 2), RandomNumberGenerator.GetBytes(16));
             using var keyed = issued.CopyWithPrivateKey(rsa);
             var bytes = keyed.Export(X509ContentType.Pfx);
-            try { return X509CertificateLoader.LoadPkcs12(bytes, null, OperatingSystem.IsWindows() ? X509KeyStorageFlags.DefaultKeySet : X509KeyStorageFlags.EphemeralKeySet); }
+            try { return X509CertificateLoader.LoadPkcs12(bytes, null, OperatingSystem.IsWindows() ? X509KeyStorageFlags.DefaultKeySet | X509KeyStorageFlags.Exportable : X509KeyStorageFlags.EphemeralKeySet); }
             finally { CryptographicOperations.ZeroMemory(bytes); }
         }
         public void Dispose() { Root.Dispose(); Server.Dispose(); foreach (var certificate in Clients.Values) certificate.Dispose(); File.Delete(Path); }

@@ -32,7 +32,7 @@ cleanup() {
 trap cleanup EXIT
 test -s "$fixture/ca.key" && test -s "$fixture/ca.crt"
 for name in tls pg api; do
-  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api'; else san='DNS:db'; fi
+  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth'; else san='DNS:db'; fi
   openssl req -newkey rsa:2048 -nodes -keyout "$fixture/$name.new.key" -out "$fixture/$name.csr" -subj "/CN=$name" >/dev/null 2>&1
   mv -f "$fixture/$name.new.key" "$fixture/$name.key"
   printf 'subjectAltName=%s\nextendedKeyUsage=serverAuth\n' "$san" > "$fixture/$name.ext"
@@ -68,6 +68,8 @@ for name in valid spare unapproved expired foreign server; do
   openssl x509 -req -in "$fixture/client-$name.csr" -CA "$fixture/$issuer.crt" -CAkey "$fixture/$issuer.key" -CAcreateserial -out "$fixture/client-$name.crt" -days "$days" -extfile "$fixture/client-$name.ext" >/dev/null 2>&1
   chmod 600 "$fixture/client-$name.key"
   chmod 644 "$fixture/client-$name.crt"
+  openssl pkcs12 -export -out "$fixture/client-$name.pfx" -inkey "$fixture/client-$name.key" -in "$fixture/client-$name.crt" -passout pass:synthetic-peer-only >/dev/null 2>&1
+  chmod 600 "$fixture/client-$name.pfx"
 done
 export SAVEIT_CLIENT_PIN_VALID="$(openssl x509 -in "$fixture/client-valid.crt" -outform DER | sha256sum | cut -d ' ' -f1)"
 export SAVEIT_CLIENT_PIN_SPARE="$(openssl x509 -in "$fixture/client-spare.crt" -outform DER | sha256sum | cut -d ' ' -f1)"
@@ -154,6 +156,7 @@ npx playwright test --config playwright.production.config.ts
 refuses_startup 'API client TLS authentication requires bounded public trust' -e Deployment__ApiTls__ClientAuthentication__CaSha256=invalid api-client-auth
 "${compose[@]}" up -d --wait api-client-auth
 "${compose[@]}" exec -T api-client-auth dotnet SaveIT.Api.dll --healthcheck
+node tests/production/api-peer-probe.mjs
 "${compose[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" \
   -v "$root/tests/production/client-auth-canaries.mjs:/app/client-auth-canaries.mjs:ro" \
   -v "$fixture/client-valid.key:/run/client/valid.key:ro" -v "$fixture/client-valid.crt:/run/client/valid.crt:ro" \

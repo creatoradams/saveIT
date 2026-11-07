@@ -1,5 +1,7 @@
 # SaveIT completion register
 
+ADR041 adds an isolated bounded outbound mTLS health probe, with actual native mutual-state/selected-leaf verification before HTTP. It is a precursor to private client delivery; web carrier/broker/forwarding, managed PKI/IAM and launch remain unfinished. Initial143 local focused tests pass; final reviews and Linux CI are pending at this checkpoint. Exact status and limitations are in [progress](progress.md). No enterprise inventory item or tenant authority changed.
+
 Verified ADR040 source **a39cb32** passes general/source-security/packaged workflows on their first attempt:606 backend/zero skipped,62 Chromium,234 mock plans,14 configuration/10 transport/10 client-certificate canaries and four Production-mode flows. Both bounded source/documentation reviews closed. This completes public receiver task bindings only; private client delivery, authenticated deployment and all managed/enterprise gaps remain unfinished. Exact links, refreshed lower findings and limitations remain in [progress](progress.md).
 
 ADR040 adds public receiver task wiring only; see [progress](progress.md) for execution/reviews. The default null binding is still startup-blocked, while populated public metadata can configure API. Client delivery/end-to-end web authentication, managed PKI, launch and the full enterprise roadmap remain unfinished. No secret, IAM or tenant/application authority is added.

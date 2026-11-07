@@ -7,6 +7,18 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
+if (args.FirstOrDefault() == "probe-api-peer")
+{
+    try
+    {
+        if (!OperatingSystem.IsLinux() || args is not ["probe-api-peer", var origin] || !Console.IsInputRedirected) throw new InvalidOperationException();
+        using var input = Console.OpenStandardInput();
+        await ApiPeerProbe.RunAsync(origin, input);
+        Console.WriteLine(ApiPeerProbe.Success);
+        return 0;
+    }
+    catch (Exception) { Console.Error.WriteLine(ApiPeerProbe.Failure); return 1; }
+}
 if (args.FirstOrDefault() == "check-configuration")
 {
     try

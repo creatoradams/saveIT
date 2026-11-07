@@ -65,6 +65,18 @@ public sealed class ApiClientAuthentication : IDisposable
     {
         try
         {
+            if (!EligibleLeaf(certificate)) return false;
+            var hash = certificate!.GetCertHash(HashAlgorithmName.SHA256);
+            return pins.Any(pin => CryptographicOperations.FixedTimeEquals(hash, pin));
+        }
+        catch (Exception) { return false; }
+    }
+
+    // Shared public-leaf policy; possession is established separately by TLS.
+    public static bool EligibleLeaf(X509Certificate2? certificate)
+    {
+        try
+        {
             if (certificate is null || certificate.NotBefore.ToUniversalTime() > DateTime.UtcNow || certificate.NotAfter.ToUniversalTime() <= DateTime.UtcNow) return false;
             var constraints = certificate.Extensions.OfType<X509BasicConstraintsExtension>().ToArray();
             var usage = certificate.Extensions.OfType<X509KeyUsageExtension>().ToArray();
@@ -74,8 +86,7 @@ public sealed class ApiClientAuthentication : IDisposable
                 purpose.Length != 1 || purpose[0].EnhancedKeyUsages.Count != 1 || purpose[0].EnhancedKeyUsages[0].Value != "1.3.6.1.5.5.7.3.2") return false;
             using var rsa = certificate.GetRSAPublicKey();
             if (rsa is null || rsa.KeySize < 2048) return false;
-            var hash = certificate.GetCertHash(HashAlgorithmName.SHA256);
-            return pins.Any(pin => CryptographicOperations.FixedTimeEquals(hash, pin));
+            return true;
         }
         catch (Exception) { return false; }
     }

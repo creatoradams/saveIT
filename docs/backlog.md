@@ -4,6 +4,8 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
+- [x] Account-free isolated outbound mTLS health probe (ADR041; exact tests/reviews in [progress](progress.md)). Requires native mutual-state/exact local leaf before HTTP and bounded health200/EOF; ordinary server TLS is insufficient. This is a client primitive/diagnostic, not delivered web identity, remote admission-policy proof or managed PKI. Private carrier/broker/forwarding, services/ingress/protected operations and managed verification remain unfinished.
+
 - [x] Account-free opt-in API client-certificate receiver with separate public anchors/exact pins, native offline policy and request-time expiry checks (ADR039; tests/reviews in [progress](progress.md)). ADR040 adds optional API-only public task bindings; null stays startup-blocked. Client identity delivery, end-to-end authenticated web/API deployment and managed issuance/rotation/revocation remain unfinished; configured receiver metadata is not launch approval.
 
 - [x] Account-free private DNS/API registry and referenced-group web/API TCP8443 definitions, with actual adjacent-module mock contracts (ADR038; execution/reviews in [progress](progress.md)). Client workload authentication, actual registry health/drain/registration, services/ingress/restricted egress, protected operations and managed proof remain unfinished.
