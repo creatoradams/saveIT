@@ -148,7 +148,7 @@ public sealed class ApiRelayTests(ApiClientAuthenticationTests.Fixture fixture) 
             else if (mode == "connection-cookie") Assert.False(context.Request.Headers.ContainsKey("Cookie"));
             else { Assert.Equal("synthetic=one; other=two", context.Request.Headers.Cookie); Assert.Equal("synthetic-csrf", context.Request.Headers["X-CSRF-TOKEN"]); }
             Assert.Equal(mode == "health" ? "" : "?opaque=a%2Bb", context.Request.QueryString.Value ?? "");
-            if (mode == "redirect") { context.Response.Cookies.Append("one","a", new CookieOptions { Expires = DateTimeOffset.UtcNow.AddHours(1) }); context.Response.Cookies.Append("two","b"); context.Response.Redirect("https://issuer.invalid/authorize?opaque=a%2Bb"); return; }
+            if (mode == "redirect") { context.Response.Cookies.Append("one","a", new CookieOptions { Secure = true, HttpOnly = true, Expires = DateTimeOffset.UtcNow.AddHours(1) }); context.Response.Cookies.Append("two","b",new CookieOptions { Secure = true, HttpOnly = true }); context.Response.Redirect("https://issuer.invalid/authorize?opaque=a%2Bb"); return; }
             if (mode == "no-content") { context.Response.StatusCode = 204; return; }
             if (mode == "opaque-form" || mode == "exact-request") { using var buffer = new MemoryStream(); await context.Request.Body.CopyToAsync(buffer); Assert.Equal(mode == "exact-request" ? ApiRelay.RequestLimit : 5, buffer.Length); if (mode == "opaque-form") { Assert.Equal(new byte[] { 0,255,13,10,38 }, buffer.ToArray()); Assert.Equal("application/x-www-form-urlencoded",context.Request.ContentType); } }
             if (mode == "oversized-response") { context.Response.ContentLength = ApiRelay.ResponseLimit + 1; await context.Response.StartAsync(); return; }
@@ -187,7 +187,7 @@ public sealed class ApiRelayTests(ApiClientAuthenticationTests.Fixture fixture) 
                 using var response = await client.SendAsync(request);
                 var status = mode == "redirect" ? 302 : mode == "no-content" ? 204 : mode is "oversized-request" or "chunked-overflow" ? 413 : mode is "ordinary-tls" or "unapproved-client" or "wrong-server-name" or "oversized-response" or "encoded-response" or "upstream-reset" ? 502 : 200;
                 Assert.Equal(status, (int)response.StatusCode);
-                if (mode == "redirect") { Assert.Equal(2,response.Headers.GetValues("Set-Cookie").Count()); Assert.Equal("https://issuer.invalid/authorize?opaque=a%2Bb",response.Headers.Location!.OriginalString); }
+                if (mode == "redirect") { Assert.Equal(2,response.Headers.GetValues("Set-Cookie").Count()); Assert.All(response.Headers.GetValues("Set-Cookie"),cookie => { Assert.Contains("secure",cookie,StringComparison.OrdinalIgnoreCase); Assert.Contains("httponly",cookie,StringComparison.OrdinalIgnoreCase); }); Assert.Equal("https://issuer.invalid/authorize?opaque=a%2Bb",response.Headers.Location!.OriginalString); }
                 if (mode == "large-history") Assert.Equal(15 * 1_048_576,(await response.Content.ReadAsByteArrayAsync()).Length);
                 Assert.Equal("no-store",response.Headers.CacheControl!.ToString());
             }
