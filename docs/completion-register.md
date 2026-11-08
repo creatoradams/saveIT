@@ -25,7 +25,7 @@ This is a current capability summary, not a release approval. [Progress](progres
 
 ## Delivery order
 
-1. Verify the [ADR044](adr/044-pinned-relay-startup-loader.md) relay startup loader, then complete distinct task/execution endpoint admissions and referenced network/task/service/ingress/egress bindings.
+1. Complete distinct endpoint admissions for the [ADR044](adr/044-pinned-relay-startup-loader.md) relay startup loader, then referenced network/task/service/ingress/egress bindings.
 2. Complete protected population, signing/promotion/rollback, scheduler/PassRole/operator paths, health/drain/fencing and telemetry/quotas/audit archive engineering.
 3. With authorized staging accounts, verify managed PostgreSQL roles/TLS/KMS, actual workload isolation, real Okta/access lifecycle, multi-instance keys and managed/offsite recovery.
 4. Measure capacity/recovery, remediate findings and obtain independent assessment and an approved pilot scope.
