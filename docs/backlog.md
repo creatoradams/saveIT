@@ -4,6 +4,8 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
+- [x] Account-free separate relay IAM/configuration/log metadata and staged exact deployment-repository reader contract (ADR043; tests/reviews in [progress](progress.md)). This is unapplied metadata only. SDK loader/private endpoint/task/network/service delivery, protected population/promotion, caller admission and managed IAM/KMS/PKI/rotation/fencing remain unfinished. Resolve direct Logs customer CallerAccount availability before any apply; retain the full enterprise inventory.
+
 - [x] Account-free isolated relay process and synthetic keyless-web/HTTPS-relay/mTLS-primary-API path (ADR042; exact execution/reviews in [progress](progress.md)). Relay intake does not authenticate web workload identity. Cloud relay identity/secret delivery/task/network/service bindings, caller admission, managed PKI/rotation/fencing and launch remain unfinished; all enterprise inventory scope remains.
 
 - [x] Account-free isolated outbound mTLS health probe (ADR041; exact tests/reviews in [progress](progress.md)). Requires native mutual-state/exact local leaf before HTTP and bounded health200/EOF; ordinary server TLS is insufficient. This is a client primitive/diagnostic, not delivered web identity, remote admission-policy proof or managed PKI. ADR042 adds a synthetic relay/forwarder; cloud private delivery/identity/service bindings, ingress/protected operations and managed verification remain unfinished.

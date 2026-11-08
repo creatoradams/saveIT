@@ -1,5 +1,7 @@
 # SaveIT private image and operational log stores
 
+[ADR043](../../../docs/adr/043-isolated-relay-identity.md) adds optional relay_execution_role_arn, null by default. Bind only the exact separate relay execution output to admit deployment pulls; all other readers and publisher/control/delete denies remain intact. This root remains the sole repository-policy owner and retains four repositories/five log groups/six keys. The relay root owns its own additional log/configuration stores. See its [staged binding](../relay-identity/README.md); no real reader/IAM/launch evidence follows.
+
 Unapplied infrastructure under [ADR 032](../../../docs/adr/032-private-image-and-log-stores.md). This root defines resources/policies only. No images were published, logs collected, AWS APIs called or paid resources created. Full compute/deployment remains unfinished.
 
 Four private ECR repositories match the workload-identity contract: API, web, worker and the shared migration/access deployment image. Tags are immutable without exclusions, KMS encryption and basic scan-on-push are declared, force-delete is disabled and Terraform prevents destruction. No expiry/lifecycle rule is created, including for untagged layers, rollback candidates or future attached signatures/inventories. Repository policies deny missing/false TLS, foreign readers, unauthorized publishing, image/tag deletion and nonadministrator control changes. They grant no identity permissions. Runtime execution roles already receive exact pull permissions from the separate identity root; the single protected publisher still needs a reviewed identity/trust/promotion path. Administrators/root can amend policies and remain trusted.
@@ -19,7 +21,7 @@ terraform -chdir=infra/terraform/artifact-stores validate
 terraform -chdir=infra/terraform/artifact-stores test
 ```
 
-Thirty-one plan cases use distinct synthetic provider overrides, complete policy-shape assertions and narrow wrong/missing-context cases. The contract test actually plans the existing `../workload-identity` module and compares its role names/image/log grants to the new resource references. It does not copy a second identity implementation. Mocks are not an IAM simulator, real KMS/ECR grant/Logs enforcement, scan result or deployment evidence. Public provider installation requires registry access; tests use no AWS credentials/APIs.
+Thirty-nine plan cases use distinct synthetic provider overrides, complete policy-shape assertions and narrow wrong/missing-context cases, including exact optional relay reader admission/refusal. The contract test actually plans the existing `../workload-identity` module and compares its role names/image/log grants to the resource references. It does not copy a second identity implementation. Mocks are not an IAM simulator, real KMS/ECR grant/Logs enforcement, scan result or deployment evidence. Public provider installation requires registry access; tests use no AWS credentials/APIs.
 
 ## Future controlled application
 

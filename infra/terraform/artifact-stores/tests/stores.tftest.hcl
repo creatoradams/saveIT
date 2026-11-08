@@ -83,6 +83,54 @@ variables {
   publisher_role     = "arn:aws:iam::111122223333:role/SaveITProtectedPublisher"
 }
 
+run "optional_relay_changes_only_deployment_pull_readers" {
+  command = plan
+  variables { relay_execution_role_arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution" }
+  assert {
+    condition     = length(aws_ecr_repository.images) == 4 && length(aws_cloudwatch_log_group.workloads) == 5 && length(aws_kms_key.logs) == 5 && toset(output.repositories.deployment.pull_execution_roles) == toset(["arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution", "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution", "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"]) && alltrue([for name in ["api", "web", "worker"] : output.repositories[name].pull_execution_roles == tolist(["arn:aws:iam::111122223333:role/saveit-pilot-staging-${name}-execution"])])
+    error_message = "Only deployment gains the exact optional relay reader; legacy stores/logs/readers stay isolated."
+  }
+  assert {
+    condition     = toset(one([for s in jsondecode(aws_ecr_repository_policy.images["deployment"].policy).Statement : s if s.Sid == "ExactImageReaders"]).Condition.ArnNotEquals["aws:PrincipalArn"]) == toset(concat(output.repositories.deployment.pull_execution_roles, [var.publisher_role, "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator", "arn:aws:iam::111122223333:root"])) && one([for s in jsondecode(aws_ecr_repository_policy.images["deployment"].policy).Statement : s if s.Sid == "ProtectedPublisherOnly"]).Condition.ArnNotEquals["aws:PrincipalArn"] == var.publisher_role && one([for s in jsondecode(aws_ecr_repository_policy.images["deployment"].policy).Statement : s if s.Sid == "PreserveImagesAndTags"]).Effect == "Deny" && one([for s in jsondecode(aws_ecr_repository_policy.images["deployment"].policy).Statement : s if s.Sid == "PreserveImagesAndTags"]).Action == "ecr:BatchDeleteImage" && toset(one([for s in jsondecode(aws_ecr_repository_policy.images["deployment"].policy).Statement : s if s.Sid == "RepositoryAdministratorsOnly"]).Condition.ArnNotEquals["aws:PrincipalArn"]) == toset(["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator", "arn:aws:iam::111122223333:root"])
+    error_message = "Relay gets pull admission only; publisher/admin/delete explicit denies must not broaden."
+  }
+}
+run "relay_task_cannot_be_repository_reader" {
+  command = plan
+  variables { relay_execution_role_arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task" }
+  expect_failures = [var.relay_execution_role_arn]
+}
+run "foreign_relay_reader_refused" {
+  command = plan
+  variables { relay_execution_role_arn = "arn:aws:iam::999900001111:role/saveit-pilot-staging-relay-execution" }
+  expect_failures = [var.relay_execution_role_arn]
+}
+run "other_cell_relay_reader_refused" {
+  command = plan
+  variables { relay_execution_role_arn = "arn:aws:iam::111122223333:role/saveit-other-staging-relay-execution" }
+  expect_failures = [var.relay_execution_role_arn]
+}
+run "wildcard_relay_reader_refused" {
+  command = plan
+  variables { relay_execution_role_arn = "arn:aws:iam::111122223333:role/saveit-*-relay-execution" }
+  expect_failures = [var.relay_execution_role_arn]
+}
+run "relay_cannot_administer_repository" {
+  command = plan
+  variables { key_administrators = ["arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"] }
+  expect_failures = [var.key_administrators]
+}
+run "relay_cannot_publish_images" {
+  command = plan
+  variables { publisher_role = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task" }
+  expect_failures = [var.publisher_role]
+}
+run "case_variant_relay_cannot_publish_images" {
+  command = plan
+  variables { publisher_role = "arn:aws:iam::111122223333:role/SAVEIT-PILOT-STAGING-RELAY-EXECUTION" }
+  expect_failures = [var.publisher_role]
+}
+
 run "private_images_are_immutable_encrypted_and_retained" {
   command = plan
   assert {

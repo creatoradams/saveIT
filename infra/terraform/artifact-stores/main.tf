@@ -9,7 +9,7 @@ locals {
   repository_arns  = { for name, path in local.repository_names : name => "arn:aws:ecr:${var.region}:${var.account_id}:repository/${path}" }
   log_names        = { for name in local.workloads : name => "/saveit/${var.cell}/${var.environment}/${name}" }
   log_arns         = { for name, path in local.log_names : name => "arn:aws:logs:${var.region}:${var.account_id}:log-group:${path}" }
-  readers          = { for name in local.images : name => name == "deployment" ? [local.exec_arns.migration, local.exec_arns.access] : [local.exec_arns[name]] }
+  readers          = { for name in local.images : name => name == "deployment" ? concat([local.exec_arns.migration, local.exec_arns.access], var.relay_execution_role_arn == null ? [] : [var.relay_execution_role_arn]) : [local.exec_arns[name]] }
   pull_actions     = ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"]
   push_actions     = ["ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:PutImage"]
 }

@@ -7,3 +7,7 @@ key_administrators = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdmini
 publisher_role     = "arn:aws:iam::111122223333:role/SaveITProtectedPublisher"
 # Operational default only; does not configure an immutable tenant audit archive.
 log_retention_days = 90
+
+# Null preserves legacy readers. Bind only the exact relay-identity execution
+# output before feeding this root's deployment repository output back to it.
+relay_execution_role_arn = null

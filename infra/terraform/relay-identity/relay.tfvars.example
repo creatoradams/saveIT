@@ -1,0 +1,12 @@
+# Synthetic references only; no credentials/PFX/payloads. This definition is unapplied.
+account_id = "111122223333"
+region = "us-east-1"
+cell = "pilot"
+environment = "staging"
+key_administrators = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+secret_custodians = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+configuration_version_id = "10000000-0000-0000-0000-000000000009"
+# Bootstrap BOTH task/execution roles with explicit Deny*. Bind the actual
+# artifact-stores deployment output only after its exact relay reader is set.
+image_repository = null
+log_retention_days = 90

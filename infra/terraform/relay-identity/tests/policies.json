@@ -1,0 +1,889 @@
+{
+  "trust": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "OnlyAccountRegionalECSTasks",
+        "Effect": "Allow",
+        "Action": "sts:AssumeRole",
+        "Principal": {
+          "Service": "ecs-tasks.amazonaws.com"
+        },
+        "Condition": {
+          "StringEquals": {
+            "aws:SourceAccount": "111122223333"
+          },
+          "ArnLike": {
+            "aws:SourceArn": "arn:aws:ecs:us-east-1:111122223333:*"
+          }
+        }
+      }
+    ]
+  },
+  "task": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "PinnedWholeConfiguration",
+        "Effect": "Allow",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "StringEquals": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000009",
+            "aws:RequestedRegion": "us-east-1"
+          },
+          "Bool": {
+            "aws:SecureTransport": "true"
+          }
+        }
+      },
+      {
+        "Sid": "ConfigurationDecryptOnly",
+        "Effect": "Allow",
+        "Action": "kms:Decrypt",
+        "Resource": "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000001",
+        "Condition": {
+          "StringEquals": {
+            "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com",
+            "kms:CallerAccount": "111122223333",
+            "kms:EncryptionContext:SecretARN": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+            "kms:EncryptionContext:SecretVersionId": "10000000-0000-0000-0000-000000000009"
+          }
+        }
+      }
+    ]
+  },
+  "task_boundary": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "PinnedWholeConfiguration",
+        "Effect": "Allow",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "StringEquals": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000009",
+            "aws:RequestedRegion": "us-east-1"
+          },
+          "Bool": {
+            "aws:SecureTransport": "true"
+          }
+        }
+      },
+      {
+        "Sid": "ConfigurationDecryptOnly",
+        "Effect": "Allow",
+        "Action": "kms:Decrypt",
+        "Resource": "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000001",
+        "Condition": {
+          "StringEquals": {
+            "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com",
+            "kms:CallerAccount": "111122223333",
+            "kms:EncryptionContext:SecretARN": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+            "kms:EncryptionContext:SecretVersionId": "10000000-0000-0000-0000-000000000009"
+          }
+        }
+      },
+      {
+        "Sid": "RejectAllOtherActions",
+        "Effect": "Deny",
+        "NotAction": ["secretsmanager:GetSecretValue", "kms:Decrypt"],
+        "Resource": "*"
+      },
+      {
+        "Sid": "RejectOtherRegions",
+        "Effect": "Deny",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "aws:RequestedRegion": "us-east-1"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherSecrets",
+        "Effect": "Deny",
+        "Action": "secretsmanager:GetSecretValue",
+        "NotResource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90"
+      },
+      {
+        "Sid": "RejectInsecureConfigurationReads",
+        "Effect": "Deny",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "*",
+        "Condition": {
+          "BoolIfExists": {
+            "aws:SecureTransport": "false"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherSecretVersions",
+        "Effect": "Deny",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000009"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherDecryptKeys",
+        "Effect": "Deny",
+        "Action": "kms:Decrypt",
+        "NotResource": "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000001"
+      },
+      {
+        "Sid": "RejectDirectConfigurationDecrypt",
+        "Effect": "Deny",
+        "Action": "kms:Decrypt",
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherCallerAccounts",
+        "Effect": "Deny",
+        "Action": "kms:Decrypt",
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "kms:CallerAccount": "111122223333"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherSecretContexts",
+        "Effect": "Deny",
+        "Action": "kms:Decrypt",
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "kms:EncryptionContext:SecretARN": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherVersionContexts",
+        "Effect": "Deny",
+        "Action": "kms:Decrypt",
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "kms:EncryptionContext:SecretVersionId": "10000000-0000-0000-0000-000000000009"
+          }
+        }
+      }
+    ]
+  },
+  "execution": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "RegionalRegistryAuthorization",
+        "Effect": "Allow",
+        "Action": "ecr:GetAuthorizationToken",
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "aws:RequestedRegion": "us-east-1"
+          }
+        }
+      },
+      {
+        "Sid": "ExactDeploymentImagePull",
+        "Effect": "Allow",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment"
+      },
+      {
+        "Sid": "OwnLogStreamsOnly",
+        "Effect": "Allow",
+        "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+        "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay:log-stream:*"
+      },
+      {
+        "Sid": "OwnEncryptedLogData",
+        "Effect": "Allow",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002",
+        "Condition": {
+          "StringEquals": {
+            "kms:ViaService": "logs.us-east-1.amazonaws.com",
+            "kms:CallerAccount": "111122223333"
+          },
+          "ArnEquals": {
+            "kms:EncryptionContext:aws:logs:arn": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay"
+          }
+        }
+      },
+      {
+        "Sid": "OwnLogKeyDescription",
+        "Effect": "Allow",
+        "Action": "kms:DescribeKey",
+        "Resource": "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002",
+        "Condition": {
+          "StringEquals": {
+            "kms:ViaService": "logs.us-east-1.amazonaws.com",
+            "kms:CallerAccount": "111122223333"
+          }
+        }
+      }
+    ]
+  },
+  "execution_boundary": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "RegionalRegistryAuthorization",
+        "Effect": "Allow",
+        "Action": "ecr:GetAuthorizationToken",
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "aws:RequestedRegion": "us-east-1"
+          }
+        }
+      },
+      {
+        "Sid": "ExactDeploymentImagePull",
+        "Effect": "Allow",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment"
+      },
+      {
+        "Sid": "OwnLogStreamsOnly",
+        "Effect": "Allow",
+        "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+        "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay:log-stream:*"
+      },
+      {
+        "Sid": "OwnEncryptedLogData",
+        "Effect": "Allow",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002",
+        "Condition": {
+          "StringEquals": {
+            "kms:ViaService": "logs.us-east-1.amazonaws.com",
+            "kms:CallerAccount": "111122223333"
+          },
+          "ArnEquals": {
+            "kms:EncryptionContext:aws:logs:arn": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay"
+          }
+        }
+      },
+      {
+        "Sid": "OwnLogKeyDescription",
+        "Effect": "Allow",
+        "Action": "kms:DescribeKey",
+        "Resource": "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002",
+        "Condition": {
+          "StringEquals": {
+            "kms:ViaService": "logs.us-east-1.amazonaws.com",
+            "kms:CallerAccount": "111122223333"
+          }
+        }
+      },
+      {
+        "Sid": "RejectAllOtherActions",
+        "Effect": "Deny",
+        "NotAction": [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "RejectOtherRegions",
+        "Effect": "Deny",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "aws:RequestedRegion": "us-east-1"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherRepositories",
+        "Effect": "Deny",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "NotResource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment"
+      },
+      {
+        "Sid": "RejectOtherLogStreams",
+        "Effect": "Deny",
+        "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+        "NotResource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay:log-stream:*"
+      },
+      {
+        "Sid": "RejectOtherCryptoKeys",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        "NotResource": "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002"
+      },
+      {
+        "Sid": "RejectDirectLogKeyUse",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "kms:ViaService": "logs.us-east-1.amazonaws.com"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherCallerAccounts",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "StringNotEqualsIfExists": {
+            "kms:CallerAccount": "111122223333"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherLogContexts",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEqualsIfExists": {
+            "kms:EncryptionContext:aws:logs:arn": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay"
+          }
+        }
+      }
+    ]
+  },
+  "secret": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "RejectInsecureTransport",
+        "Effect": "Deny",
+        "Action": "secretsmanager:*",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "BoolIfExists": {
+            "aws:SecureTransport": "false"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "ExactReadersOnly",
+        "Effect": "Deny",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITSecretCustodian",
+              "arn:aws:iam::111122223333:root",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task"
+            ]
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "MetadataAdministratorsOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "NotAction": [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecretVersionStage"
+        ],
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          }
+        }
+      },
+      {
+        "Sid": "VersionCustodiansOnly",
+        "Effect": "Deny",
+        "Action": [
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecretVersionStage"
+        ],
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITSecretCustodian",
+              "arn:aws:iam::111122223333:root"
+            ]
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "TaskVersionOnly",
+        "Effect": "Deny",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task"
+          },
+          "StringNotEqualsIfExists": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000009"
+          }
+        },
+        "Principal": "*"
+      }
+    ]
+  },
+  "configuration_key": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "AccountRecoveryDelegation",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "arn:aws:iam::111122223333:root"
+        },
+        "Action": "kms:*",
+        "Resource": "*"
+      },
+      {
+        "Sid": "KeyAdministration",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": [
+            "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"
+          ]
+        },
+        "Action": [
+          "kms:Create*",
+          "kms:Describe*",
+          "kms:Enable*",
+          "kms:List*",
+          "kms:Put*",
+          "kms:Update*",
+          "kms:Revoke*",
+          "kms:Disable*",
+          "kms:Get*",
+          "kms:Delete*",
+          "kms:ScheduleKeyDeletion",
+          "kms:CancelKeyDeletion"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "ControlPlaneAdministratorsOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "NotAction": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*",
+          "kms:Get*",
+          "kms:List*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          }
+        }
+      },
+      {
+        "Sid": "ConfigurationPrincipalsOnly",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:role/SaveITSecretCustodian",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task",
+              "arn:aws:iam::111122223333:root"
+            ]
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "SecretsManagerOnly",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          },
+          "StringNotEqualsIfExists": {
+            "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "CallerAccountOnly",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          },
+          "StringNotEqualsIfExists": {
+            "kms:CallerAccount": "111122223333"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "ConfigurationSlotOnly",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          },
+          "StringNotLikeIfExists": {
+            "kms:EncryptionContext:SecretARN": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-??????"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "TaskVersionOnly",
+        "Effect": "Deny",
+        "Action": "kms:Decrypt",
+        "Resource": "*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task"
+          },
+          "StringNotEqualsIfExists": {
+            "kms:EncryptionContext:SecretVersionId": "10000000-0000-0000-0000-000000000009"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "IAMDelegationThroughSecretsManager",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "arn:aws:iam::111122223333:root"
+        },
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com",
+            "kms:CallerAccount": "111122223333"
+          }
+        }
+      }
+    ]
+  },
+  "log_key": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "AccountRecoveryDelegation",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "arn:aws:iam::111122223333:root"
+        },
+        "Action": "kms:*",
+        "Resource": "*"
+      },
+      {
+        "Sid": "KeyAdministration",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": [
+            "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"
+          ]
+        },
+        "Action": [
+          "kms:Create*",
+          "kms:Describe*",
+          "kms:Enable*",
+          "kms:List*",
+          "kms:Put*",
+          "kms:Update*",
+          "kms:Revoke*",
+          "kms:Disable*",
+          "kms:Get*",
+          "kms:Delete*",
+          "kms:ScheduleKeyDeletion",
+          "kms:CancelKeyDeletion"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "ControlPlaneAdministratorsOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "NotAction": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*",
+          "kms:Get*",
+          "kms:List*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          }
+        }
+      },
+      {
+        "Sid": "RegionalLogsOrForwardingOnly",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          },
+          "StringNotEqualsIfExists": {
+            "aws:PrincipalServiceName": "logs.us-east-1.amazonaws.com",
+            "kms:ViaService": "logs.us-east-1.amazonaws.com"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "CallerAccountOnly",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          },
+          "StringNotEqualsIfExists": {
+            "kms:CallerAccount": "111122223333"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "LogPrincipalsOnly",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+            ]
+          },
+          "StringNotEqualsIfExists": {
+            "aws:PrincipalServiceName": "logs.us-east-1.amazonaws.com"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "ExactLogContext",
+        "Effect": "Deny",
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator",
+              "arn:aws:iam::111122223333:root"
+            ]
+          },
+          "ArnNotEqualsIfExists": {
+            "kms:EncryptionContext:aws:logs:arn": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay"
+          }
+        },
+        "Principal": "*"
+      },
+      {
+        "Sid": "RegionalLogData",
+        "Effect": "Allow",
+        "Principal": {
+          "Service": "logs.us-east-1.amazonaws.com"
+        },
+        "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "ArnEquals": {
+            "kms:EncryptionContext:aws:logs:arn": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay"
+          },
+          "StringEquals": {
+            "kms:CallerAccount": "111122223333"
+          }
+        }
+      },
+      {
+        "Sid": "RegionalLogDescription",
+        "Effect": "Allow",
+        "Principal": {
+          "Service": "logs.us-east-1.amazonaws.com"
+        },
+        "Action": "kms:DescribeKey",
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "kms:CallerAccount": "111122223333"
+          }
+        }
+      }
+    ]
+  }
+}
