@@ -4,6 +4,8 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
+- [ ] Finish Linux packaged verification of the implemented exact-version relay startup loader (ADR044; current local evidence/review in [progress](progress.md)). Distinct task/execution private endpoints, network/tasks/services and all managed launch/PKI/rotation/fencing gates remain separate work.
+
 - [x] Account-free separate relay IAM/configuration/log metadata and staged exact deployment-repository reader contract (ADR043; tests/reviews in [progress](progress.md)). This is unapplied metadata only. SDK loader/private endpoint/task/network/service delivery, protected population/promotion, caller admission and managed IAM/KMS/PKI/rotation/fencing remain unfinished. Resolve direct Logs customer CallerAccount availability before any apply; retain the full enterprise inventory.
 
 - [x] Account-free isolated relay process and synthetic keyless-web/HTTPS-relay/mTLS-primary-API path (ADR042; exact execution/reviews in [progress](progress.md)). Relay intake does not authenticate web workload identity. Cloud relay identity/secret delivery/task/network/service bindings, caller admission, managed PKI/rotation/fencing and launch remain unfinished; all enterprise inventory scope remains.

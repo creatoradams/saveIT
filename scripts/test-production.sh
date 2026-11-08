@@ -55,8 +55,8 @@ cleanup() {
 }
 trap cleanup EXIT
 test -s "$fixture/ca.key" && test -s "$fixture/ca.crt"
-for name in tls pg api relay; do
-  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth,DNS:api-server-only'; elif [[ "$name" == relay ]]; then san='DNS:relay'; else san='DNS:db'; fi
+for name in tls pg api relay secrets; do
+  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth,DNS:api-server-only'; elif [[ "$name" == relay ]]; then san='DNS:relay'; elif [[ "$name" == secrets ]]; then san='DNS:secretsmanager.us-east-1.amazonaws.com'; else san='DNS:db'; fi
   openssl req -newkey rsa:2048 -nodes -keyout "$fixture/$name.new.key" -out "$fixture/$name.csr" -subj "/CN=$name" >/dev/null 2>&1
   mv -f "$fixture/$name.new.key" "$fixture/$name.key"
   printf 'subjectAltName=%s\nextendedKeyUsage=serverAuth\n' "$san" > "$fixture/$name.ext"
@@ -64,6 +64,8 @@ for name in tls pg api relay; do
 done
 openssl pkcs12 -export -out "$fixture/relay.pfx" -inkey "$fixture/relay.key" -in "$fixture/relay.crt" -passout pass:synthetic-relay-only >/dev/null 2>&1
 chmod 600 "$fixture/relay.pfx"
+openssl pkcs12 -export -out "$fixture/secrets.pfx" -inkey "$fixture/secrets.key" -in "$fixture/secrets.crt" -passout pass:synthetic-secrets-only >/dev/null 2>&1
+chmod 600 "$fixture/secrets.pfx" "$fixture/secrets.key"
 openssl pkcs12 -export -out "$fixture/api.pfx" -inkey "$fixture/api.key" -in "$fixture/api.crt" -passout pass:synthetic-transport-only >/dev/null 2>&1
 chmod 644 "$fixture/api.pfx" "$fixture/api.crt"
 chmod 600 "$fixture/api.key"
@@ -145,6 +147,7 @@ refuses_startup 'Public CA release configuration is invalid.' -e SAVEIT_API_CA_S
 refuses_startup 'SaveIT deployment operation failed.' -e Deployment__Trust__DatabaseCaSha256=invalid deployment migrate
 "${compose[@]}" up -d api api-server-only worker identity
 node tests/production/prepare-relay.mjs
+node tests/production/relay-secret-loader.mjs
 "${compose[@]}" run --rm -T --no-deps --use-aliases --name saveit-release-relay relay serve-api-relay https://api:8443 https://relay:8443 < "$fixture/relay-input.json" > "$fixture/relay.log" 2>&1 &
 relay_pid=$!
 for attempt in $(seq 1 100); do

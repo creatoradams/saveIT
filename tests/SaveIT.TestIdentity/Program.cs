@@ -4,6 +4,13 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.IdentityModel.Tokens;
 
+if (args is ["relay-secrets-fixture"])
+{
+    try { await RelaySecretsFixture.RunAsync(); }
+    catch (Exception) { Console.Error.WriteLine("Synthetic relay secrets fixture failed."); Environment.ExitCode = 1; }
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 if (!builder.Environment.IsEnvironment("ContainerTest")) throw new InvalidOperationException("Synthetic identity fixture requires ContainerTest environment.");
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);

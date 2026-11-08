@@ -40,6 +40,19 @@
         "resolved": "3.1.5",
         "contentHash": "tKi7dSTwP4m5m9eXPM2Ime4Kn7xNf4x4zT9sdLO/G4hZVnQCRiMTWoSZqI/pYTVeI27oPPqHBKYI/DjJ9GsYgA=="
       },
+      "AWSSDK.Core": {
+        "type": "Transitive",
+        "resolved": "4.0.102.19",
+        "contentHash": "Hb6P2ui6y0U+UNUjcC4ASFFoTLzCijhMzfOCXfoFTXq/o0YWQsO1oSH1NG2GQ9dlIT693xeeih0yAcfeL1dphg=="
+      },
+      "AWSSDK.SecretsManager": {
+        "type": "Transitive",
+        "resolved": "4.0.100.25",
+        "contentHash": "nbjcJOQSDILLrEQxE0LpVrdhagYOm/XSTSUsJpD2UD3MCI15LrFfejB0fuEdFxBB4rT+CK2r0zIVnA0zjvbdsg==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
+        }
+      },
       "Microsoft.AspNetCore.Authentication.OpenIdConnect": {
         "type": "Transitive",
         "resolved": "10.0.14",
@@ -565,6 +578,7 @@
       "saveit.deployment": {
         "type": "Project",
         "dependencies": {
+          "AWSSDK.SecretsManager": "[4.0.100.25, )",
           "SaveIT.Api": "[1.0.0, )"
         }
       },

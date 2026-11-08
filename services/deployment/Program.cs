@@ -8,6 +8,18 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
+if (args.FirstOrDefault() == "serve-api-relay-secrets")
+{
+    try
+    {
+        if (!OperatingSystem.IsLinux() || args is not ["serve-api-relay-secrets", var api, var relay, var arn, var version]) throw new InvalidOperationException();
+        using var configuration = await RelaySecretLoader.ReadAsync(api, relay, arn, version);
+        await using var app = ApiRelay.Build(configuration);
+        await app.StartAsync(); Console.WriteLine(ApiRelayConfiguration.Started);
+        await app.WaitForShutdownAsync(); return 0;
+    }
+    catch (Exception) { Console.Error.WriteLine(ApiRelayConfiguration.Failure); return 1; }
+}
 if (args.FirstOrDefault() == "serve-api-relay")
 {
     try

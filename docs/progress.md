@@ -10,7 +10,7 @@ SaveIT is a working, persistent local documentation/inventory preview. It is not
 | Tenant authority | Server-selected membership, live organization roles, transaction-local PostgreSQL context, 28 forced-RLS tables, scoped foreign keys and non-owner runtime guards | Managed database verification, advanced permissions and broader SaaS onboarding |
 | Writes and search | Atomic business/revision/audit/outbox/queue commits; restricted PostgreSQL search worker with current-source/grant checks, retry/dead-letter/replay/rebuild | OpenSearch, generic external delivery, real connectors and measured scale |
 | Identity/access | Opt-in development identity, separate Okta adapter, restricted operator access/session epochs and durable response drain | Live Okta/MFA/assignment, human operator lifecycle and operated fencing/recovery |
-| Packaged runtime | Nonroot images, nonce/no-store web behavior, TLS/mTLS relay path, bounded health/configuration tools and synthetic logical database/key recovery | Authenticated web workload intake, managed PKI/rotation, multi-instance keys and managed/offsite/PITR recovery |
+| Packaged runtime | Nonroot images, nonce/no-store web behavior, TLS/mTLS relay path, pinned-version relay startup loader, bounded health/configuration tools and synthetic logical database/key recovery | Loader native Linux verification pending below; authenticated web workload intake, managed PKI/rotation, multi-instance keys and managed/offsite/PITR recovery |
 | Infrastructure | Nine separate provider-mocked roots for state, private network/database, keys, identities, images/logs, tasks, endpoints, discovery and relay metadata | All roots remain unapplied; no running AWS service or production deployment exists |
 
 The nine roots include separate state and application security boundaries, not nine deployed services. The current runtime uses PostgreSQL; Redis, OpenSearch, OpenFGA, Temporal, vault/AI and connectors are not active subsystems.
@@ -33,9 +33,13 @@ The current cleanup removes duplicate browser request ownership and navigation m
 
 Current status now lives here; [historical delivery evidence](progress-history.md) preserves the previous progress file verbatim. Keep future release evidence concise and record a verified source once. Architecture, readiness and completion documents link here rather than copying checkpoints.
 
+## Current delivery: relay startup loader
+
+[ADR044](adr/044-pinned-relay-startup-loader.md) implements one in-process exact-ARN/UUID Secrets Manager read using literal ECS task metadata and the pinned SDK signer. It validates role/expiry, raw envelopes and original64KiB payload, reuses existing certificate checks, disables alternate sources/proxies/retries/ambient telemetry and emits fixed failures.77 focused/230 affected .NET tests, locked restore/NuGet audit, TypeScript/build, ignore/seven security and three API-client regressions pass locally. The two requested agent reviews found legacy CSM telemetry and test-runner lifecycle issues; remedies and limitations are in the [review](reviews/2026-11-08-relay-startup-review.md). Native packaged Linux checks/full CI/source/final-image gates are pending; Docker is unavailable locally. The previous exact verified build above remains authoritative until new run results are recorded.
+
 ## Next steps
 
-1. Implement the relay's in-process pinned-version configuration loader and distinct task/execution private endpoint admissions.
+1. Verify the new relay startup loader in Linux CI, then implement distinct task/execution private endpoint admissions.
 2. Complete referenced network/task/service bindings, ingress/restricted egress, protected population, signing/promotion, scheduling/PassRole and health/drain/fencing operations.
 3. Add redacted telemetry/alerts, API/tenant quotas, operational audit archive/retention and recovery runbooks.
 4. Use authorized staging accounts to verify actual IAM/KMS/PKI/RDS/Okta, multi-instance keys, recovery and capacity; remediate findings and obtain independent assessment before an approved pilot.
