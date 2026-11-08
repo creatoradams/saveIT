@@ -52,11 +52,13 @@ internal static class RelaySecretsFixture
             Interlocked.Increment(ref metadata);
             if (context.Connection.LocalPort != 80) { context.Response.StatusCode = 400; return; }
             if (mode == "metadata-stall") { await Task.Delay(Timeout.Infinite, context.RequestAborted); return; }
-            await context.Response.WriteAsJsonAsync(new {
+            // ECS uses PascalCase; ASP.NET's web JSON defaults would change it.
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new {
                 RoleArn = mode == "role" ? "arn:aws:iam::123456789012:role/foreign" : "arn:aws:iam::123456789012:role/saveit-demo-staging-relay-task",
                 AccessKeyId = "synthetic-access", SecretAccessKey = "synthetic-signing-material", Token = "synthetic-session-marker",
                 Expiration = DateTimeOffset.UtcNow.AddMinutes(10).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
-            });
+            }));
         });
         app.MapPost("/", async (HttpContext context) => {
             Interlocked.Increment(ref secrets);

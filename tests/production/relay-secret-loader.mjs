@@ -21,6 +21,7 @@ const started = "SaveIT API relay started.";
 const failed = "SaveIT API relay failed.";
 let sequence = 0;
 let networkAttempted = false;
+let stage = "fixture setup";
 
 async function within(promise, milliseconds) {
   let timer;
@@ -131,11 +132,21 @@ async function control(mode) {
   );
 }
 async function status() {
-  return JSON.parse(
+  const counts = JSON.parse(
     await driver(
       "const h=require('node:http');const r=h.get('http://169.254.170.2/status',{timeout:3000},s=>{let b='';s.on('data',c=>{b+=c;if(b.length>1024)r.destroy();});s.on('end',()=>{if(s.statusCode!==200)process.exitCode=1;else process.stdout.write(b);});});r.on('timeout',()=>r.destroy());r.on('error',()=>process.exitCode=1);",
     ),
   );
+  assert.deepEqual(
+    Object.keys(counts).sort(),
+    ["controls", "metadata", "secrets", "udpPackets", "unexpected"].sort(),
+  );
+  assert.ok(
+    Object.values(counts).every(
+      (value) => Number.isSafeInteger(value) && value >= 0 && value <= 10000,
+    ),
+  );
+  return counts;
 }
 async function waitFor(name, predicate) {
   const end = Date.now() + 16000;
@@ -149,6 +160,7 @@ async function waitFor(name, predicate) {
   throw new Error("Packaged loader startup exceeded its deadline.");
 }
 async function run(mode, expected, options = {}) {
+  stage = options.label ?? mode;
   await control(mode);
   await driver(
     "const d=require('node:dgram').createSocket('udp4');const t=setTimeout(()=>{process.exitCode=1;d.close();},3000);d.on('message',b=>{if(b.toString()!=='synthetic-udp-ack')process.exitCode=1;clearTimeout(t);d.close();});d.on('error',()=>{process.exitCode=1;clearTimeout(t);d.close();});d.send('synthetic-udp-control',31000,'169.254.170.2');",
@@ -200,9 +212,13 @@ async function run(mode, expected, options = {}) {
     version,
   ]);
   try {
-    await waitFor(name, (state, logs) =>
-      expected ? logs.split(/\r?\n/).includes(started) : !state.State.Running,
-    );
+    await waitFor(name, (state, logs) => {
+      if (expected) {
+        assert.equal(state.State.Running, true);
+        return logs.split(/\r?\n/).includes(started);
+      }
+      return !state.State.Running;
+    });
     if (expected) {
       // A real TLS connection to the Linux listener. Unsupported routes are
       // rejected locally, so no API/DB route exists on this fixture network.
@@ -236,6 +252,16 @@ async function run(mode, expected, options = {}) {
     console.log(
       `Packaged relay secret loader passed: ${options.label ?? mode}`,
     );
+  } catch {
+    // Counter-only evidence; never print SDK errors, payloads or retained logs.
+    try {
+      console.error(
+        `Packaged loader failure counters: ${JSON.stringify(await status())}`,
+      );
+    } catch {
+      console.error("Packaged loader counters unavailable.");
+    }
+    throw new Error("Packaged loader case failed.");
   } finally {
     await remove(name);
   }
@@ -321,7 +347,7 @@ try {
     label: "forbidden credential alternative",
   });
 } catch {
-  console.error("Packaged relay secret loader checks failed.");
+  console.error(`Packaged relay secret loader checks failed: ${stage}.`);
   process.exitCode = 1;
 } finally {
   for (const name of containers) {
