@@ -1,0 +1,24 @@
+{
+  "roles": {
+    "task_arn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task",
+    "execution_arn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+  },
+  "configuration": {
+    "arn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+    "version_id": "10000000-0000-0000-0000-000000000009"
+  },
+  "operational_log": {
+    "arn": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay",
+    "execution_role_arn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+  },
+  "image_repository": {
+    "arn": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+    "url": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment",
+    "pull_execution_roles": [
+      "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution",
+      "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution",
+      "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+    ]
+  },
+  "binding_ready": true
+}

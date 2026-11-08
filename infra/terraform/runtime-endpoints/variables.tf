@@ -67,3 +67,30 @@ variable "identity" {
     error_message = "Require the exact five own execution-role/repository/log references and four own UUID-pinned configuration metadata containers; web has none."
   }
 }
+
+variable "relay" {
+  description = "Optional relay-identity outputs after its exact artifact-store binding. Metadata only; null preserves legacy endpoint filters. No payload or network/task authority."
+  default     = null
+  type = object({
+    roles            = object({ task_arn = string, execution_arn = string })
+    configuration    = object({ arn = string, version_id = string })
+    operational_log  = object({ arn = string, execution_role_arn = string })
+    image_repository = object({ arn = string, url = string, pull_execution_roles = list(string) })
+    binding_ready    = bool
+  })
+  validation {
+    condition = var.relay == null || try(
+      var.relay.binding_ready &&
+      var.relay.roles.task_arn == "arn:aws:iam::${var.account_id}:role/saveit-${var.cell}-${var.environment}-relay-task" &&
+      var.relay.roles.execution_arn == "arn:aws:iam::${var.account_id}:role/saveit-${var.cell}-${var.environment}-relay-execution" &&
+      var.relay.operational_log.arn == "arn:aws:logs:${var.region}:${var.account_id}:log-group:/saveit/${var.cell}/${var.environment}/relay" &&
+      var.relay.operational_log.execution_role_arn == var.relay.roles.execution_arn &&
+      can(regex("^arn:aws:secretsmanager:${var.region}:${var.account_id}:secret:saveit/${var.cell}/${var.environment}/relay/config-[A-Za-z0-9]{6}$", var.relay.configuration.arn)) &&
+      can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", var.relay.configuration.version_id)) &&
+      var.relay.image_repository.arn == "arn:aws:ecr:${var.region}:${var.account_id}:repository/saveit/${var.cell}/${var.environment}/deployment" &&
+      var.relay.image_repository.url == "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/saveit/${var.cell}/${var.environment}/deployment" &&
+      length(var.relay.image_repository.pull_execution_roles) == 3 &&
+    toset(var.relay.image_repository.pull_execution_roles) == toset([for workload in ["migration", "access", "relay"] : "arn:aws:iam::${var.account_id}:role/saveit-${var.cell}-${var.environment}-${workload}-execution"]), false)
+    error_message = "Use null or the bound same-cell relay task/execution, exact own log, UUID-pinned whole secret and staged deployment repository ARN/URL/three execution-reader outputs. Bootstrap metadata is not admission."
+  }
+}

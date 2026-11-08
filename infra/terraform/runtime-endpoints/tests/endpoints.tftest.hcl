@@ -963,3 +963,204 @@ variables {
     }
   }
 }
+
+# Frozen hashes were calculated from the committed pre-change policies using only synthetic variables.
+run "null_relay_preserves_committed_policy_bytes" {
+  command = plan
+
+  assert {
+    condition = jsonencode({ ecr = sha256(local.ecr_policy), logs = sha256(local.logs_policy), configuration = sha256(local.secrets_policy), s3 = sha256(local.s3_policy) }) == jsonencode({
+      ecr           = "462b7aada1cf6284c5208e62806febeca928ea1617337e5348a007cf85afeaa0"
+      logs          = "abc5c77e36a3baa132362f3583abe8e015c4435f93477a25838ff6772d6d4f36"
+      configuration = "6be05267c381bc0e6543e6ddc746e80ef724d5212dd03b53f77082e9a66ee4f0"
+      s3            = "0ce6c8d4624f3bb29f44262a9596e3acfd0c618b8758cbe637535b96de34c7aa"
+    }) && output.relay_admission == null
+    error_message = "Null retains all four exact policy bytes from committed8b92135 and no relay admission. This is a mock contract, not applied revocation."
+  }
+}
+
+run "relay_policy_only_admission" {
+  command = plan
+  variables { relay = jsondecode(file("tests/relay-binding.json")) }
+  assert {
+    condition = alltrue([for pair in [
+      { actual = local.ecr_policy, expected = "ecr" },
+      { actual = local.logs_policy, expected = "logs" },
+      { actual = local.secrets_policy, expected = "configuration" }
+    ] : jsonencode(jsondecode(pair.actual)) == jsonencode(jsondecode(file("tests/relay-policies.json"))[pair.expected])])
+    error_message = "Require every action/principal/resource/condition and explicit deny in the independently authored bound policy fixture."
+  }
+  assert {
+    condition = (aws_vpc_endpoint.interface["ecr-api"].policy == local.ecr_policy && aws_vpc_endpoint.interface["ecr-dkr"].policy == local.ecr_policy &&
+      aws_vpc_endpoint.interface["logs"].policy == local.logs_policy && aws_vpc_endpoint.interface["configuration"].policy == local.secrets_policy &&
+      sha256(aws_vpc_endpoint.layers.policy) == "0ce6c8d4624f3bb29f44262a9596e3acfd0c618b8758cbe637535b96de34c7aa" &&
+    alltrue([for policy in [local.ecr_policy, local.logs_policy, local.secrets_policy] : length(policy) < 18000]))
+    error_message = "Attach the full reviewed filters to actual endpoints; preserve the presigned layer policy and size headroom."
+  }
+  assert {
+    condition = (length(aws_vpc_endpoint.interface) == 4 && length(aws_security_group.endpoint) == 4 &&
+      length(aws_vpc_security_group_ingress_rule.interface) == 15 && length(aws_vpc_security_group_egress_rule.interface) == 15 && length(aws_vpc_security_group_egress_rule.layers) == 4 &&
+      jsonencode(output.runtime_network.client_security_groups) == jsonencode(merge(var.network.client_security_groups, { web = "sg-00000000000000005" })) &&
+    jsonencode(output.relay_admission) == jsonencode({ roles = var.relay.roles, configuration = var.relay.configuration, repository_arn = var.relay.image_repository.arn, log_group_arn = var.relay.operational_log.arn }))
+    error_message = "Relay admission is policy metadata only: existing resources, four-group consumer contract and packet paths must remain unchanged."
+  }
+}
+run "relay_roles_are_not_interchangeable" {
+  command = plan
+  variables { relay = jsondecode(file("tests/relay-binding.json")) }
+  assert {
+    condition = (alltrue([for policy in [local.ecr_policy, local.logs_policy] :
+      contains(jsondecode(policy).Statement[1].Condition.ArnNotEqualsIfExists["aws:PrincipalArn"], var.relay.roles.execution_arn) &&
+      !contains(jsondecode(policy).Statement[1].Condition.ArnNotEqualsIfExists["aws:PrincipalArn"], var.relay.roles.task_arn)]) &&
+      contains(jsondecode(local.secrets_policy).Statement[1].Condition.ArnNotEqualsIfExists["aws:PrincipalArn"], var.relay.roles.task_arn) &&
+      !contains(jsondecode(local.secrets_policy).Statement[1].Condition.ArnNotEqualsIfExists["aws:PrincipalArn"], var.relay.roles.execution_arn) &&
+    !contains(jsondecode(local.secrets_policy).Statement[1].Condition.ArnNotEqualsIfExists["aws:PrincipalArn"], var.identity.workloads.web.execution_role_arn))
+    error_message = "Only relay execution joins pull/log principal lists; only relay task joins configuration readers; web still has no configuration authority."
+  }
+  assert {
+    condition = alltrue([for context in [
+      { pin = var.relay.configuration.version_id, allowed = true },
+      { pin = null, allowed = false }, { pin = "AWSCURRENT", allowed = false },
+      { pin = "10000000-0000-0000-0000-000000000008", allowed = false }
+      ] : context.allowed == (
+      context.pin == one([for s in jsondecode(local.secrets_policy).Statement : s if s.Sid == "ReadRelayVersion"]).Condition.StringEquals["secretsmanager:VersionId"] &&
+      !(context.pin != one([for s in jsondecode(local.secrets_policy).Statement : s if s.Sid == "RejectOtherRelayVersions"]).Condition.StringNotEqualsIfExists["secretsmanager:VersionId"])
+    )])
+    error_message = "Narrow request-version condition predicates require the pin and explicitly deny wrong/missing/stage-only values; this is not an AWS IAM simulation."
+  }
+}
+
+run "unbound_relay" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { binding_ready = false }) }
+  expect_failures = [var.relay]
+}
+
+run "null_relay_repository" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { image_repository = null }) }
+  expect_failures = [var.relay]
+}
+
+run "crossed_relay_roles" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { roles = { task_arn = jsondecode(file("tests/relay-binding.json")).roles.execution_arn, execution_arn = jsondecode(file("tests/relay-binding.json")).roles.task_arn } }) }
+  expect_failures = [var.relay]
+}
+
+run "legacy_execution_as_relay" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { roles = merge(jsondecode(file("tests/relay-binding.json")).roles, { execution_arn = var.identity.workloads.migration.execution_role_arn }) }) }
+  expect_failures = [var.relay]
+}
+
+run "assumed_session_as_task" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { roles = merge(jsondecode(file("tests/relay-binding.json")).roles, { task_arn = "arn:aws:sts::111122223333:assumed-role/saveit-pilot-staging-relay-task/session" }) }) }
+  expect_failures = [var.relay]
+}
+
+run "foreign_task_account" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { roles = merge(jsondecode(file("tests/relay-binding.json")).roles, { task_arn = "arn:aws:iam::999900001111:role/saveit-pilot-staging-relay-task" }) }) }
+  expect_failures = [var.relay]
+}
+
+run "foreign_configuration_region" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { arn = replace(jsondecode(file("tests/relay-binding.json")).configuration.arn, "us-east-1", "us-west-2") }) }) }
+  expect_failures = [var.relay]
+}
+
+run "legacy_configuration_as_relay" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { configuration = var.identity.configuration.api }) }
+  expect_failures = [var.relay]
+}
+
+run "selector_configuration" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { arn = "${jsondecode(file("tests/relay-binding.json")).configuration.arn}:CertificateBase64::${jsondecode(file("tests/relay-binding.json")).configuration.version_id}" }) }) }
+  expect_failures = [var.relay]
+}
+
+run "stage_relay_version" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { version_id = "AWSCURRENT" }) }) }
+  expect_failures = [var.relay]
+}
+
+run "uppercase_relay_version" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { version_id = "10000000-0000-0000-0000-00000000000A" }) }) }
+  expect_failures = [var.relay]
+}
+
+run "missing_relay_version" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { version_id = null }) }) }
+  expect_failures = [var.relay]
+}
+
+run "foreign_relay_repository" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { image_repository = merge(jsondecode(file("tests/relay-binding.json")).image_repository, { arn = var.identity.workloads.api.repository_arn }) }) }
+  expect_failures = [var.relay]
+}
+
+run "wrong_registry_url" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { image_repository = merge(jsondecode(file("tests/relay-binding.json")).image_repository, { url = replace(jsondecode(file("tests/relay-binding.json")).image_repository.url, "111122223333", "999900001111") }) }) }
+  expect_failures = [var.relay]
+}
+
+run "missing_relay_store_reader" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { image_repository = merge(jsondecode(file("tests/relay-binding.json")).image_repository, { pull_execution_roles = [var.identity.workloads.migration.execution_role_arn, var.identity.workloads.access.execution_role_arn] }) }) }
+  expect_failures = [var.relay]
+}
+
+run "duplicate_store_reader" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { image_repository = merge(jsondecode(file("tests/relay-binding.json")).image_repository, { pull_execution_roles = [var.identity.workloads.migration.execution_role_arn, var.identity.workloads.access.execution_role_arn, var.identity.workloads.access.execution_role_arn] }) }) }
+  expect_failures = [var.relay]
+}
+
+run "legacy_log_as_relay" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { operational_log = merge(jsondecode(file("tests/relay-binding.json")).operational_log, { arn = var.identity.workloads.migration.log_group_arn }) }) }
+  expect_failures = [var.relay]
+}
+
+run "task_as_log_execution" {
+  command = plan
+  variables { relay = merge(jsondecode(file("tests/relay-binding.json")), { operational_log = merge(jsondecode(file("tests/relay-binding.json")).operational_log, { execution_role_arn = jsondecode(file("tests/relay-binding.json")).roles.task_arn }) }) }
+  expect_failures = [var.relay]
+}
+
+run "foreign_relay_namespace" {
+  command = plan
+  variables { relay = jsondecode(replace(jsonencode(jsondecode(file("tests/relay-binding.json"))), "pilot", "other")) }
+  expect_failures = [var.relay]
+}
+
+run "foreign_relay_environment" {
+  command = plan
+  variables { relay = jsondecode(replace(jsonencode(jsondecode(file("tests/relay-binding.json"))), "staging", "production")) }
+  expect_failures = [var.relay]
+}
+
+run "null_after_bound_retains_legacy_filters" {
+  command = plan
+  variables { relay = null }
+
+  assert {
+    condition = jsonencode({ ecr = sha256(local.ecr_policy), logs = sha256(local.logs_policy), configuration = sha256(local.secrets_policy), s3 = sha256(local.s3_policy) }) == jsonencode({
+      ecr           = "462b7aada1cf6284c5208e62806febeca928ea1617337e5348a007cf85afeaa0"
+      logs          = "abc5c77e36a3baa132362f3583abe8e015c4435f93477a25838ff6772d6d4f36"
+      configuration = "6be05267c381bc0e6543e6ddc746e80ef724d5212dd03b53f77082e9a66ee4f0"
+      s3            = "0ce6c8d4624f3bb29f44262a9596e3acfd0c618b8758cbe637535b96de34c7aa"
+    }) && output.relay_admission == null
+    error_message = "Null retains all four exact policy bytes from committed8b92135 and no relay admission. This is a mock contract, not applied revocation."
+  }
+}

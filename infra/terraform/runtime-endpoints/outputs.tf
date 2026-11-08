@@ -8,3 +8,11 @@ output "runtime_network" {
     application_route_table_id = var.network.application_route_table_id
   }
 }
+
+output "relay_admission" {
+  description = "Validated endpoint-filter references only, or null. No relay network path, IAM grant/enforcement, workload attestation, secret population, immediate revocation or launch readiness."
+  value = var.relay == null ? null : {
+    roles          = var.relay.roles, configuration = var.relay.configuration
+    repository_arn = var.relay.image_repository.arn, log_group_arn = var.relay.operational_log.arn
+  }
+}

@@ -4,7 +4,9 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
-- [x] Account-free exact-version relay startup loader with bounded native transport, explicit ambient CSM suppression and synthetic Linux verification (ADR044; exact evidence/reviews in [progress](progress.md)). Distinct task/execution private endpoints, network/tasks/services and all managed launch/PKI/rotation/fencing gates remain separate work.
+- [x] Account-free optional relay endpoint policy admission with exact separate task/execution filters, original null-policy compatibility and actual staged producer-module mock contracts (ADR045; current verification in [progress](progress.md)). These are unapplied filters, with no relay packet path or IAM grant. Dedicated relay network/discovery/task/service bindings and all managed verification remain unfinished.
+
+- [x] Account-free exact-version relay startup loader with bounded native transport, explicit ambient CSM suppression and synthetic Linux verification (ADR044; exact evidence/reviews in [progress](progress.md)). Relay endpoint network paths, tasks/services and all managed launch/PKI/rotation/fencing gates remain separate work.
 
 - [x] Account-free separate relay IAM/configuration/log metadata and staged exact deployment-repository reader contract (ADR043; tests/reviews in [progress](progress.md)). This is unapplied metadata only. Private endpoint/task/network/service delivery, protected population/promotion, caller admission and managed IAM/KMS/PKI/rotation/fencing remain unfinished. Resolve direct Logs customer CallerAccount availability before any apply; retain the full enterprise inventory.
 

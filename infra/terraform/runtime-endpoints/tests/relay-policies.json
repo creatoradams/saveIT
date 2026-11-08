@@ -1,0 +1,739 @@
+{
+  "ecr": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "RejectInsecureTransport",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+          "BoolIfExists": {
+            "aws:SecureTransport": "false"
+          }
+        }
+      },
+      {
+        "Sid": "ExecutionIdentitiesOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEqualsIfExists": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+            ]
+          }
+        }
+      },
+      {
+        "Sid": "PullActionsOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "NotAction": [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "AuthenticateExecutions",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "ecr:GetAuthorizationToken",
+        "Resource": "*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+            ]
+          }
+        }
+      },
+      {
+        "Sid": "PullAccess",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherAccessRepositories",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "NotResource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+          }
+        }
+      },
+      {
+        "Sid": "PullApi",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/api",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherApiRepositories",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "NotResource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/api",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+          }
+        }
+      },
+      {
+        "Sid": "PullMigration",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherMigrationRepositories",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "NotResource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+          }
+        }
+      },
+      {
+        "Sid": "PullRelay",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherRelayRepositories",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "NotResource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+          }
+        }
+      },
+      {
+        "Sid": "PullWeb",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/web",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherWebRepositories",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "NotResource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/web",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution"
+          }
+        }
+      },
+      {
+        "Sid": "PullWorker",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/worker",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherWorkerRepositories",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        "NotResource": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/worker",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+          }
+        }
+      }
+    ]
+  },
+  "logs": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "RejectInsecureTransport",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+          "BoolIfExists": {
+            "aws:SecureTransport": "false"
+          }
+        }
+      },
+      {
+        "Sid": "ExecutionIdentitiesOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEqualsIfExists": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+            ]
+          }
+        }
+      },
+      {
+        "Sid": "WriteStreamsOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "NotAction": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "WriteAccessStreams",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/access:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherAccessStreams",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "NotResource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/access:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+          }
+        }
+      },
+      {
+        "Sid": "WriteApiStreams",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/api:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherApiStreams",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "NotResource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/api:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+          }
+        }
+      },
+      {
+        "Sid": "WriteMigrationStreams",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/migration:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherMigrationStreams",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "NotResource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/migration:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+          }
+        }
+      },
+      {
+        "Sid": "WriteRelayStreams",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherRelayStreams",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "NotResource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+          }
+        }
+      },
+      {
+        "Sid": "WriteWebStreams",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/web:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherWebStreams",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "NotResource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/web:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution"
+          }
+        }
+      },
+      {
+        "Sid": "WriteWorkerStreams",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/worker:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherWorkerStreams",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "NotResource": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/worker:log-stream:*",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+          }
+        }
+      }
+    ]
+  },
+  "configuration": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "RejectInsecureTransport",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+          "BoolIfExists": {
+            "aws:SecureTransport": "false"
+          }
+        }
+      },
+      {
+        "Sid": "ConfiguredReadersOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+          "ArnNotEqualsIfExists": {
+            "aws:PrincipalArn": [
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task",
+              "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+            ]
+          }
+        }
+      },
+      {
+        "Sid": "ReadValueOnly",
+        "Effect": "Deny",
+        "Principal": "*",
+        "NotAction": "secretsmanager:GetSecretValue",
+        "Resource": "*"
+      },
+      {
+        "Sid": "ReadAccessVersion",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/access/config-Abcd03",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+          },
+          "StringEquals": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000004"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherAccessConfigurations",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "NotResource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/access/config-Abcd03",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherAccessVersions",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/access/config-Abcd03",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution"
+          },
+          "StringNotEqualsIfExists": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000004"
+          }
+        }
+      },
+      {
+        "Sid": "ReadApiVersion",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+          },
+          "StringEquals": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000001"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherApiConfigurations",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "NotResource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherApiVersions",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution"
+          },
+          "StringNotEqualsIfExists": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000001"
+          }
+        }
+      },
+      {
+        "Sid": "ReadMigrationVersion",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/migration/config-Abcd02",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+          },
+          "StringEquals": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000003"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherMigrationConfigurations",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "NotResource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/migration/config-Abcd02",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherMigrationVersions",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/migration/config-Abcd02",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution"
+          },
+          "StringNotEqualsIfExists": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000003"
+          }
+        }
+      },
+      {
+        "Sid": "ReadRelayVersion",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task"
+          },
+          "StringEquals": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000009"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherRelayConfigurations",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "NotResource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherRelayVersions",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task"
+          },
+          "StringNotEqualsIfExists": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000009"
+          }
+        }
+      },
+      {
+        "Sid": "ReadWorkerVersion",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/worker/config-Abcd01",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+          },
+          "StringEquals": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000002"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherWorkerConfigurations",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "NotResource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/worker/config-Abcd01",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+          }
+        }
+      },
+      {
+        "Sid": "RejectOtherWorkerVersions",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/worker/config-Abcd01",
+        "Condition": {
+          "ArnEquals": {
+            "aws:PrincipalArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution"
+          },
+          "StringNotEqualsIfExists": {
+            "secretsmanager:VersionId": "10000000-0000-0000-0000-000000000002"
+          }
+        }
+      }
+    ]
+  }
+}

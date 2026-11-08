@@ -3,6 +3,10 @@ account_id = "111122223333"
 region = "us-east-1"
 cell = "pilot"
 environment = "staging"
+# Default keeps all legacy endpoint filters and packet paths unchanged.
+# Optional relay is metadata from the staged relay-identity outputs only;
+# tests/relay-binding.json illustrates its shape. No private value or selector.
+relay = null
 network = {
 "vpc_id" = "vpc-00000000000000001"
 "application_subnet_ids" = ["subnet-00000000000000001", "subnet-00000000000000002"]

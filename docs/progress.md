@@ -33,13 +33,17 @@ The prior cleanup consolidated browser request ownership/navigation, forwarded C
 
 Current status now lives here; [historical delivery evidence](progress-history.md) preserves the previous progress file verbatim. Keep future release evidence concise and record a verified source once. Architecture, readiness and completion documents link here rather than copying checkpoints.
 
-## Current delivery: relay startup loader
+## Latest runtime delivery: relay startup loader
 
 [ADR044](adr/044-pinned-relay-startup-loader.md) implements one in-process exact-ARN/UUID Secrets Manager read using literal ECS task metadata and the pinned SDK signer. It validates role/expiry, raw envelopes and the original64KiB payload, reuses existing certificate checks, disables alternate sources/proxies/retries/ambient telemetry and emits fixed failures.77 focused/230 affected .NET tests pass locally; native Linux/full CI/source/final-image evidence is recorded above. Docker is unavailable locally, so native execution was verified in CI. The two requested agent reviews found legacy CSM telemetry and test-runner lifecycle issues; remedies and limitations are in the [review](reviews/2026-11-08-relay-startup-review.md). No schema, tenant authority, API contract, Terraform resource or separate service was added.
 
+## Current delivery: relay endpoint policy admission
+
+[ADR045](adr/045-relay-endpoint-policy-admission.md) adds optional validated endpoint filters: relay execution may pull its exact deployment image/write its own log streams; relay task may read only its whole-secret ARN/UUID. Null retains the original policy bytes and existing resources/network output. All 307 local mocked plans pass, including 70 endpoint plans; loader regressions, TypeScript/build and ignore checks pass. Both requested source reviews closed without actionable findings; scope and limits are in the [review](reviews/2026-11-08-relay-endpoint-review.md). Full Linux/source/package/final-image checks are pending, so the exact verified source above remains authoritative. No relay packet path, IAM grant, apply or cloud request was added.
+
 ## Next steps
 
-1. Implement distinct private endpoint admissions for the relay task's Secrets Manager calls and execution role's ECR/Logs calls.
+1. Verify the new optional relay endpoint filters in Linux CI, then implement the dedicated relay network group and private discovery/transport bindings.
 2. Complete referenced network/task/service bindings, ingress/restricted egress, protected population, signing/promotion, scheduling/PassRole and health/drain/fencing operations.
 3. Add redacted telemetry/alerts, API/tenant quotas, operational audit archive/retention and recovery runbooks.
 4. Use authorized staging accounts to verify actual IAM/KMS/PKI/RDS/Okta, multi-instance keys, recovery and capacity; remediate findings and obtain independent assessment before an approved pilot.

@@ -590,3 +590,140 @@ run "actual_network_shared_web_api_group_fails" {
   }
   expect_failures = [var.network]
 }
+
+# Actual local modules, provider-mocked at plan time. No IAM or packet-path evidence.
+run "actual_relay_bootstrap_before_endpoint_admission" {
+  command = plan
+  module { source = "../relay-identity" }
+  variables {
+
+    key_administrators       = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    secret_custodians        = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+    configuration_version_id = "10000000-0000-0000-0000-000000000009"
+
+  }
+
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.configuration
+    values          = { arn = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000001", key_id = "30000000-0000-0000-0000-000000000001" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.logs
+    values          = { arn = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002", key_id = "30000000-0000-0000-0000-000000000002" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_secretsmanager_secret.configuration
+    values          = { arn = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.task
+    values          = { arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task", id = "saveit-pilot-staging-relay-task" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution
+    values          = { arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution", id = "saveit-pilot-staging-relay-execution" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_cloudwatch_log_group.relay
+    values          = { arn = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay" }
+  }
+
+  assert {
+    condition     = !output.binding_ready && output.image_repository == null && length(aws_iam_role_policy.task) == 0 && length(aws_iam_role_policy.execution) == 0
+    error_message = "The actual relay root's bootstrap metadata has no usable task/execution grants."
+  }
+}
+run "actual_bootstrap_output_cannot_admit_endpoint_calls" {
+  command = plan
+  variables {
+    relay = { roles = run.actual_relay_bootstrap_before_endpoint_admission.roles, configuration = run.actual_relay_bootstrap_before_endpoint_admission.configuration, operational_log = run.actual_relay_bootstrap_before_endpoint_admission.operational_log, image_repository = run.actual_relay_bootstrap_before_endpoint_admission.image_repository, binding_ready = run.actual_relay_bootstrap_before_endpoint_admission.binding_ready }
+  }
+  expect_failures = [var.relay]
+}
+run "actual_store_prepares_relay_endpoint_repository" {
+  command = plan
+  module { source = "../artifact-stores" }
+  variables {
+    key_administrators       = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    publisher_role           = "arn:aws:iam::111122223333:role/SaveITProtectedPublisher"
+    relay_execution_role_arn = run.actual_relay_bootstrap_before_endpoint_admission.roles.execution_arn
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_ecr_repository.images["deployment"]
+    values          = { arn = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment", repository_url = "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment", registry_id = "111122223333" }
+  }
+  assert {
+    condition     = length(output.repositories.deployment.pull_execution_roles) == 3 && contains(output.repositories.deployment.pull_execution_roles, run.actual_relay_bootstrap_before_endpoint_admission.roles.execution_arn)
+    error_message = "Actual store metadata must explicitly include the isolated relay execution reader."
+  }
+}
+run "actual_bound_relay_output_for_endpoint_filters" {
+  command = plan
+  module { source = "../relay-identity" }
+  variables {
+
+    key_administrators       = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    secret_custodians        = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+    configuration_version_id = "10000000-0000-0000-0000-000000000009"
+
+    image_repository = run.actual_store_prepares_relay_endpoint_repository.repositories.deployment
+  }
+
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.configuration
+    values          = { arn = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000001", key_id = "30000000-0000-0000-0000-000000000001" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.logs
+    values          = { arn = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002", key_id = "30000000-0000-0000-0000-000000000002" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_secretsmanager_secret.configuration
+    values          = { arn = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.task
+    values          = { arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task", id = "saveit-pilot-staging-relay-task" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution
+    values          = { arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution", id = "saveit-pilot-staging-relay-execution" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_cloudwatch_log_group.relay
+    values          = { arn = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay" }
+  }
+
+  assert {
+    condition     = output.binding_ready && length(aws_iam_role_policy.task) == 1 && length(aws_iam_role_policy.execution) == 1
+    error_message = "Actual relay output must consume the staged store binding before being admitted by endpoints."
+  }
+}
+run "endpoints_consume_actual_bound_relay_outputs" {
+  command = plan
+  variables {
+    relay = { roles = run.actual_bound_relay_output_for_endpoint_filters.roles, configuration = run.actual_bound_relay_output_for_endpoint_filters.configuration, operational_log = run.actual_bound_relay_output_for_endpoint_filters.operational_log, image_repository = run.actual_bound_relay_output_for_endpoint_filters.image_repository, binding_ready = run.actual_bound_relay_output_for_endpoint_filters.binding_ready }
+  }
+  assert {
+    condition = (output.relay_admission.roles.task_arn == run.actual_bound_relay_output_for_endpoint_filters.roles.task_arn &&
+      output.relay_admission.roles.execution_arn == run.actual_bound_relay_output_for_endpoint_filters.roles.execution_arn &&
+      output.relay_admission.configuration.arn == run.actual_bound_relay_output_for_endpoint_filters.configuration.arn &&
+      one([for s in jsondecode(aws_vpc_endpoint.interface["configuration"].policy).Statement : s if s.Sid == "ReadRelayVersion"]).Condition.ArnEquals["aws:PrincipalArn"] == output.relay_admission.roles.task_arn &&
+      one([for s in jsondecode(aws_vpc_endpoint.interface["ecr-api"].policy).Statement : s if s.Sid == "PullRelay"]).Resource == run.actual_store_prepares_relay_endpoint_repository.repositories.deployment.arn &&
+    jsonencode(output.runtime_network.client_security_groups) == jsonencode(merge(var.network.client_security_groups, { web = "sg-00000000000000005" })))
+    error_message = "Consume actual mocked producer outputs without altering the existing four-group discovery contract; this is not real IAM/network verification."
+  }
+}
