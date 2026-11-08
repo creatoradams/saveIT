@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SaveIT.Api.Data;
 using SaveIT.Api.Security;
 using SaveIT.Api.Assets;
+using SaveIT.Api.Core;
 
 namespace SaveIT.Api;
 
@@ -34,7 +35,7 @@ public static class Endpoints
             asset.AssetTypeId = input.AssetTypeId; asset.AssetTypeVersion = input.AssetTypeVersion; asset.FieldsJson = fields.GetRawText();
             db.Assets.Add(asset);
             await AssetHistoryEndpoints.SnapshotAsync(db, s, asset, c.RequestAborted);
-            Record(db, s, c, organizationId, asset.Id, "Asset.Created");
+            ChangeLog.Add(db, s, c, organizationId, asset.Id, "Asset.Created");
             await db.SaveChangesAsync();
             return Results.Created($"/api/v1/organizations/{organizationId}/assets/{asset.Id}", AssetHistoryEndpoints.Dto(asset));
         }).Produces<AssetDto>(201);
@@ -64,7 +65,7 @@ public static class Endpoints
             var doc = new Document { Id = Guid.NewGuid(), TenantId = s.TenantId, OrganizationId = organizationId, AssetId = input.AssetId, Title = input.Title.Trim(), Content = input.Content, UpdatedAt = DateTimeOffset.UtcNow };
             db.Documents.Add(doc);
             AddRevision(db, s, doc);
-            Record(db, s, c, organizationId, doc.Id, "Document.Created");
+            ChangeLog.Add(db, s, c, organizationId, doc.Id, "Document.Created");
             await db.SaveChangesAsync();
             return Results.Created($"/api/v1/organizations/{organizationId}/documents/{doc.Id}", Dto(doc));
         }).Produces<DocumentDto>(201);
@@ -74,7 +75,7 @@ public static class Endpoints
             if (await Permissions.RoleAsync(db, s, organizationId) is null) return Permissions.Hidden();
             var doc = await db.Documents.SingleOrDefaultAsync(x => x.Id == documentId && x.OrganizationId == organizationId);
             if (doc is null) return Permissions.Hidden();
-            Record(db, s, c, organizationId, doc.Id, "Document.Read", false);
+            ChangeLog.Add(db, s, c, organizationId, doc.Id, "Document.Read", false);
             await db.SaveChangesAsync();
             return Results.Ok(Dto(doc));
         }).Produces<DocumentDto>();
@@ -90,7 +91,7 @@ public static class Endpoints
             if (doc.Version != input.ExpectedVersion) return Results.Problem(statusCode: 409, title: "This record changed. Reload it before saving again.");
             doc.Title = input.Title.Trim(); doc.Content = input.Content; doc.Version++; doc.UpdatedAt = DateTimeOffset.UtcNow;
             AddRevision(db, s, doc);
-            Record(db, s, c, organizationId, doc.Id, "Document.Revised");
+            ChangeLog.Add(db, s, c, organizationId, doc.Id, "Document.Revised");
             await db.SaveChangesAsync();
             return Results.Ok(Dto(doc));
         }).Produces<DocumentDto>().ProducesProblem(409);
@@ -100,7 +101,7 @@ public static class Endpoints
             if (await Permissions.RoleAsync(db, s, organizationId) is null || !await db.Documents.AnyAsync(x => x.Id == documentId && x.OrganizationId == organizationId)) return Permissions.Hidden();
             var revisions = await db.DocumentRevisions.Where(x => x.DocumentId == documentId && x.OrganizationId == organizationId && (before == null || x.Version < before))
                 .OrderByDescending(x => x.Version).Take(PageSize + 1).Select(x => new RevisionDto(x.Version, x.Title, x.Content, x.Actor, x.CreatedAt, x.RestoredFromVersion, x.RestoreReason)).ToListAsync();
-            Record(db, s, c, organizationId, documentId, "Document.RevisionsRead", false);
+            ChangeLog.Add(db, s, c, organizationId, documentId, "Document.RevisionsRead", false);
             await db.SaveChangesAsync();
             return Results.Ok(new CursorPage<RevisionDto>(revisions.Take(PageSize).ToList(), revisions.Count > PageSize ? revisions[PageSize - 1].Version.ToString() : null));
         }).Produces<CursorPage<RevisionDto>>();
@@ -123,10 +124,4 @@ public static class Endpoints
         TenantId = s.TenantId, OrganizationId = d.OrganizationId, DocumentId = d.Id, Version = d.Version,
         Title = d.Title, Content = d.Content, Actor = s.Subject, CreatedAt = d.UpdatedAt
     });
-    private static void Record(SaveItDb db, TenantScope s, HttpContext c, Guid org, Guid target, string action, bool publish = true)
-    {
-        var now = DateTimeOffset.UtcNow;
-        db.AuditEvents.Add(new() { TenantId = s.TenantId, OrganizationId = org, Actor = s.Subject, TargetId = target, Action = action, CreatedAt = now, CorrelationId = c.TraceIdentifier });
-        if (publish) db.OutboxEvents.Add(new() { Id = Guid.NewGuid(), TenantId = s.TenantId, OrganizationId = org, TargetId = target, Type = action, CreatedAt = now });
-    }
 }

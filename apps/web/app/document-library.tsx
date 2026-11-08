@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useOwnedRequest } from "../lib/use-owned-request";
 import {
   api,
   ApiError,
@@ -45,45 +46,6 @@ async function folderPage(
 }
 function merge<T extends { id: string }>(old: T[], added: T[]) {
   return [...new Map([...old, ...added].map((x) => [x.id, x])).values()];
-}
-
-// A component releases only its own workspace busy reservation, including on unmount.
-function useOwnedRequest(onBusyChange: (value: boolean) => void) {
-  const owned = useRef<AbortController | null>(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(
-    () => () => {
-      const current = owned.current;
-      if (current) {
-        owned.current = null;
-        current.abort();
-        onBusyChange(false);
-      }
-    },
-    [onBusyChange],
-  );
-  async function run(
-    action: (signal: AbortSignal) => Promise<void>,
-    fail: (e: unknown) => void,
-  ) {
-    if (owned.current) return;
-    const controller = new AbortController();
-    owned.current = controller;
-    setBusy(true);
-    onBusyChange(true);
-    try {
-      await action(controller.signal);
-    } catch (e) {
-      if (!controller.signal.aborted && owned.current === controller) fail(e);
-    } finally {
-      if (!controller.signal.aborted && owned.current === controller) {
-        owned.current = null;
-        setBusy(false);
-        onBusyChange(false);
-      }
-    }
-  }
-  return { busy, run };
 }
 
 function Breadcrumbs({

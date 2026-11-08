@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import SearchPanel from "./search-panel";
+import WorkspaceNavigation, {
+  workspaceViews,
+  type WorkspaceView,
+} from "./workspace-navigation";
 import RevisionRecovery from "./revision-recovery";
 import AssetRelationships from "./asset-relationships";
 import DirectoryPanel from "./directory-panel";
@@ -63,17 +67,8 @@ export default function Workspace() {
   } | null>(null);
   const [events, setEvents] = useState<Audit[]>([]);
   const [auditCursor, setAuditCursor] = useState<string | null>(null);
-  const [view, setView] = useState<
-    | "workspace"
-    | "audit"
-    | "search"
-    | "directory"
-    | "organizations"
-    | "organization-history"
-    | "library"
-    | "document-templates"
-    | "templates"
-  >("workspace");
+  const [view, setView] = useState<WorkspaceView>("workspace");
+  const viewDetails = workspaceViews[view];
   const searchSelection = useRef<Pick<
     SearchHit,
     "id" | "type" | "organizationId" | "assetId"
@@ -596,79 +591,12 @@ export default function Workspace() {
           </div>
         </div>
         <span className="nav-label">WORKSPACE</span>
-        <nav aria-label="Workspace">
-          <button
-            className={view === "workspace" ? "nav-item active" : "nav-item"}
-            disabled={busy}
-            onClick={() => setView("workspace")}
-          >
-            <span aria-hidden="true">▦</span> Assets & docs
-          </button>
-          <button
-            className={view === "search" ? "nav-item active" : "nav-item"}
-            disabled={busy}
-            onClick={() => setView("search")}
-          >
-            <span aria-hidden="true">⌕</span> Search
-          </button>
-          <button
-            className={view === "audit" ? "nav-item active" : "nav-item"}
-            disabled={busy}
-            onClick={() => setView("audit")}
-          >
-            <span aria-hidden="true">◷</span> Audit history
-          </button>
-          <button
-            className={view === "directory" ? "nav-item active" : "nav-item"}
-            disabled={busy}
-            onClick={() => setView("directory")}
-          >
-            Locations & contacts
-          </button>
-          <button
-            className={view === "templates" ? "nav-item active" : "nav-item"}
-            disabled={busy}
-            onClick={() => setView("templates")}
-          >
-            <span aria-hidden="true">▦</span> Asset templates
-          </button>
-          <button
-            className={
-              view === "organization-history" ? "nav-item active" : "nav-item"
-            }
-            disabled={busy}
-            onClick={() => setView("organization-history")}
-          >
-            Organization history
-          </button>
-          <button
-            className={view === "library" ? "nav-item active" : "nav-item"}
-            disabled={busy}
-            onClick={() => setView("library")}
-          >
-            Document library
-          </button>
-          <button
-            className={
-              view === "document-templates" ? "nav-item active" : "nav-item"
-            }
-            disabled={busy}
-            onClick={() => setView("document-templates")}
-          >
-            Document templates
-          </button>
-          {session.canManageOrganizations && (
-            <button
-              className={
-                view === "organizations" ? "nav-item active" : "nav-item"
-              }
-              disabled={busy}
-              onClick={() => setView("organizations")}
-            >
-              Manage organizations
-            </button>
-          )}
-        </nav>
+        <WorkspaceNavigation
+          view={view}
+          disabled={busy}
+          canManageOrganizations={session.canManageOrganizations}
+          onChoose={setView}
+        />
         <span className="nav-label roadmap-label">ON THE ROADMAP</span>
         <div className="planned">
           <span>◇</span> Credential vault <small>Planned</small>
@@ -697,26 +625,7 @@ export default function Workspace() {
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumb">
-            Workspace <span>/</span>{" "}
-            <strong>
-              {view === "workspace"
-                ? "Assets & documentation"
-                : view === "search"
-                  ? "Search"
-                  : view === "directory"
-                    ? "Locations & contacts"
-                    : view === "organizations"
-                      ? "Manage organizations"
-                      : view === "document-templates"
-                        ? "Document templates"
-                        : view === "library"
-                          ? "Document library"
-                          : view === "organization-history"
-                            ? "Organization history"
-                            : view === "templates"
-                              ? "Asset templates"
-                              : "Audit history"}
-            </strong>
+            Workspace <span>/</span> <strong>{viewDetails.breadcrumb}</strong>
           </div>
           <span className="development">
             <span className="dot" />{" "}
@@ -731,44 +640,8 @@ export default function Workspace() {
               <span className="eyebrow">
                 A LITTLE CONTEXT. A LOT OF CLARITY.
               </span>
-              <h1>
-                {view === "workspace"
-                  ? "Everything has a home."
-                  : view === "search"
-                    ? "Find the detail that matters."
-                    : view === "directory"
-                      ? "People and places, connected."
-                      : view === "organizations"
-                        ? "Make room for what comes next."
-                        : view === "document-templates"
-                          ? "A thoughtful start for every procedure."
-                          : view === "library"
-                            ? "A place for every document."
-                            : view === "organization-history"
-                              ? "A name for every chapter."
-                              : view === "templates"
-                                ? "A consistent starting point."
-                                : "Every change leaves a trail."}
-              </h1>
-              <p>
-                {view === "workspace"
-                  ? "Keep your infrastructure and its know-how connected."
-                  : view === "search"
-                    ? "Search your assets and documentation across the organizations you can access."
-                    : view === "directory"
-                      ? "Keep location and contact records inside their organization."
-                      : view === "organizations"
-                        ? "Create and name the organizations your team documents."
-                        : view === "document-templates"
-                          ? "Publish reusable text and review each document before creating it."
-                          : view === "library"
-                            ? "Organize documentation while keeping its history and connections."
-                            : view === "organization-history"
-                              ? "Inspect the saved names of the organization you can access."
-                              : view === "templates"
-                                ? "Define the fields that matter, then keep their history intact."
-                                : "Follow the people and changes behind your documentation."}
-              </p>
+              <h1>{viewDetails.heading}</h1>
+              <p>{viewDetails.description}</p>
             </div>
           </div>
           <div className="context-bar">

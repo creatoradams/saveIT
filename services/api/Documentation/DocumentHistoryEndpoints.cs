@@ -15,8 +15,10 @@ public static class DocumentHistoryEndpoints
             int? offset, SaveItDb db, TenantScope scope, HttpContext context) =>
         {
             if (await Permissions.RoleAsync(db, scope, organizationId) is null) return Results.NotFound();
-            var doc = await db.Documents.AsNoTracking().SingleOrDefaultAsync(x => x.Id == documentId && x.OrganizationId == organizationId);
-            if (doc is null) return Results.NotFound();
+            var currentVersion = await db.Documents.AsNoTracking()
+                .Where(x => x.Id == documentId && x.OrganizationId == organizationId)
+                .Select(x => (int?)x.Version).SingleOrDefaultAsync(context.RequestAborted);
+            if (currentVersion is null) return Results.NotFound();
             if (fromVersion < 1 || toVersion < 1 || offset is < 0) return Invalid("Choose valid revision numbers and comparison offset.");
             var snapshots = await db.DocumentRevisions.AsNoTracking().Where(x => x.DocumentId == documentId
                 && x.OrganizationId == organizationId && (x.Version == fromVersion || x.Version == toVersion)).ToListAsync();
@@ -28,7 +30,7 @@ public static class DocumentHistoryEndpoints
             var next = start + PageSize < diff.Lines.Count ? start + PageSize : (int?)null;
             AddAudit(db, scope, context, organizationId, documentId, "Document.Compared", fromVersion, toVersion);
             await db.SaveChangesAsync(context.RequestAborted);
-            return Results.Ok(new DocumentComparisonDto(documentId, Summary(from), Summary(to), doc.Version,
+            return Results.Ok(new DocumentComparisonDto(documentId, Summary(from), Summary(to), currentVersion.Value,
                 from.Title != to.Title, from.Content != to.Content, from.Content != to.Content && LineComparison.Normalize(from.Content) == LineComparison.Normalize(to.Content),
                 diff.Simplified, diff.Added, diff.Removed, diff.Lines.Count, start, diff.Lines.Skip(start).Take(PageSize).ToList(), next));
         }).Produces<DocumentComparisonDto>().ProducesProblem(400);

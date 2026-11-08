@@ -60,6 +60,7 @@ export async function api<T>(
     const response = await fetch("/api/v1/csrf", {
       credentials: "same-origin",
       cache: "no-store",
+      signal: options.signal,
     });
     if (!response.ok)
       throw new ApiError(

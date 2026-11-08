@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useOwnedRequest } from "../lib/use-owned-request";
 import DocumentTemplateComparisonPanel from "./document-template-comparison";
 import {
   api,
@@ -21,43 +22,6 @@ const denied = (e: unknown) =>
 const merge = <T extends { id: string }>(a: T[], b: T[]) => [
   ...new Map([...a, ...b].map((x) => [x.id, x])).values(),
 ];
-
-function useOwnedRequest(onBusyChange: (value: boolean) => void) {
-  const owned = useRef<AbortController | null>(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(
-    () => () => {
-      if (owned.current) {
-        owned.current.abort();
-        owned.current = null;
-        onBusyChange(false);
-      }
-    },
-    [onBusyChange],
-  );
-  async function run(
-    action: (signal: AbortSignal) => Promise<void>,
-    fail: (e: unknown) => void,
-  ) {
-    if (owned.current) return;
-    const c = new AbortController();
-    owned.current = c;
-    setBusy(true);
-    onBusyChange(true);
-    try {
-      await action(c.signal);
-    } catch (e) {
-      if (!c.signal.aborted && owned.current === c) fail(e);
-    } finally {
-      if (!c.signal.aborted && owned.current === c) {
-        owned.current = null;
-        setBusy(false);
-        onBusyChange(false);
-      }
-    }
-  }
-  return { busy, run };
-}
 
 export default function DocumentTemplates({
   organizationId,

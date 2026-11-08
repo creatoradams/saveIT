@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SaveIT.Api.Data;
+using SaveIT.Api.Core;
 using SaveIT.Api.Security;
 
 namespace SaveIT.Api.Assets;
@@ -29,7 +30,7 @@ public static class AssetRelationshipEndpoints
                     new AssetDto(source.Id, source.OrganizationId, source.Name, source.Kind, source.CreatedAt, source.Version, source.LocationId, source.AssetTypeId, source.AssetTypeVersion),
                     new AssetDto(target.Id, target.OrganizationId, target.Name, target.Kind, target.CreatedAt, target.Version, target.LocationId, target.AssetTypeId, target.AssetTypeVersion),
                     edge.Kind, edge.Version, edge.CreatedBy, edge.CreatedAt)).Take(PageSize + 1).ToListAsync(context.RequestAborted);
-            Record(db, scope, context, organizationId, assetId, "Asset.RelationshipsRead", false);
+            ChangeLog.Add(db, scope, context, organizationId, assetId, "Asset.RelationshipsRead", false);
             await db.SaveChangesAsync(context.RequestAborted);
             return Results.Ok(new CursorPage<AssetRelationshipDto>(rows.Take(PageSize).ToList(),
                 rows.Count > PageSize ? rows[PageSize - 1].Id.ToString() : null));
@@ -51,7 +52,7 @@ public static class AssetRelationshipEndpoints
             var edge = new AssetRelationship { Id = Guid.NewGuid(), TenantId = scope.TenantId, OrganizationId = organizationId,
                 SourceAssetId = assetId, TargetAssetId = input.TargetAssetId, Kind = input.Kind, CreatedBy = scope.Subject, CreatedAt = DateTimeOffset.UtcNow };
             db.AssetRelationships.Add(edge);
-            Record(db, scope, context, organizationId, edge.Id, "AssetRelationship.Created");
+            ChangeLog.Add(db, scope, context, organizationId, edge.Id, "AssetRelationship.Created");
             await db.SaveChangesAsync(context.RequestAborted);
             var source = endpoints.Single(x => x.Id == assetId); var target = endpoints.Single(x => x.Id == input.TargetAssetId);
             return Results.Json(new AssetRelationshipDto(edge.Id, organizationId, source, target, edge.Kind, edge.Version, edge.CreatedBy, edge.CreatedAt), statusCode: 201);
@@ -72,7 +73,7 @@ public static class AssetRelationshipEndpoints
             if (await db.Assets.CountAsync(x => x.OrganizationId == organizationId &&
                 (x.Id == edge.SourceAssetId || x.Id == edge.TargetAssetId), context.RequestAborted) != 2) return Results.NotFound();
             edge.Version++; edge.RemovedAt = DateTimeOffset.UtcNow; edge.RemovedBy = scope.Subject;
-            Record(db, scope, context, organizationId, edge.Id, "AssetRelationship.Removed");
+            ChangeLog.Add(db, scope, context, organizationId, edge.Id, "AssetRelationship.Removed");
             await db.SaveChangesAsync(context.RequestAborted);
             return Results.NoContent();
         }).Produces(204).ProducesProblem(400).ProducesProblem(409);
@@ -80,12 +81,4 @@ public static class AssetRelationshipEndpoints
 
     private static IResult Invalid(string message) => Results.Problem(statusCode: 400, title: message);
     private static IResult Conflict() => Results.Problem(statusCode: 409, title: "This relationship already exists or changed. Reload relationships before trying again.");
-    private static void Record(SaveItDb db, TenantScope scope, HttpContext context, Guid org, Guid target, string action, bool publish = true)
-    {
-        var now = DateTimeOffset.UtcNow;
-        db.AuditEvents.Add(new() { TenantId = scope.TenantId, OrganizationId = org, TargetId = target,
-            Actor = scope.Subject, Action = action, CreatedAt = now, CorrelationId = context.TraceIdentifier });
-        if (publish) db.OutboxEvents.Add(new() { Id = Guid.NewGuid(), TenantId = scope.TenantId, OrganizationId = org,
-            TargetId = target, Type = action, SchemaVersion = 1, CreatedAt = now });
-    }
 }
