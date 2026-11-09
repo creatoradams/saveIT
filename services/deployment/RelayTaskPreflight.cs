@@ -20,7 +20,9 @@ public static class RelayTaskPreflight
             {
                 RejectDuplicates(root);
                 var envelope = Object(root, "expected", "observed");
-                var expected = Object(envelope["expected"], "accountId", "region", "cell", "environment", "taskDefinitionArn", "image", "configurationArn", "configurationVersionId");
+                var bound = envelope["expected"].TryGetProperty("workloadAdmission", out var workload);
+                var fields = new[] { "accountId", "region", "cell", "environment", "taskDefinitionArn", "image", "configurationArn", "configurationVersionId" };
+                var expected = Object(envelope["expected"], bound ? [.. fields, "workloadAdmission"] : fields);
                 string Text(string name) => expected[name].GetString() ?? throw new InvalidOperationException();
                 var account = Text("accountId"); var region = Text("region"); var cell = Text("cell"); var environment = Text("environment");
                 Match(account, "[0-9]{12}"); Match(region, "[a-z]{2}-[a-z]+-[1-9]"); Match(cell, "[a-z][a-z0-9]{1,11}");
@@ -36,6 +38,18 @@ public static class RelayTaskPreflight
                 Match(configuration, Regex.Escape($"arn:aws:secretsmanager:{region}:{account}:secret:{scope}/relay/config-") + "[A-Za-z0-9]{6}");
                 var version = Text("configurationVersionId");
                 Match(version, "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}");
+                var environmentValues = new Dictionary<string, string> { ["ASPNETCORE_ENVIRONMENT"] = "Production", ["DOTNET_ENVIRONMENT"] = "Production", ["DOTNET_EnableDiagnostics"] = "0", ["TMPDIR"] = "/var/saveit/runtime" };
+                if (bound)
+                {
+                    var admission = Object(workload, "poolId", "issuer", "provider", "jwksSha256");
+                    string Value(string field) => admission[field].GetString() ?? throw new InvalidOperationException();
+                    var pool = Value("poolId"); var issuer = Value("issuer"); var provider = Value("provider"); var hash = Value("jwksSha256");
+                    Match(pool, Regex.Escape(region + ":") + "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}");
+                    Match(hash, "[a-f0-9]{64}");
+                    if (provider != $"saveit.{cell}.{environment}.web" || issuer != "https://cognito-identity.amazonaws.com" && issuer != $"https://cognito-identity.{region}.amazonaws.com") throw new InvalidOperationException();
+                    environmentValues["SAVEIT_WORKLOAD_POOL_ID"] = pool; environmentValues["SAVEIT_WORKLOAD_ISSUER"] = issuer;
+                    environmentValues["SAVEIT_WORKLOAD_PROVIDER"] = provider; environmentValues["SAVEIT_WORKLOAD_JWKS_SHA256"] = hash;
+                }
                 var observed = envelope["observed"];
                 if (observed.ValueKind != JsonValueKind.Object || observed.EnumerateObject().Any(x => x.Name is not ("taskDefinition" or "tags"))) throw new InvalidOperationException();
                 // Tags and these service-computed fields never establish authority.
@@ -73,7 +87,7 @@ public static class RelayTaskPreflight
                         linuxParameters = new { capabilities = new { drop = new[] { "ALL" } } },
                         entryPoint = new[] { "dotnet", "SaveIT.Deployment.dll" },
                         command = new[] { "serve-api-relay-secrets", $"https://api.{cell}.{environment}.saveit.internal:8443", $"https://relay.{cell}.{environment}.saveit.internal:8443", configuration, version },
-                        environment = new Dictionary<string, string> { ["ASPNETCORE_ENVIRONMENT"] = "Production", ["DOTNET_ENVIRONMENT"] = "Production", ["DOTNET_EnableDiagnostics"] = "0", ["TMPDIR"] = "/var/saveit/runtime" },
+                        environment = environmentValues,
                         secrets = Array.Empty<object>(),
                         mountPoints = new[] { new { sourceVolume = "runtime", containerPath = "/var/saveit/runtime", readOnly = false } },
                         portMappings = new[] { new { containerPort = 8443, hostPort = 8443, protocol = "tcp" } },

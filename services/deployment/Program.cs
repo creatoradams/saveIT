@@ -29,7 +29,7 @@ if (args.FirstOrDefault() == "serve-api-relay-secrets")
     {
         if (!OperatingSystem.IsLinux() || args is not ["serve-api-relay-secrets", var api, var relay, var arn, var version]) throw new InvalidOperationException();
         using var configuration = await RelaySecretLoader.ReadAsync(api, relay, arn, version);
-        await using var app = ApiRelay.Build(configuration);
+        await using var app = ApiRelay.Build(configuration, RelayWorkloadAdmission.FromEnvironment());
         await app.StartAsync(); Console.WriteLine(ApiRelayConfiguration.Started);
         await app.WaitForShutdownAsync(); return 0;
     }
@@ -42,7 +42,7 @@ if (args.FirstOrDefault() == "serve-api-relay")
         if (!OperatingSystem.IsLinux() || args is not ["serve-api-relay", var api, var relay] || !Console.IsInputRedirected) throw new InvalidOperationException();
         using var input = Console.OpenStandardInput();
         using var configuration = await ApiRelayConfiguration.ReadAsync(api, relay, input);
-        await using var app = ApiRelay.Build(configuration);
+        await using var app = ApiRelay.Build(configuration, RelayWorkloadAdmission.FromEnvironment());
         await app.StartAsync(); Console.WriteLine(ApiRelayConfiguration.Started);
         await app.WaitForShutdownAsync(); return 0;
     }

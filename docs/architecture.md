@@ -6,6 +6,8 @@ The API owns live tenant/organization authority and atomic core/history/audit/ou
 
 [ADR049](adr/049-offline-relay-task-preflight.md) adds a read-only bounded check of supplied relay task metadata against canonical expected image/configuration/revision references and the exact isolated runtime contract. It authenticates neither input nor launch authority and does not inspect RunTask overrides. All services remain fixed at zero; protected launch/change/drain/fencing is unfinished.
 
+[ADR050](adr/050-web-workload-admission.md) adds optional keyless web workload tokens and strict relay JWT admission while preserving both verified TLS hops. Its dedicated Cognito identity pool is separate from customer Okta identity. Null remains legacy bootstrap; protected launch must require a binding. The [section register](configuration-compute.md) retains unfinished launch, drain/fencing and network work; see progress for executed verification.
+
 [ADRs031–049](adr/031-workload-identities-and-configuration-references.md) record the incremental identity/storage/task/network/trust/transport decisions; each ADR remains linked from its implementation and historical evidence. Prior status checkpoints are in [delivery history](progress-history.md), rather than repeated here.
 
 ## Repository inspection and choices

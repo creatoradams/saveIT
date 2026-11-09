@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiOrigin, publicOrigin, issuerOrigin } from "./lib/deployment";
+import { workloadToken } from "./lib/workload.server";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   try {
     const origin = publicOrigin();
     if (
@@ -32,6 +33,9 @@ export function proxy(request: NextRequest) {
       target.pathname = request.nextUrl.pathname;
       target.search = request.nextUrl.search;
       const headers = new Headers(request.headers);
+      headers.delete("x-saveit-workload");
+      const token = await workloadToken(request.signal);
+      if (token) headers.set("x-saveit-workload", token);
       headers.delete("x-forwarded-for");
       headers.set(
         "x-forwarded-proto",

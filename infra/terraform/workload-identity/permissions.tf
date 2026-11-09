@@ -6,7 +6,7 @@ locals {
     Sid       = "ExactProtectedRing", Effect = "Allow", Action = local.ring_actions, Resource = local.filesystem,
     Condition = { Bool = { "aws:SecureTransport" = "true", "elasticfilesystem:AccessedViaMountTarget" = "true" }, StringEquals = { "elasticfilesystem:AccessPointArn" = local.access_point } }
   }]
-  task_boundaries = { for name in local.workloads : name => name == "api" && var.session_key_storage != null ? jsonencode({
+  task_boundaries = { for name in local.workloads : name => name == "web" && local.web_token_bound ? jsonencode({ Version = "2012-10-17", Statement = local.web_token_statements }) : name == "api" && var.session_key_storage != null ? jsonencode({
     Version = "2012-10-17"
     Statement = concat(local.ring_grants, [
       { Sid = "RejectAllOtherActions", Effect = "Deny", NotAction = local.ring_actions, Resource = "*" },
@@ -61,11 +61,15 @@ resource "aws_iam_policy" "task_boundary" {
   for_each   = local.workloads
   name       = "${local.name}-${each.key}-task-boundary"
   policy     = local.task_boundaries[each.key]
-  depends_on = [data.aws_efs_file_system.ring, data.aws_efs_access_point.ring]
+  depends_on = [data.aws_efs_file_system.ring, data.aws_efs_access_point.ring, data.aws_vpc_endpoint.web_token]
   lifecycle {
     precondition {
       condition     = length(local.task_boundaries[each.key]) <= 6144
       error_message = "Task permissions boundary exceeds IAM's policy limit."
+    }
+    precondition {
+      condition     = each.key != "web" || !local.web_token_bound || local.web_pool_arn == local.web_bound_pool_arn
+      error_message = "Web token authority requires the exact owned pool in the separately bound endpoint contract."
     }
   }
 }

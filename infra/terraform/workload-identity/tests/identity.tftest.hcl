@@ -593,3 +593,122 @@ run "reject_wrong_access_point_cell" {
   }
   expect_failures = [data.aws_efs_access_point.ring["api"]]
 }
+
+run "web_pool_bootstrap_retains_deny_all" {
+
+  command = plan
+  variables {
+    web_workload_pool_enabled = true
+  }
+  override_resource {
+    target          = aws_cognito_identity_pool.web[0]
+    override_during = plan
+    values          = { id = "us-east-1:10000000-0000-0000-0000-000000000001", arn = "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001" }
+
+  }
+  assert {
+    condition     = output.web_workload_pool == jsondecode(file("tests/web-workload-pool.json")) && output.web_workload_admission == null && length(aws_iam_role_policy.web_token) == 0 && jsondecode(aws_iam_policy.task_boundary["web"].policy).Statement == [{ Sid = "NoAWSWorkloadAuthority", Effect = "Deny", Action = "*", Resource = "*" }]
+    error_message = "Pool creation alone must grant no token or other AWS authority."
+  }
+  assert {
+    condition     = !aws_cognito_identity_pool.web[0].allow_classic_flow && !aws_cognito_identity_pool.web[0].allow_unauthenticated_identities && length(aws_cognito_identity_pool.web[0].openid_connect_provider_arns) == 0 && length(aws_cognito_identity_pool.web[0].saml_provider_arns) == 0 && length(aws_cognito_identity_pool.web[0].supported_login_providers) == 0
+    error_message = "Developer-only pool must not add public identities, providers or classic flow."
+  }
+
+}
+run "bound_web_token_has_complete_exact_policy" {
+
+  command = plan
+  variables {
+    web_workload_pool_enabled   = true
+    web_workload_token_endpoint = jsondecode(file("tests/web-token-endpoint.json"))
+  }
+  override_resource {
+    target          = aws_cognito_identity_pool.web[0]
+    override_during = plan
+    values          = { id = "us-east-1:10000000-0000-0000-0000-000000000001", arn = "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001" }
+
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_vpc_endpoint.web_token[0]
+    values          = { "id" : "vpce-00000000000000009", "arn" : "arn:aws:ec2:us-east-1:111122223333:vpc-endpoint/vpce-00000000000000009", "owner_id" : "111122223333", "vpc_id" : "vpc-00000000000000001", "service_name" : "com.amazonaws.us-east-1.cognito-identity", "vpc_endpoint_type" : "Interface", "state" : "available", "private_dns_enabled" : true, "ip_address_type" : "ipv4", "subnet_ids" : ["subnet-00000000000000001", "subnet-00000000000000002"], "security_group_ids" : ["sg-00000000000000009"], "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web-token" }, "policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OnlyWebTokenIssuance\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task\"},\"Action\":\"cognito-identity:GetOpenIdTokenForDeveloperIdentity\",\"Resource\":\"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001\"},{\"Sid\":\"RejectOtherPrincipals\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"ArnNotEquals\":{\"aws:PrincipalArn\":\"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task\"}}},{\"Sid\":\"RejectOtherActions\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"NotAction\":\"cognito-identity:GetOpenIdTokenForDeveloperIdentity\",\"Resource\":\"*\"},{\"Sid\":\"RejectOtherPools\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"NotResource\":\"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001\"},{\"Sid\":\"RejectInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"BoolIfExists\":{\"aws:SecureTransport\":\"false\"}}}]}" }
+  }
+  assert {
+    condition     = jsondecode(aws_iam_policy.task_boundary["web"].policy) == jsondecode(file("tests/web-token-boundary.json")) && jsondecode(aws_iam_role_policy.web_token[0].policy) == jsondecode(file("tests/web-token-boundary.json")) && output.web_workload_admission.binding_ready && output.workloads.web.secrets == []
+    error_message = "Only exact developer-token minting through own endpoint, never secret/STS authority."
+  }
+
+}
+run "reject_web_token_policy" {
+
+  command = plan
+  variables {
+    web_workload_pool_enabled   = true
+    web_workload_token_endpoint = jsondecode(file("tests/web-token-endpoint.json"))
+  }
+  override_resource {
+    target          = aws_cognito_identity_pool.web[0]
+    override_during = plan
+    values          = { id = "us-east-1:10000000-0000-0000-0000-000000000001", arn = "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001" }
+
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_vpc_endpoint.web_token[0]
+    values          = { "id" : "vpce-00000000000000009", "arn" : "arn:aws:ec2:us-east-1:111122223333:vpc-endpoint/vpce-00000000000000009", "owner_id" : "111122223333", "vpc_id" : "vpc-00000000000000001", "service_name" : "com.amazonaws.us-east-1.cognito-identity", "vpc_endpoint_type" : "Interface", "state" : "available", "private_dns_enabled" : true, "ip_address_type" : "ipv4", "subnet_ids" : ["subnet-00000000000000001", "subnet-00000000000000002"], "security_group_ids" : ["sg-00000000000000009"], "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web-token" }, "policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[]}" }
+  }
+  expect_failures = [data.aws_vpc_endpoint.web_token[0]]
+
+}
+run "reject_web_token_public_dns" {
+
+  command = plan
+  variables {
+    web_workload_pool_enabled   = true
+    web_workload_token_endpoint = jsondecode(file("tests/web-token-endpoint.json"))
+  }
+  override_resource {
+    target          = aws_cognito_identity_pool.web[0]
+    override_during = plan
+    values          = { id = "us-east-1:10000000-0000-0000-0000-000000000001", arn = "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001" }
+
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_vpc_endpoint.web_token[0]
+    values          = { "id" : "vpce-00000000000000009", "arn" : "arn:aws:ec2:us-east-1:111122223333:vpc-endpoint/vpce-00000000000000009", "owner_id" : "111122223333", "vpc_id" : "vpc-00000000000000001", "service_name" : "com.amazonaws.us-east-1.cognito-identity", "vpc_endpoint_type" : "Interface", "state" : "available", "private_dns_enabled" : false, "ip_address_type" : "ipv4", "subnet_ids" : ["subnet-00000000000000001", "subnet-00000000000000002"], "security_group_ids" : ["sg-00000000000000009"], "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web-token" }, "policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OnlyWebTokenIssuance\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task\"},\"Action\":\"cognito-identity:GetOpenIdTokenForDeveloperIdentity\",\"Resource\":\"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001\"},{\"Sid\":\"RejectOtherPrincipals\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"ArnNotEquals\":{\"aws:PrincipalArn\":\"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task\"}}},{\"Sid\":\"RejectOtherActions\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"NotAction\":\"cognito-identity:GetOpenIdTokenForDeveloperIdentity\",\"Resource\":\"*\"},{\"Sid\":\"RejectOtherPools\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"NotResource\":\"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001\"},{\"Sid\":\"RejectInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"BoolIfExists\":{\"aws:SecureTransport\":\"false\"}}}]}" }
+  }
+  expect_failures = [data.aws_vpc_endpoint.web_token[0]]
+
+}
+run "reject_web_token_foreign_owner" {
+
+  command = plan
+  variables {
+    web_workload_pool_enabled   = true
+    web_workload_token_endpoint = jsondecode(file("tests/web-token-endpoint.json"))
+  }
+  override_resource {
+    target          = aws_cognito_identity_pool.web[0]
+    override_during = plan
+    values          = { id = "us-east-1:10000000-0000-0000-0000-000000000001", arn = "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001" }
+
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_vpc_endpoint.web_token[0]
+    values          = { "id" : "vpce-00000000000000009", "arn" : "arn:aws:ec2:us-east-1:111122223333:vpc-endpoint/vpce-00000000000000009", "owner_id" : "444455556666", "vpc_id" : "vpc-00000000000000001", "service_name" : "com.amazonaws.us-east-1.cognito-identity", "vpc_endpoint_type" : "Interface", "state" : "available", "private_dns_enabled" : true, "ip_address_type" : "ipv4", "subnet_ids" : ["subnet-00000000000000001", "subnet-00000000000000002"], "security_group_ids" : ["sg-00000000000000009"], "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web-token" }, "policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OnlyWebTokenIssuance\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task\"},\"Action\":\"cognito-identity:GetOpenIdTokenForDeveloperIdentity\",\"Resource\":\"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001\"},{\"Sid\":\"RejectOtherPrincipals\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"ArnNotEquals\":{\"aws:PrincipalArn\":\"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task\"}}},{\"Sid\":\"RejectOtherActions\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"NotAction\":\"cognito-identity:GetOpenIdTokenForDeveloperIdentity\",\"Resource\":\"*\"},{\"Sid\":\"RejectOtherPools\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"NotResource\":\"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001\"},{\"Sid\":\"RejectInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"BoolIfExists\":{\"aws:SecureTransport\":\"false\"}}}]}" }
+  }
+  expect_failures = [data.aws_vpc_endpoint.web_token[0]]
+
+}
+run "reject_endpoint_before_pool_bootstrap" {
+
+  command = plan
+  variables {
+    web_workload_token_endpoint = jsondecode(file("tests/web-token-endpoint.json"))
+  }
+  expect_failures = [var.web_workload_token_endpoint]
+
+}

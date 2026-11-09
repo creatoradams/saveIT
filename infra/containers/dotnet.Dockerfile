@@ -4,6 +4,8 @@ COPY infra/trust/unconfigured/database-ca.crt /database-ca.crt
 COPY infra/trust/unconfigured/api-ca.crt /api-ca.crt
 FROM scratch AS saveit-client-trust
 COPY infra/trust/unconfigured/client-ca.crt /client-ca.crt
+FROM scratch AS saveit-workload-trust
+COPY infra/trust/unconfigured/workload-jwks.json /workload-jwks.json
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0.401-noble@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317 AS build
 WORKDIR /src
@@ -45,6 +47,7 @@ ENTRYPOINT ["dotnet", "SaveIT.Workers.dll"]
 
 FROM runtime AS deployment
 COPY --from=saveit-trust --chmod=0444 /api-ca.crt /opt/saveit/trust/api-ca.crt
+COPY --from=saveit-workload-trust --chmod=0444 /workload-jwks.json /opt/saveit/trust/workload-jwks.json
 COPY --from=build /out/deployment .
 ENTRYPOINT ["dotnet", "SaveIT.Deployment.dll"]
 

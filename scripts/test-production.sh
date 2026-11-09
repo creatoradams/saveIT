@@ -55,8 +55,8 @@ cleanup() {
 }
 trap cleanup EXIT
 test -s "$fixture/ca.key" && test -s "$fixture/ca.crt"
-for name in tls pg api relay secrets; do
-  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth,DNS:api-server-only'; elif [[ "$name" == relay ]]; then san='DNS:relay'; elif [[ "$name" == secrets ]]; then san='DNS:secretsmanager.us-east-1.amazonaws.com'; else san='DNS:db'; fi
+for name in tls pg api relay secrets cognito; do
+  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth,DNS:api-server-only'; elif [[ "$name" == relay ]]; then san='DNS:relay,DNS:relay-workload'; elif [[ "$name" == secrets ]]; then san='DNS:secretsmanager.us-east-1.amazonaws.com'; elif [[ "$name" == cognito ]]; then san='DNS:cognito-identity.us-east-1.amazonaws.com'; else san='DNS:db'; fi
   openssl req -newkey rsa:2048 -nodes -keyout "$fixture/$name.new.key" -out "$fixture/$name.csr" -subj "/CN=$name" >/dev/null 2>&1
   mv -f "$fixture/$name.new.key" "$fixture/$name.key"
   printf 'subjectAltName=%s\nextendedKeyUsage=serverAuth\n' "$san" > "$fixture/$name.ext"
@@ -180,6 +180,10 @@ wait_for_worker() {
 wait_for_worker
 "${compose[@]}" run --rm --no-deps -v "$root/tests/production/relay-canaries.mjs:/app/relay-canaries.mjs:ro" web relay-canaries.mjs
 if grep -Fq 'synthetic-relay-query-must-stay-private' "$fixture/relay.log"; then echo 'Relay diagnostic exposed request metadata.' >&2; exit 1; fi
+export SAVEIT_WORKLOAD_JWKS_SHA256="$(cat "$fixture/workload-sha256")"
+# Only the isolated synthetic provider receives these fixture private keys.
+chmod 644 "$fixture/cognito.key" "$fixture/cognito.crt" "$fixture/workload.key"
+node tests/production/workload-intake.mjs
 docker run --rm --read-only -e SAVEIT_API_CA_SHA256 -e NODE_EXTRA_CA_CERTS=/opt/saveit/trust/api-ca.crt saveit-web:test -e "const fs=require('node:fs'),a=require('node:assert/strict');require('./public-trust.cjs').configure();a.deepEqual(fs.readdirSync('/opt/saveit/trust'),['api-ca.crt']);const s=fs.statSync('/opt/saveit/trust/api-ca.crt');a.equal(s.uid,0);a.equal(s.mode&0o777,0o444);"
 "${compose[@]}" run --rm --no-deps \
   -v "$root/tests/production/transport-canaries.mjs:/app/transport-canaries.mjs:ro" \

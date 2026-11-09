@@ -39,6 +39,7 @@ jobs:
       - run: npm run test:security
       - run: npm run test:load-harness
       - run: npm run test:web-api
+      - run: npm run test:workload-auth
       - run: npm run contracts && git diff --exit-code -- apps/web/lib/api.generated.ts
       - run: npm run typecheck
       - run: npm run build

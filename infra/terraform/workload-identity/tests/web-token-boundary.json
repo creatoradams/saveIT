@@ -1,0 +1,11 @@
+{
+  "Version":"2012-10-17",
+  "Statement":[
+    {"Sid":"OwnPoolThroughBoundEndpoint","Effect":"Allow","Action":"cognito-identity:GetOpenIdTokenForDeveloperIdentity","Resource":"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001","Condition":{"StringEquals":{"aws:SourceVpce":"vpce-00000000000000009","aws:RequestedRegion":"us-east-1"},"Bool":{"aws:SecureTransport":"true"}}},
+    {"Sid":"RejectAllOtherActions","Effect":"Deny","NotAction":"cognito-identity:GetOpenIdTokenForDeveloperIdentity","Resource":"*"},
+    {"Sid":"RejectOtherPools","Effect":"Deny","Action":"cognito-identity:GetOpenIdTokenForDeveloperIdentity","NotResource":"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001"},
+    {"Sid":"RejectOtherEndpoints","Effect":"Deny","Action":"cognito-identity:GetOpenIdTokenForDeveloperIdentity","Resource":"*","Condition":{"StringNotEqualsIfExists":{"aws:SourceVpce":"vpce-00000000000000009"}}},
+    {"Sid":"RejectOtherRegions","Effect":"Deny","Action":"*","Resource":"*","Condition":{"StringNotEqualsIfExists":{"aws:RequestedRegion":"us-east-1"}}},
+    {"Sid":"RejectInsecureTransport","Effect":"Deny","Action":"*","Resource":"*","Condition":{"BoolIfExists":{"aws:SecureTransport":"false"}}}
+  ]
+}

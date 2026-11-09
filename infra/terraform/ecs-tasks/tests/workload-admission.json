@@ -1,0 +1,19 @@
+{
+  "account_id": "111122223333",
+  "pool_id": "us-east-1:10000000-0000-0000-0000-000000000001",
+  "pool_arn": "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001",
+  "provider": "saveit.pilot.staging.web",
+  "issuer": "https://cognito-identity.amazonaws.com",
+  "endpoint": {
+    "id": "vpce-00000000000000009",
+    "vpc_id": "vpc-00000000000000001",
+    "application_subnet_ids": [
+      "subnet-00000000000000001",
+      "subnet-00000000000000002"
+    ],
+    "security_group_id": "sg-00000000000000009",
+    "pool_id": "us-east-1:10000000-0000-0000-0000-000000000001"
+  },
+  "binding_ready": true,
+  "jwks_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

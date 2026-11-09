@@ -25,7 +25,8 @@
     "scan:images": "node scripts/scan-image-vulnerabilities.mjs",
     "load:local": "node scripts/local-load.mjs",
     "test:load-harness": "node --test tests/local-load.test.mjs",
-    "test:web-api": "node --test tests/web-api.test.mjs"
+    "test:web-api": "node --test tests/web-api.test.mjs",
+    "test:workload-auth": "node --test tests/workload-auth.test.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

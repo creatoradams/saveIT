@@ -1359,3 +1359,55 @@ run "services_consume_actual_task_and_discovery_outputs" {
     error_message = "Actual staged producer/task/discovery contracts feed parked services downstream; this is not actual IAM, registration, network or health evidence."
   }
 }
+
+run "bound_workload_environment_is_public_and_scoped" {
+
+  command = plan
+  variables {
+    api_client_trust   = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay              = jsondecode(file("tests/relay-binding.json"))
+    workload_admission = jsondecode(file("tests/workload-admission.json"))
+  }
+  assert {
+    condition     = { for e in jsondecode(aws_ecs_task_definition.application["web"].container_definitions)[0].environment : e.name => e.value if startswith(e.name, "SAVEIT_WORKLOAD_") } == { SAVEIT_WORKLOAD_ACCOUNT_ID = "111122223333", SAVEIT_WORKLOAD_POOL_ID = "us-east-1:10000000-0000-0000-0000-000000000001", SAVEIT_WORKLOAD_PROVIDER = "saveit.pilot.staging.web" } && { for e in jsondecode(aws_ecs_task_definition.relay[0].container_definitions)[0].environment : e.name => e.value if startswith(e.name, "SAVEIT_WORKLOAD_") } == { SAVEIT_WORKLOAD_POOL_ID = "us-east-1:10000000-0000-0000-0000-000000000001", SAVEIT_WORKLOAD_PROVIDER = "saveit.pilot.staging.web", SAVEIT_WORKLOAD_ISSUER = "https://cognito-identity.amazonaws.com", SAVEIT_WORKLOAD_JWKS_SHA256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+    error_message = "Only public scoped workload bindings belong in web/relay environment."
+  }
+  assert {
+    condition     = jsondecode(aws_ecs_task_definition.application["web"].container_definitions)[0].secrets == [] && jsondecode(aws_ecs_task_definition.relay[0].container_definitions)[0].secrets == []
+    error_message = "Web and relay must not gain injected secrets."
+  }
+
+}
+run "reject_workload_unready" {
+
+  command = plan
+  variables {
+    api_client_trust   = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay              = jsondecode(file("tests/relay-binding.json"))
+    workload_admission = merge(jsondecode(file("tests/workload-admission.json")), { binding_ready = false })
+  }
+  expect_failures = [var.workload_admission]
+
+}
+run "reject_workload_bad_jwks" {
+
+  command = plan
+  variables {
+    api_client_trust   = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay              = jsondecode(file("tests/relay-binding.json"))
+    workload_admission = merge(jsondecode(file("tests/workload-admission.json")), { jwks_sha256 = "private-marker" })
+  }
+  expect_failures = [var.workload_admission]
+
+}
+run "reject_workload_foreign_pool" {
+
+  command = plan
+  variables {
+    api_client_trust   = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay              = jsondecode(file("tests/relay-binding.json"))
+    workload_admission = merge(jsondecode(file("tests/workload-admission.json")), { pool_arn = "arn:aws:cognito-identity:us-east-1:444455556666:identitypool/us-east-1:10000000-0000-0000-0000-000000000001" })
+  }
+  expect_failures = [var.workload_admission]
+
+}

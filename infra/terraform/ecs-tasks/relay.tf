@@ -103,7 +103,7 @@ resource "aws_ecs_task_definition" "relay" {
     linuxParameters  = { capabilities = { drop = ["ALL"] } }
     entryPoint       = ["dotnet", "SaveIT.Deployment.dll"]
     command          = ["serve-api-relay-secrets", "https://${local.api_host}:8443", local.relay_origin, var.relay.configuration.arn, var.relay.configuration.version_id]
-    environment      = [for name, value in { DOTNET_ENVIRONMENT = "Production", ASPNETCORE_ENVIRONMENT = "Production", DOTNET_EnableDiagnostics = "0", TMPDIR = "/var/saveit/runtime" } : { name = name, value = value }]
+    environment      = [for name, value in merge({ DOTNET_ENVIRONMENT = "Production", ASPNETCORE_ENVIRONMENT = "Production", DOTNET_EnableDiagnostics = "0", TMPDIR = "/var/saveit/runtime" }, local.relay_workload_environment) : { name = name, value = value }]
     secrets          = []
     mountPoints      = [{ sourceVolume = "runtime", containerPath = "/var/saveit/runtime", readOnly = false }]
     portMappings     = [{ containerPort = 8443, hostPort = 8443, protocol = "tcp" }]

@@ -43,6 +43,29 @@ public sealed class RelayTaskPreflightTests
     }
 
     [Fact]
+    public async Task Independently_bound_workload_metadata_requires_exact_observed_public_environment()
+    {
+        var payload = Payload();
+        payload["expected"]!["workloadAdmission"] = new JsonObject {
+            ["poolId"] = "us-east-1:10000000-0000-0000-0000-000000000001", ["issuer"] = "https://cognito-identity.amazonaws.com",
+            ["provider"] = "saveit.pilot.staging.web", ["jwksSha256"] = new string('b',64)
+        };
+        await Rejected(payload.ToJsonString()); // Expected binding alone cannot silently admit legacy intake.
+        var environment = Container(payload)["environment"]!.AsArray();
+        foreach (var (name,value) in new[] {
+            ("SAVEIT_WORKLOAD_POOL_ID","us-east-1:10000000-0000-0000-0000-000000000001"),
+            ("SAVEIT_WORKLOAD_ISSUER","https://cognito-identity.amazonaws.com"),
+            ("SAVEIT_WORKLOAD_PROVIDER","saveit.pilot.staging.web"), ("SAVEIT_WORKLOAD_JWKS_SHA256",new string('b',64)) })
+            environment.Add(new JsonObject { ["name"] = name, ["value"] = value });
+        await Validate(payload.ToJsonString());
+        foreach (var field in new[] { "poolId", "issuer", "provider", "jwksSha256" }) {
+            var drifted = payload.DeepClone().AsObject(); drifted["expected"]!["workloadAdmission"]![field] = "foreign"; await Rejected(drifted.ToJsonString());
+        }
+        payload["expected"]!.AsObject().Remove("workloadAdmission");
+        await Rejected(payload.ToJsonString()); // Supplied extra environment cannot opt itself in.
+    }
+
+    [Fact]
     public async Task Independent_container_fixture_and_explicit_return_defaults_pass()
     {
         var payload = Payload();

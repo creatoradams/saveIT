@@ -14,8 +14,8 @@ using Microsoft.Extensions.Logging;
 
 namespace SaveIT.Deployment;
 
-// Deliberately narrow REST/OIDC carrier. Its intake does not authenticate web.
-public sealed class ApiRelay(ApiRelayConfiguration configuration, CancellationToken stopping = default) : IDisposable
+// Narrow REST/OIDC carrier; bound deployments require a separate workload token.
+public sealed class ApiRelay(ApiRelayConfiguration configuration, CancellationToken stopping = default, RelayWorkloadAdmission? admission = null) : IDisposable
 {
     public const int RequestLimit = 1_048_576;
     public const int ResponseLimit = 32 * 1_048_576;
@@ -23,7 +23,7 @@ public sealed class ApiRelay(ApiRelayConfiguration configuration, CancellationTo
     private static readonly string[] RequestHeaders = ["Cookie", "X-CSRF-TOKEN", "Accept", "Origin", "Referer"];
     private static readonly string[] ResponseHeaders = ["Content-Type", "Set-Cookie", "Location", "Retry-After"];
 
-    public static WebApplication Build(ApiRelayConfiguration configuration)
+    public static WebApplication Build(ApiRelayConfiguration configuration, RelayWorkloadAdmission? admission = null)
     {
         var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions { EnvironmentName = Environments.Production, Args = [] });
         builder.Logging.ClearProviders();
@@ -43,7 +43,7 @@ public sealed class ApiRelay(ApiRelayConfiguration configuration, CancellationTo
             }); });
             options.Listen(IPAddress.Loopback, 8080, endpoint => endpoint.Protocols = HttpProtocols.Http1);
         });
-        builder.Services.AddSingleton(sp => new ApiRelay(configuration, sp.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping));
+        builder.Services.AddSingleton(sp => new ApiRelay(configuration, sp.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping, admission));
         var app = builder.Build();
         app.Run(app.Services.GetRequiredService<ApiRelay>().HandleAsync);
         return app;
@@ -74,6 +74,9 @@ public sealed class ApiRelay(ApiRelayConfiguration configuration, CancellationTo
             context.Response.StatusCode = 404; return;
         }
         if (!string.Equals(request.Host.Value, configuration.Relay.Authority, StringComparison.OrdinalIgnoreCase)) { context.Response.StatusCode = 400; return; }
+        if (stopping.IsCancellationRequested) { context.Response.StatusCode = 503; return; }
+        if (admission is not null && (request.Headers[RelayWorkloadAdmission.Header].Count != 1 || !await admission.AcceptAsync(request.Headers[RelayWorkloadAdmission.Header][0]!)))
+        { context.Response.StatusCode = 401; return; }
         Uri target;
         try
         {

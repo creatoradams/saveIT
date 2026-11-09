@@ -1,0 +1,10 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid":"OnlyWebTokenIssuance","Effect":"Allow","Principal":{"AWS":"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task"},"Action":"cognito-identity:GetOpenIdTokenForDeveloperIdentity","Resource":"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001"},
+    {"Sid":"RejectOtherPrincipals","Effect":"Deny","Principal":"*","Action":"*","Resource":"*","Condition":{"ArnNotEquals":{"aws:PrincipalArn":"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task"}}},
+    {"Sid":"RejectOtherActions","Effect":"Deny","Principal":"*","NotAction":"cognito-identity:GetOpenIdTokenForDeveloperIdentity","Resource":"*"},
+    {"Sid":"RejectOtherPools","Effect":"Deny","Principal":"*","Action":"*","NotResource":"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001"},
+    {"Sid":"RejectInsecureTransport","Effect":"Deny","Principal":"*","Action":"*","Resource":"*","Condition":{"BoolIfExists":{"aws:SecureTransport":"false"}}}
+  ]
+}

@@ -67,6 +67,8 @@ Local focused validation passed **215 .NET tests with zero skipped**, including 
 
 ## Next steps
 
+The current configuration/compute work adds optional [workload admission](adr/050-web-workload-admission.md): keyless server-side issuance, pinned public relay JWT validation, scoped pool/endpoint/task contracts and bound offline relay checks. Local91 focused .NET tests, seven SDK/transport tests,46 identity/83 endpoint/99 task plans pass; TypeScript and optimized build pass. Packaged Next/browser and full CI evidence are pending. This is an implementation checkpoint within the [confirmed entire account-free section](configuration-compute.md), whose launch/change, health/drain/fencing, restricted ingress/Okta egress and complete failure drills remain unfinished. The latest verified build above remains the baseline until new workflows finish.
+
 1. Add trusted acquisition/protected release authority and override prohibition around offline task checks, then bounded service change and operated health/drain/fencing for the parked contracts; retain keyless web and exact startup/version/role guards.
 2. Complete restricted ingress/egress, protected population, signing/promotion, scheduling/PassRole and operated health/drain/fencing.
 3. Add redacted telemetry/alerts, API/tenant quotas, operational audit archive/retention and recovery runbooks.

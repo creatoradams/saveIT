@@ -26,11 +26,11 @@ locals {
       Identity__KeyDirectory                            = "/var/saveit/keys", SAVEIT_HEALTH_PORT = "8080", SAVEIT_HEALTH_HOST = "127.0.0.1", TMPDIR = "/var/saveit/runtime"
       Deployment__Trust__DatabaseCaSha256               = var.public_trust.database_ca_sha256
     }, local.api_client_environment)
-    web = {
+    web = merge({
       NODE_ENV             = "production", NEXT_TELEMETRY_DISABLED = "1", HOSTNAME = "0.0.0.0", PORT = "3000", TMPDIR = "/var/saveit/runtime"
       SAVEIT_API_ORIGIN    = var.relay == null ? "https://${local.api_host}:8443" : local.relay_origin, SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer
       SAVEIT_API_CA_SHA256 = var.relay == null ? var.public_trust.api_ca_sha256 : var.relay.web_ca_sha256, NODE_EXTRA_CA_CERTS = "/opt/saveit/trust/api-ca.crt"
-    }
+    }, local.web_workload_environment)
     worker = merge({
       DOTNET_ENVIRONMENT                  = "Production", DOTNET_EnableDiagnostics = "0", SearchWorker__HealthPath = "/var/saveit/runtime/saveit-worker-health.json", TMPDIR = "/var/saveit/runtime"
       Deployment__Trust__DatabaseCaSha256 = var.public_trust.database_ca_sha256

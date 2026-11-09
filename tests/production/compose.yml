@@ -117,6 +117,39 @@ services:
       SAVEIT_API_CA_SHA256: ${SAVEIT_API_CA_SHA256:?Prepare public trust before running the fixture}
       SAVEIT_PUBLIC_ORIGIN: https://saveit.localhost:8443
       SAVEIT_OKTA_ISSUER: https://idp.localhost:8443
+  workload-provider:
+    image: saveit-web:test
+    profiles: ["tools"]
+    read_only: true
+    sysctls: { net.ipv4.ip_unprivileged_port_start: 0 }
+    command: ["/run/workload/workload-provider.mjs"]
+    volumes:
+      - ./workload-provider.mjs:/run/workload/workload-provider.mjs:ro
+      - ../../.local/container-fixture/cognito.key:/run/workload/cognito.key:ro
+      - ../../.local/container-fixture/cognito.crt:/run/workload/cognito.crt:ro
+      - ../../.local/container-fixture/workload.key:/run/workload/workload.key:ro
+    networks:
+      workload:
+        ipv4_address: 169.254.170.2
+        aliases: ["cognito-identity.us-east-1.amazonaws.com"]
+  relay-workload:
+    extends: { service: relay }
+    networks: ["default", "workload"]
+    environment:
+      SAVEIT_WORKLOAD_POOL_ID: us-east-1:10000000-0000-0000-0000-000000000001
+      SAVEIT_WORKLOAD_PROVIDER: saveit.pilot.staging.web
+      SAVEIT_WORKLOAD_ISSUER: https://cognito-identity.amazonaws.com
+      SAVEIT_WORKLOAD_JWKS_SHA256: ${SAVEIT_WORKLOAD_JWKS_SHA256:-unconfigured}
+  web-workload:
+    extends: { service: web }
+    profiles: ["tools"]
+    environment:
+      SAVEIT_API_ORIGIN: https://relay-workload:8443
+      SAVEIT_WORKLOAD_POOL_ID: us-east-1:10000000-0000-0000-0000-000000000001
+      SAVEIT_WORKLOAD_PROVIDER: saveit.pilot.staging.web
+      SAVEIT_WORKLOAD_ACCOUNT_ID: "111122223333"
+      AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: /v2/credentials/20000000-0000-0000-0000-000000000001
+    networks: ["workload"]
   identity:
     image: saveit-identity-fixture:test
     read_only: true
@@ -138,6 +171,10 @@ volumes:
   keyring:
   recovered_keyring:
 networks:
+  workload:
+    internal: true
+    ipam:
+      config: [{ subnet: 169.254.170.0/24 }]
   default:
     ipam:
       config:

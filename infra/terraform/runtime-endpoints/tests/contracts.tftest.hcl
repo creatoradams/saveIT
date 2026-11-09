@@ -396,14 +396,20 @@ run "actual_identity_reference_contract" {
   command = plan
   module { source = "../workload-identity" }
   variables {
-    key_administrators = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
-    secret_custodians  = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+    key_administrators        = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    secret_custodians         = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+    web_workload_pool_enabled = true
     configuration_versions = {
       "api"       = "10000000-0000-0000-0000-000000000001"
       "worker"    = "10000000-0000-0000-0000-000000000002"
       "migration" = "10000000-0000-0000-0000-000000000003"
       "access"    = "10000000-0000-0000-0000-000000000004"
     }
+  }
+  override_resource {
+    target          = aws_cognito_identity_pool.web[0]
+    override_during = plan
+    values          = { id = "us-east-1:10000000-0000-0000-0000-000000000001", arn = "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001" }
   }
   override_resource {
     override_during = plan
@@ -780,5 +786,129 @@ run "discovery_consumes_actual_relay_network_output" {
   assert {
     condition     = output.relay_discovery.security_group_id == run.actual_bound_relay_network_output.relay_network.security_group_id && output.relay_discovery.origin == "https://relay.pilot.staging.saveit.internal:8443" && aws_vpc_security_group_ingress_rule.api_https.referenced_security_group_id == output.relay_discovery.security_group_id
     error_message = "Actual mocked endpoint relay network must select relay/API and web/relay paths, not the direct legacy API path."
+  }
+}
+
+run "endpoint_consumes_actual_workload_pool" {
+  command = plan
+  variables {
+    web_workload_pool = run.actual_identity_reference_contract.web_workload_pool
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_cognito_identity_pool.web[0]
+    values          = { "id" : "us-east-1:10000000-0000-0000-0000-000000000001", "arn" : "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001", "identity_pool_name" : "saveit-pilot-staging-web-workload", "developer_provider_name" : "saveit.pilot.staging.web", "allow_unauthenticated_identities" : false, "allow_classic_flow" : false, "cognito_identity_providers" : [], "openid_connect_provider_arns" : [], "saml_provider_arns" : [], "supported_login_providers" : {}, "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web" } }
+  }
+
+  override_resource {
+    override_during = plan
+    target          = aws_vpc_endpoint.web_token[0]
+    values          = { id = "vpce-00000000000000009" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.web_token[0]
+    values          = { id = "sg-00000000000000009" }
+  }
+  assert {
+    condition     = output.web_workload_token_endpoint.pool_id == run.actual_identity_reference_contract.web_workload_pool.pool_id && jsondecode(aws_vpc_endpoint.web_token[0].policy) == jsondecode(file("../workload-identity/tests/web-token-endpoint-policy.json")) && aws_vpc_security_group_egress_rule.web_token[0].security_group_id == aws_security_group.web.id && aws_vpc_security_group_ingress_rule.web_token[0].referenced_security_group_id == aws_security_group.web.id && aws_vpc_security_group_ingress_rule.web_token[0].security_group_id == aws_security_group.web_token[0].id && aws_vpc_endpoint.web_token[0].private_dns_enabled && toset(aws_vpc_endpoint.web_token[0].subnet_ids) == toset(var.network.application_subnet_ids)
+    error_message = "Actual mocked producer metadata must create only the own web-token path and complete endpoint policy; not IAM evidence."
+  }
+}
+
+run "reject_workload_pool_public_identity" {
+  command = plan
+  variables {
+    web_workload_pool = run.actual_identity_reference_contract.web_workload_pool
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_cognito_identity_pool.web[0]
+    values          = { "id" : "us-east-1:10000000-0000-0000-0000-000000000001", "arn" : "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001", "identity_pool_name" : "saveit-pilot-staging-web-workload", "developer_provider_name" : "saveit.pilot.staging.web", "allow_unauthenticated_identities" : true, "allow_classic_flow" : false, "cognito_identity_providers" : [], "openid_connect_provider_arns" : [], "saml_provider_arns" : [], "supported_login_providers" : {}, "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web" } }
+  }
+
+  expect_failures = [data.aws_cognito_identity_pool.web[0]]
+}
+
+run "reject_workload_pool_classic_flow" {
+  command = plan
+  variables {
+    web_workload_pool = run.actual_identity_reference_contract.web_workload_pool
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_cognito_identity_pool.web[0]
+    values          = { "id" : "us-east-1:10000000-0000-0000-0000-000000000001", "arn" : "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001", "identity_pool_name" : "saveit-pilot-staging-web-workload", "developer_provider_name" : "saveit.pilot.staging.web", "allow_unauthenticated_identities" : false, "allow_classic_flow" : true, "cognito_identity_providers" : [], "openid_connect_provider_arns" : [], "saml_provider_arns" : [], "supported_login_providers" : {}, "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web" } }
+  }
+
+  expect_failures = [data.aws_cognito_identity_pool.web[0]]
+}
+
+run "reject_workload_pool_foreign_pool" {
+  command = plan
+  variables {
+    web_workload_pool = run.actual_identity_reference_contract.web_workload_pool
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_cognito_identity_pool.web[0]
+    values          = { "id" : "us-east-1:10000000-0000-0000-0000-000000000002", "arn" : "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001", "identity_pool_name" : "saveit-pilot-staging-web-workload", "developer_provider_name" : "saveit.pilot.staging.web", "allow_unauthenticated_identities" : false, "allow_classic_flow" : false, "cognito_identity_providers" : [], "openid_connect_provider_arns" : [], "saml_provider_arns" : [], "supported_login_providers" : {}, "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web" } }
+  }
+
+  expect_failures = [data.aws_cognito_identity_pool.web[0]]
+}
+
+run "reject_workload_pool_wrong_provider" {
+  command = plan
+  variables {
+    web_workload_pool = run.actual_identity_reference_contract.web_workload_pool
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_cognito_identity_pool.web[0]
+    values          = { "id" : "us-east-1:10000000-0000-0000-0000-000000000001", "arn" : "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001", "identity_pool_name" : "saveit-pilot-staging-web-workload", "developer_provider_name" : "saveit.other.staging.web", "allow_unauthenticated_identities" : false, "allow_classic_flow" : false, "cognito_identity_providers" : [], "openid_connect_provider_arns" : [], "saml_provider_arns" : [], "supported_login_providers" : {}, "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web" } }
+  }
+
+  expect_failures = [data.aws_cognito_identity_pool.web[0]]
+}
+
+run "reject_workload_pool_public_provider" {
+  command = plan
+  variables {
+    web_workload_pool = run.actual_identity_reference_contract.web_workload_pool
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_cognito_identity_pool.web[0]
+    values          = { "id" : "us-east-1:10000000-0000-0000-0000-000000000001", "arn" : "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001", "identity_pool_name" : "saveit-pilot-staging-web-workload", "developer_provider_name" : "saveit.pilot.staging.web", "allow_unauthenticated_identities" : false, "allow_classic_flow" : false, "cognito_identity_providers" : [], "openid_connect_provider_arns" : [], "saml_provider_arns" : [], "supported_login_providers" : { "accounts.google.com" : "synthetic" }, "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web" } }
+  }
+
+  expect_failures = [data.aws_cognito_identity_pool.web[0]]
+}
+
+run "identity_rebinds_actual_token_endpoint" {
+  command = plan
+  module { source = "../workload-identity" }
+  variables {
+    key_administrators          = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    secret_custodians           = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+    configuration_versions      = { for process, reference in run.actual_identity_reference_contract.configuration : process => reference.version_id }
+    web_workload_pool_enabled   = true
+    web_workload_token_endpoint = run.endpoint_consumes_actual_workload_pool.web_workload_token_endpoint
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_cognito_identity_pool.web[0]
+    values          = { id = "us-east-1:10000000-0000-0000-0000-000000000001", arn = "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001" }
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_vpc_endpoint.web_token[0]
+    values          = { "id" : "vpce-00000000000000009", "arn" : "arn:aws:ec2:us-east-1:111122223333:vpc-endpoint/vpce-00000000000000009", "owner_id" : "111122223333", "vpc_id" : "vpc-00000000000000001", "service_name" : "com.amazonaws.us-east-1.cognito-identity", "vpc_endpoint_type" : "Interface", "state" : "available", "private_dns_enabled" : true, "ip_address_type" : "ipv4", "subnet_ids" : ["subnet-00000000000000001", "subnet-00000000000000002"], "security_group_ids" : ["sg-00000000000000009"], "tags" : { "Project" : "SaveIT", "Cell" : "pilot", "Environment" : "staging", "Process" : "web-token" }, "policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OnlyWebTokenIssuance\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task\"},\"Action\":\"cognito-identity:GetOpenIdTokenForDeveloperIdentity\",\"Resource\":\"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001\"},{\"Sid\":\"RejectOtherPrincipals\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"ArnNotEquals\":{\"aws:PrincipalArn\":\"arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task\"}}},{\"Sid\":\"RejectOtherActions\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"NotAction\":\"cognito-identity:GetOpenIdTokenForDeveloperIdentity\",\"Resource\":\"*\"},{\"Sid\":\"RejectOtherPools\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"NotResource\":\"arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001\"},{\"Sid\":\"RejectInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"BoolIfExists\":{\"aws:SecureTransport\":\"false\"}}}]}" }
+  }
+
+  assert {
+    condition     = output.web_workload_admission.binding_ready && output.web_workload_admission.endpoint == run.endpoint_consumes_actual_workload_pool.web_workload_token_endpoint && jsondecode(aws_iam_role_policy.web_token[0].policy) == jsondecode(file("../workload-identity/tests/web-token-boundary.json"))
+    error_message = "Rebind only the actual staged pool/endpoint output while preserving the complete policy; mock plans are not IAM enforcement."
   }
 }
