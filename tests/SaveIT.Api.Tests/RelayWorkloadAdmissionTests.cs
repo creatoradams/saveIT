@@ -109,8 +109,15 @@ public sealed class RelayWorkloadAdmissionTests(ApiClientAuthenticationTests.Fix
     [InlineData(-1, 600)] [InlineData(-1, 60)] [InlineData(-61, 1)] [InlineData(1, 59)] [InlineData(-60, -1)]
     public async Task Lifetime_age_future_and_expiry_limits_fail(int issuedOffset, int expiresOffset)
     {
-        var claims = Claims(); var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); claims["iat"] = now + issuedOffset; claims["exp"] = now + expiresOffset;
-        Assert.False(await Admission().AcceptAsync(Sign(JsonSerializer.Serialize(claims))));
+        var clock = new Clock();
+        var claims = Claims(); var now = clock.GetUtcNow().ToUnixTimeSeconds(); claims["iat"] = now + issuedOffset; claims["exp"] = now + expiresOffset;
+        Assert.False(await new RelayWorkloadAdmission(Pool, Issuer, Provider, Jwks(), clock).AcceptAsync(Sign(JsonSerializer.Serialize(claims))));
+    }
+
+    private sealed class Clock : TimeProvider
+    {
+        private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     [Theory]

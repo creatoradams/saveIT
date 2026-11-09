@@ -14,6 +14,7 @@ public sealed class RelayWorkloadAdmission
     public const string TrustPath = "/opt/saveit/trust/workload-jwks.json";
     private readonly string pool, issuer, provider;
     private readonly SecurityKey[] keys;
+    private readonly TimeProvider clock;
 
     public static RelayWorkloadAdmission? FromEnvironment()
     {
@@ -35,12 +36,13 @@ public sealed class RelayWorkloadAdmission
         catch { throw new InvalidOperationException(ApiRelayConfiguration.Failure); }
     }
 
-    internal RelayWorkloadAdmission(string pool, string issuer, string provider, ReadOnlyMemory<byte> jwks)
+    internal RelayWorkloadAdmission(string pool, string issuer, string provider, ReadOnlyMemory<byte> jwks, TimeProvider? clock = null)
     {
         if (!Regex.IsMatch(pool, "\\A[a-z]{2}-[a-z]+-[1-9]:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\z") || pool.StartsWith("cn-", StringComparison.Ordinal) ||
             !Regex.IsMatch(provider, "\\Asaveit[.][a-z][a-z0-9]{1,11}[.](staging|production)[.]web\\z") ||
             issuer != "https://cognito-identity.amazonaws.com" && issuer != $"https://cognito-identity.{pool.Split(':')[0]}.amazonaws.com" || jwks.Length is 0 or > 65536) throw new InvalidOperationException();
         this.pool = pool; this.issuer = issuer; this.provider = provider;
+        this.clock = clock ?? TimeProvider.System;
         using var document = Parse(jwks);
         var root = document.RootElement;
         Exact(root, "keys");
@@ -75,7 +77,7 @@ public sealed class RelayWorkloadAdmission
                 !keys.Any(k => k.KeyId == header.RootElement.GetProperty("kid").GetString())) return false;
             var claims = payload.RootElement;
             Exact(claims, "iss", "aud", "sub", "amr", "iat", "exp");
-            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var now = clock.GetUtcNow().ToUnixTimeSeconds();
             var issued = claims.GetProperty("iat").GetInt64(); var expires = claims.GetProperty("exp").GetInt64();
             if (issued > now || issued < now - 60 || expires <= now || expires <= issued || expires - issued > 60 ||
                 claims.GetProperty("iss").GetString() != issuer || claims.GetProperty("aud").GetString() != pool ||

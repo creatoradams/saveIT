@@ -18,7 +18,10 @@ for service in api api-server-only worker; do
   [[ -n "$stopped_id" && "$(docker inspect --format '{{.State.Running}}' "$stopped_id")" == false ]]
 done
 "${compose[@]}" exec -T db psql -XAt -U postgres -d saveit -v ON_ERROR_STOP=1 < tests/production/inventory.sql > "$backup/before-counts.txt"
-[[ "$(wc -l < "$backup/before-counts.txt")" == 29 ]]
+[[ "$(wc -l < "$backup/before-counts.txt")" == 31 ]]
+# Keep the 28 tenant tables distinct from the two operational coordination tables.
+grep -Fxq 'ComputeControl:0' "$backup/before-counts.txt"
+grep -Fxq 'ComputeOperations:0' "$backup/before-counts.txt"
 "${compose[@]}" exec -T db pg_dump -U postgres -d saveit --format=custom > "$backup/database.dump"
 docker run --rm --user 0 --entrypoint /bin/sh -v saveit-release_keyring:/keys:ro -v "$fixture:/config:ro" -v "$backup:/backup" "$sdk" -euc 'umask 077; set -- /keys/key-*.xml; test -f "$1"; tar -cf /backup/keyring.tar -C /keys .; cp /config/protection.pfx /backup/protection.pfx; cp /config/previous.pfx /backup/previous.pfx; cd /backup; sha256sum database.dump keyring.tar protection.pfx previous.pfx > SHA256SUMS'
 # Restore into a new DB, retaining the dump's original owners/grants. Never overwrite the source.
