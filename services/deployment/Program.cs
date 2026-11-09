@@ -8,6 +8,19 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
+if (args.FirstOrDefault() == "check-relay-task")
+{
+    try
+    {
+        if (args is not ["check-relay-task"] || !Console.IsInputRedirected) throw new InvalidOperationException();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var input = Console.OpenStandardInput();
+        await RelayTaskPreflight.ValidateAsync(input, timeout.Token);
+        Console.WriteLine(RelayTaskPreflight.Success);
+        return 0;
+    }
+    catch (Exception) { Console.Error.WriteLine(RelayTaskPreflight.Failure); return 1; }
+}
 if (args.FirstOrDefault() == "probe-api-relay")
     return args is ["probe-api-relay"] ? await RelayLivenessProbe.RunAsync() : 1;
 if (args.FirstOrDefault() == "serve-api-relay-secrets")

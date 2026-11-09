@@ -8,7 +8,24 @@ namespace SaveIT.Deployment;
 internal static class ProtectedJsonInput
 {
     internal const int MaximumBytes = 64 * 1024;
-    internal static async Task<Dictionary<string,string>> ReadAsync(Stream input, IReadOnlySet<string> fields, CancellationToken cancellationToken)
+    internal static Task<Dictionary<string,string>> ReadAsync(Stream input, IReadOnlySet<string> fields, CancellationToken cancellationToken) =>
+        ReadAsync(input, 2, root =>
+        {
+            if (root.ValueKind != JsonValueKind.Object) throw new InvalidOperationException();
+            var values = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var property in root.EnumerateObject())
+            {
+                if (!fields.Contains(property.Name) || property.Value.ValueKind != JsonValueKind.String ||
+                    !values.TryAdd(property.Name, property.Value.GetString()!)) throw new InvalidOperationException();
+                var value = values[property.Name];
+                if (string.IsNullOrWhiteSpace(value) || value.Contains('\0')) throw new InvalidOperationException();
+            }
+            if (values.Count != fields.Count) throw new InvalidOperationException();
+            return values;
+        }, cancellationToken);
+
+    // The callback must finish before the original byte buffer is cleared.
+    internal static async Task<T> ReadAsync<T>(Stream input, int maximumDepth, Func<JsonElement, T> validate, CancellationToken cancellationToken)
     {
         var buffer = new byte[MaximumBytes + 1];
         try
@@ -32,18 +49,10 @@ internal static class ProtectedJsonInput
             cancellationToken.ThrowIfCancellationRequested();
             if (count is 0 or > MaximumBytes) throw new InvalidOperationException();
             _ = new UTF8Encoding(false, true).GetCharCount(buffer.AsSpan(0, count));
-            using var document = JsonDocument.Parse(buffer.AsMemory(0, count), new JsonDocumentOptions { MaxDepth = 2 });
-            if (document.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidOperationException();
-            var values = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var property in document.RootElement.EnumerateObject())
-            {
-                if (!fields.Contains(property.Name) || property.Value.ValueKind != JsonValueKind.String ||
-                    !values.TryAdd(property.Name, property.Value.GetString()!)) throw new InvalidOperationException();
-                var value = values[property.Name];
-                if (string.IsNullOrWhiteSpace(value) || value.Contains('\0')) throw new InvalidOperationException();
-            }
-            if (values.Count != fields.Count) throw new InvalidOperationException();
-            return values;
+            using var document = JsonDocument.Parse(buffer.AsMemory(0, count), new JsonDocumentOptions { MaxDepth = maximumDepth });
+            var result = validate(document.RootElement);
+            cancellationToken.ThrowIfCancellationRequested();
+            return result;
         }
         catch (Exception) { throw new InvalidOperationException("SaveIT protected input is invalid."); }
         finally { CryptographicOperations.ZeroMemory(buffer); }

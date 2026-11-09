@@ -104,6 +104,7 @@ export SAVEIT_CLIENT_PIN_SPARE="$(openssl x509 -in "$fixture/client-spare.crt" -
 export SAVEIT_CLIENT_PIN_EXPIRED="$(openssl x509 -in "$fixture/client-expired.crt" -outform DER | sha256sum | cut -d ' ' -f1)"
 export SAVEIT_CLIENT_PIN_FOREIGN="$(openssl x509 -in "$fixture/client-foreign.crt" -outform DER | sha256sum | cut -d ' ' -f1)"
 node tests/production/configuration-preflight.mjs
+node tests/production/relay-task-preflight.mjs
 sudo chown 999:999 "$fixture/pg.key"
 "${compose[@]}" up -d --wait db
 "${compose[@]}" exec -T db psql -U postgres -d saveit -v ON_ERROR_STOP=1 < infra/postgres/bootstrap-roles.sql

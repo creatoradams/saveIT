@@ -53,15 +53,21 @@ The [verified network checkpoint](https://github.com/creatoradams/saveIT/blob/61
 
 The [verified task checkpoint](https://github.com/creatoradams/saveIT/blob/8ace209/docs/progress.md) retains exact local/full-CI/artifact evidence and the security review's two probe/test remedies. Its [review](reviews/2026-11-09-relay-task-review.md) retains scope and the outstanding efficiency review; none of this is managed trust/network evidence.
 
-## Current delivery: parked private service composition
+## Prior delivery: parked private service composition
 
 [ADR048](adr/048-parked-private-service-composition.md) composes task/discovery outputs downstream into one cluster and four REPLICA services fixed at desired0. Each declares private subnet placement/one own SG; only API/relay bind registries. It adds no launch switch, autoscaling, IAM grant, task/secret-content lookup, runtime dependency or application authority. Zero is not account-enforced no-launch, drain, fencing or proof that prior instances are absent. Future apply can create the ECS service-linked role; no apply or cloud request has occurred.
 
 Local formatting/validation and **438 mocked plans** across ten roots pass (9/16/13/40/39/95/76/51/36/63), plus **91 loader/liveness regressions with zero skipped**, TypeScript/build and expanded ignore checks. Full source/Linux/browser/package evidence for this source is above. Downloaded artifact 13647148314 matches archive SHA256 3ee9497c96347c185e70499d2eece7b7c4dd01ee48e867bd7004787966eb2c3f; all four source/image/SBOM/report bindings verify. The [review](reviews/2026-11-09-private-services-review.md) records provider/mock limits and review status. Registry tag mock inputs are not returned-tag rejection evidence; actual association/DNS/IAM/registration/health/drain remains unverified. The efficiency review remains outstanding after the agent's usage limit.
 
+## Current delivery: offline relay task preflight
+
+[ADR049](adr/049-offline-relay-task-preflight.md) adds `check-relay-task` to the existing deployment executable. It independently checks supplied relay revision/image/configuration/role/runtime metadata, rejects semantic additions/duplicates and emits fixed content-free output under bounded input/EOF limits. It reuses protected input mechanics while retaining the original flat configuration schema; no dependency, infrastructure root/resource, tenant authority or launch switch is added. All services remain fixed at zero. Supplied data does not prove provenance/freshness, actual image/private configuration, RunTask override restrictions or launch approval.
+
+Local focused validation passed215 .NET tests with zero skipped, including relay loader/liveness and flat configuration regressions. The ECS producer's95 mocked plans, TypeScript/build, ignore policy and native-fixture syntax/format checks pass. The security agent reviewed design/source/tests without actionable findings. Packaged Linux and full CI evidence remain pending; this paragraph is not cloud or release approval. The fresh independent efficiency review remains outstanding after the agent's usage limit.
+
 ## Next steps
 
-1. Implement protected service activation/change and operated health/drain/fencing controls for the parked service contracts; retain keyless web and exact startup/version/role guards.
+1. Add trusted acquisition/protected release authority and override prohibition around offline task checks, then bounded service change and operated health/drain/fencing for the parked contracts; retain keyless web and exact startup/version/role guards.
 2. Complete restricted ingress/egress, protected population, signing/promotion, scheduling/PassRole and operated health/drain/fencing.
 3. Add redacted telemetry/alerts, API/tenant quotas, operational audit archive/retention and recovery runbooks.
 4. Use authorized staging accounts to verify actual IAM/KMS/PKI/RDS/Okta, multi-instance keys, recovery and capacity; remediate findings and obtain independent assessment before an approved pilot.
