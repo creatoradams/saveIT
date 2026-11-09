@@ -12,6 +12,7 @@ const compose = [
 ];
 const name = "saveit-release-workload-relay";
 let relay;
+let stage = "provider network setup";
 function command(args, input, timeout = 15000) {
   const child = spawn("docker", args, { stdio: ["pipe", "pipe", "pipe"] });
   let output = "",
@@ -86,6 +87,9 @@ const a=require('node:assert/strict'),h=require('node:http'),s=require('node:htt
 async function request(url,headers={},body){return await new Promise((resolve,reject)=>{const req=(url.startsWith('https:')?s:h).request(url,{method:body===undefined?'GET':'POST',headers,ca:fs.readFileSync('/opt/saveit/trust/api-ca.crt'),signal:AbortSignal.timeout(4000)},r=>{let text='';r.on('data',b=>{text+=b;if(text.length>32768)req.destroy();});r.on('end',()=>resolve({status:r.statusCode,headers:r.headers,text}));r.on('error',reject);});req.on('error',reject);req.end(body);});}
 `;
 try {
+  // Reserve the literal metadata address before any automatic task allocation.
+  await run([...compose, "up", "-d", "workload-provider"], undefined, 45000);
+  stage = "bound relay startup";
   relay = command(
     [
       ...compose,
@@ -111,11 +115,8 @@ try {
     if (attempt === 100 || relay.child.exitCode !== null) throw new Error();
     await delay(100);
   }
-  await run(
-    [...compose, "up", "-d", "workload-provider", "web-workload"],
-    undefined,
-    45000,
-  );
+  stage = "web startup";
+  await run([...compose, "up", "-d", "web-workload"], undefined, 45000);
   for (let attempt = 0; ; attempt++) {
     try {
       await execWeb(
@@ -128,6 +129,7 @@ try {
       await delay(250);
     }
   }
+  stage = "authenticated proxy and header checks";
   await execWeb(
     driver +
       `
@@ -156,6 +158,7 @@ try {
     "Packaged workload intake passed: SDK-signed issuance, native TLS/JWT/mTLS, browser replacement, no response leakage and cache reuse",
   );
   for (const mode of ["long", "foreign"]) {
+    stage = `signed ${mode} token refusal`;
     await execWeb(
       driver +
         `request('http://169.254.170.2/mode',{},${JSON.stringify(mode)}).then(r=>a.equal(r.status,200)).catch(()=>process.exitCode=1);`,
@@ -179,7 +182,7 @@ try {
     );
   }
 } catch {
-  throw new Error("Packaged workload intake failed.");
+  throw new Error(`Packaged workload intake failed during ${stage}.`);
 } finally {
   try {
     const inspected = JSON.parse(await run(["inspect", name]));
