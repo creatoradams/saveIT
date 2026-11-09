@@ -4,7 +4,9 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
-- [x] Account-free optional isolated relay task and keyless web target, exact-version startup arguments and bounded local liveness command (ADR047; current verification/review limits in [progress](progress.md)). No service/ENI attachment, managed certificate/image/receiver-pin association or launch is proven; private services/registration/health/drain, protected population/promotion, caller admission and managed verification remain unfinished.
+- [x] Account-free downstream parked private service/network/registry composition (ADR048; exact verification/review limits in [progress](progress.md)). Four services remain hardcoded desired0; there are no running tasks, registered instances or health updates. Protected activation/change, actual task/CA/config binding, ingress/egress, operated health/drain/fencing and managed IAM/association/DNS proof remain unfinished. All enterprise inventory scope remains.
+
+- [x] Account-free optional isolated relay task and keyless web target, exact-version startup arguments and bounded local liveness command (ADR047; current verification/review limits in [progress](progress.md)). No actual service/ENI attachment, managed certificate/image/receiver-pin association or launch is proven; registration/health/drain, protected population/promotion, caller admission and managed verification remain unfinished.
 
 - [x] Account-free opt-in dedicated relay network/private discovery contracts (ADR046; current verification in [progress](progress.md)): separate group, exact endpoint/layer paths, replaced web/relay/API directions, protected private registry and distinct targets. Unapplied mock contracts do not prove packet reach/IAM/DNS/TLS; service binding and managed verification remain unfinished.
 

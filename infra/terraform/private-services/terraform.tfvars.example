@@ -1,0 +1,58 @@
+# Synthetic public metadata only. No actual account/resources/launch approval; do not apply.
+account_id = "111122223333"
+region = "us-east-1"
+cell = "pilot"
+environment = "staging"
+task_definitions = {
+  "api": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-api:7",
+  "web": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-web:8",
+  "worker": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-worker:9"
+}
+api_discovery = {
+  "namespace_id": "ns-0000000000000001",
+  "namespace_arn": "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001",
+  "service_arn": "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000001",
+  "hostname": "api.pilot.staging.saveit.internal",
+  "origin": "https://api.pilot.staging.saveit.internal:8443",
+  "port": 8443,
+  "vpc_id": "vpc-00000000000000001",
+  "application_subnet_ids": [
+    "subnet-00000000000000001",
+    "subnet-00000000000000002"
+  ],
+  "client_security_groups": {
+    "api": "sg-00000000000000002",
+    "web": "sg-00000000000000005",
+    "worker": "sg-00000000000000003",
+    "deployment": "sg-00000000000000004"
+  }
+}
+relay_task = {
+  "task_definition_arn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-relay:10",
+  "origin": "https://relay.pilot.staging.saveit.internal:8443",
+  "api_origin": "https://api.pilot.staging.saveit.internal:8443",
+  "port": 8443,
+  "network": {
+    "vpc_id": "vpc-00000000000000001",
+    "application_subnet_ids": [
+      "subnet-00000000000000001",
+      "subnet-00000000000000002"
+    ],
+    "security_group_id": "sg-00000000000000006"
+  }
+}
+relay_discovery = {
+  "namespace_id": "ns-0000000000000001",
+  "namespace_arn": "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001",
+  "service_arn": "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002",
+  "hostname": "relay.pilot.staging.saveit.internal",
+  "origin": "https://relay.pilot.staging.saveit.internal:8443",
+  "api_origin": "https://api.pilot.staging.saveit.internal:8443",
+  "port": 8443,
+  "vpc_id": "vpc-00000000000000001",
+  "application_subnet_ids": [
+    "subnet-00000000000000001",
+    "subnet-00000000000000002"
+  ],
+  "security_group_id": "sg-00000000000000006"
+}

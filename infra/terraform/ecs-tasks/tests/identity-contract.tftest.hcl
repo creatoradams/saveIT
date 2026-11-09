@@ -1192,6 +1192,26 @@ run "actual_bound_relay_output_for_endpoint_filters" {
 
 run "task_consumes_actual_bound_relay_producer" {
   command = plan
+  override_resource {
+    override_during = plan
+    target          = aws_ecs_task_definition.application["api"]
+    values          = { arn = "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-api:7" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_ecs_task_definition.application["web"]
+    values          = { arn = "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-web:8" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_ecs_task_definition.application["worker"]
+    values          = { arn = "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-worker:9" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_ecs_task_definition.relay[0]
+    values          = { arn = "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-relay:10" }
+  }
   variables {
     api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
     relay            = { roles = run.actual_bound_relay_output_for_endpoint_filters.roles, configuration = run.actual_bound_relay_output_for_endpoint_filters.configuration, operational_log = run.actual_bound_relay_output_for_endpoint_filters.operational_log, image_repository = run.actual_bound_relay_output_for_endpoint_filters.image_repository, binding_ready = run.actual_bound_relay_output_for_endpoint_filters.binding_ready, network = jsondecode(file("tests/relay-binding.json")).network, image = jsondecode(file("tests/relay-binding.json")).image, web_ca_sha256 = jsondecode(file("tests/relay-binding.json")).web_ca_sha256 }
@@ -1217,5 +1237,125 @@ run "discovery_follows_bound_task_without_a_cycle" {
   assert {
     condition     = output.relay_discovery.origin == run.task_consumes_actual_bound_relay_producer.relay_task.origin && output.relay_discovery.api_origin == run.task_consumes_actual_bound_relay_producer.api_transport.origin && aws_vpc_security_group_ingress_rule.api_https.referenced_security_group_id == run.task_consumes_actual_bound_relay_producer.relay_task.network.security_group_id
     error_message = "Discovery consumes task-owned API transport downstream; no discovery-to-task dependency or parallel direct web/API declaration is introduced."
+  }
+}
+
+override_resource {
+  override_during = plan
+  target          = aws_service_discovery_service.relay[0]
+  values          = { id = "srv-0000000000000002", arn = "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002" }
+}
+
+run "services_consume_actual_task_and_discovery_outputs" {
+  command = plan
+  module { source = "../private-services" }
+  variables {
+    task_definitions = run.task_consumes_actual_bound_relay_producer.task_definitions
+    relay_task       = run.task_consumes_actual_bound_relay_producer.relay_task
+    api_discovery    = run.discovery_follows_bound_task_without_a_cycle.api_discovery
+    relay_discovery  = run.discovery_follows_bound_task_without_a_cycle.relay_discovery
+  }
+  override_data {
+    target = data.aws_security_group.client["relay"]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+
+  override_data {
+    target = data.aws_service_discovery_dns_namespace.cell
+    values = {
+      "id" : "ns-0000000000000001",
+      "arn" : "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001",
+      "hosted_zone" : "Z0000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging"
+      }
+    }
+  }
+
+  override_data {
+    target = data.aws_route53_zone.cell
+    values = {
+      "zone_id" : "Z0000000000000001"
+    }
+  }
+
+  override_data {
+    target = data.aws_service_discovery_service.registry["api"]
+    values = {
+      "arn" : "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000001",
+      "dns_config" : [
+        {
+          "namespace_id" : "ns-0000000000000001",
+          "routing_policy" : "MULTIVALUE",
+          "dns_records" : [
+            {
+              "type" : "A",
+              "ttl" : 10
+            }
+          ]
+        }
+      ],
+      "health_check_config" : [],
+      "health_check_custom_config" : [
+        {
+          "failure_threshold" : 1
+        }
+      ],
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "api"
+      }
+    }
+  }
+
+  override_data {
+    target = data.aws_service_discovery_service.registry["relay"]
+    values = {
+      "arn" : "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002",
+      "dns_config" : [
+        {
+          "namespace_id" : "ns-0000000000000001",
+          "routing_policy" : "MULTIVALUE",
+          "dns_records" : [
+            {
+              "type" : "A",
+              "ttl" : 10
+            }
+          ]
+        }
+      ],
+      "health_check_config" : [],
+      "health_check_custom_config" : [
+        {
+          "failure_threshold" : 1
+        }
+      ],
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+
+
+  assert {
+    condition     = output.parked_services.desired_count == 0 && aws_ecs_service.application["api"].task_definition == run.task_consumes_actual_bound_relay_producer.task_definitions.api && aws_ecs_service.application["relay"].task_definition == run.task_consumes_actual_bound_relay_producer.relay_task.task_definition_arn && one(aws_ecs_service.application["api"].service_registries).registry_arn == run.discovery_follows_bound_task_without_a_cycle.api_discovery.service_arn && one(aws_ecs_service.application["relay"].service_registries).registry_arn == run.discovery_follows_bound_task_without_a_cycle.relay_discovery.service_arn && one(aws_ecs_service.application["relay"].network_configuration).security_groups == toset([run.task_consumes_actual_bound_relay_producer.relay_task.network.security_group_id])
+    error_message = "Actual staged producer/task/discovery contracts feed parked services downstream; this is not actual IAM, registration, network or health evidence."
   }
 }
