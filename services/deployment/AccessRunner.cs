@@ -39,7 +39,10 @@ public static class AccessRunner
                 SELECT current_user='saveit_access_operator' AND session_user<>current_user
                   AND NOT (SELECT rolcanlogin FROM pg_roles WHERE rolname=current_user)
                   AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER')
-                    AND (r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR has_schema_privilege(r.oid,'public','CREATE')))
+                    AND (r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR has_schema_privilege(r.oid,'public','CREATE') OR r.rolname='saveit_compute_operator'))
+                  AND NOT EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('compute_change_v1','compute_inspect_v1','register_response_core_v1','register_response_v1','complete_response_v1')
+                    JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='public'
+                    WHERE pg_has_role(session_user,r.oid,'MEMBER') AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
                   AND NOT EXISTS (SELECT 1 FROM pg_roles r CROSS JOIN pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace
                     WHERE n.nspname='public' AND t.relrowsecurity AND pg_has_role(session_user,r.oid,'MEMBER')
                       AND (pg_has_role(r.oid,t.relowner,'MEMBER') OR has_table_privilege(r.oid,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')

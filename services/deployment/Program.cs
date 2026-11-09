@@ -80,6 +80,18 @@ if (args.FirstOrDefault() == "check-configuration")
 }
 try
 {
+    if (args.FirstOrDefault()=="compute")
+    {
+        var computeConnection = SaveIT.Search.PublicTrust.DatabaseConnection(Environment.GetEnvironmentVariable("SAVEIT_COMPUTE_CONNECTION") ?? throw new InvalidOperationException(),Environment.GetEnvironmentVariable("Deployment__Trust__DatabaseCaSha256"));
+        var localCompute = Environment.GetEnvironmentVariable("SAVEIT_COMPUTE_ALLOW_LOOPBACK")=="true";
+        if (args is ["compute","inspect"]) Console.WriteLine(await ComputeRunner.InspectAsync(computeConnection,localCompute));
+        else if (args is ["compute","change",var computeFile]) {
+            var computeManifest = await DeploymentRunner.ReadManifestAsync(computeFile);
+            Console.WriteLine($"SaveIT compute decision committed at version {await ComputeRunner.ChangeAsync(computeConnection,computeManifest,localCompute)} (no provider fencing evidence).");
+        }
+        else throw new InvalidOperationException();
+        return 0;
+    }
     if (args is ["access", var operation, var accessFile] && operation is "apply" or "inspect")
     {
         var accessConnection = SaveIT.Search.PublicTrust.DatabaseConnection(Environment.GetEnvironmentVariable("SAVEIT_ACCESS_CONNECTION")

@@ -51,7 +51,8 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         await DeploymentRunner.MigrateAsync(d.Connection, true); await DeploymentRunner.MigrateAsync(d.Connection, true);
         Assert.Equal(0L, await d.Scalar<long>("SELECT count(*) FROM \"Tenants\""));
         Assert.False(await d.Scalar<bool>("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole FROM pg_roles WHERE rolname='saveit_migration_owner'"));
-        Assert.Equal(28L, await d.Scalar<long>("SELECT count(*) FROM pg_policy WHERE polname='saveit_deployment_owner'"));
+        Assert.Equal(28L, await d.Scalar<long>("SELECT count(*) FROM pg_policy WHERE polname='saveit_deployment_owner' AND polrelid NOT IN ('public.\"ComputeControl\"'::regclass,'public.\"ComputeOperations\"'::regclass)"));
+        Assert.Equal(0L, await d.Scalar<long>("SELECT count(*) FROM public.\"ComputeControl\""));
         foreach (var connection in new[] { d.App, d.Worker })
         {
             await using var c = new NpgsqlConnection(connection); await c.OpenAsync();
@@ -112,7 +113,7 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         await DeploymentRunner.MigrateAsync(d.Connection, true);
         Assert.Equal(2L, await d.Scalar<long>("SELECT count(*) FROM \"LocationRevisions\""));
         Assert.Equal(2L, await d.Scalar<long>("SELECT count(*) FROM \"OrganizationRevisions\""));
-        Assert.Equal(28L, await d.Scalar<long>("SELECT count(*) FROM pg_policy WHERE polname='saveit_deployment_owner'"));
+        Assert.Equal(30L, await d.Scalar<long>("SELECT count(*) FROM pg_policy WHERE polname='saveit_deployment_owner'"));
     }
 
     [Fact]
@@ -395,5 +396,36 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
             Assert.Equal(3L, await d.Scalar<long>($"SELECT count(*) FROM \"AccessControlEvents\" WHERE \"MembershipId\"='{member}'"));
         }
         finally { await d.Execute($"DROP ROLE {login}"); }
+    }
+
+    [Fact]
+    public async Task Compute_functions_under_non_superuser_owner_and_revoked_PUBLIC_usage_preserve_scoped_completion_and_drain()
+    {
+        await using var d=await Database();await d.Execute("REVOKE USAGE ON SCHEMA public FROM PUBLIC");await DeploymentRunner.MigrateAsync(d.Connection,true);
+        var p=Manifest();await DeploymentRunner.ProvisionAsync(d.Connection,JsonSerializer.Serialize(p),true);
+        var login="saveit_compute_release_"+Guid.NewGuid().ToString("N");
+        await d.Execute($"CREATE ROLE {login} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'synthetic-release-test-only';GRANT saveit_compute_operator TO {login}");
+        try {
+            var op=new NpgsqlConnectionStringBuilder(d.Admin){Username=login,Password="synthetic-release-test-only",Pooling=false}.ConnectionString;
+            async Task<long> Step(long version,string action,Guid? generation=null,string? plan=null)=>await ComputeRunner.ChangeAsync(op,JsonSerializer.Serialize(new ComputeChange(version,Guid.NewGuid(),action,generation,plan,"synthetic-owner-compute"),new JsonSerializerOptions{PropertyNamingPolicy=JsonNamingPolicy.CamelCase}),true);
+            Assert.Equal(1,await Step(0,"initialize"));var generation=Guid.NewGuid();Assert.Equal(2,await Step(1,"prepare",generation,new string('a',64)));Assert.Equal(3,await Step(2,"activate"));
+            Assert.True(await d.Scalar<bool>("SELECT bool_and(p.proowner=(SELECT oid FROM pg_roles WHERE rolname='saveit_migration_owner')) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('compute_change_v1','compute_enter_v1','compute_startup_v1','compute_inspect_v1','register_response_v1','register_response_core_v1')"));
+            await using var app=new NpgsqlConnection(d.App);await app.OpenAsync();var request=Guid.NewGuid();var instance=Guid.NewGuid();
+            await using(var tx=await app.BeginTransactionAsync()) {
+                await using var command=new NpgsqlCommand("SELECT set_config('app.tenant_id',@t,true),set_config('app.membership_id',@m,true),set_config('app.compute_generation',@g,true);SELECT public.register_response_v1(@tenant,@member,@subject,1,@r,@i)",app,tx);
+                command.Parameters.AddWithValue("t",p.TenantId.ToString());command.Parameters.AddWithValue("m",p.MembershipId.ToString());command.Parameters.AddWithValue("g",generation.ToString());command.Parameters.AddWithValue("tenant",p.TenantId);command.Parameters.AddWithValue("member",p.MembershipId);command.Parameters.AddWithValue("subject",p.Subject);command.Parameters.AddWithValue("r",request);command.Parameters.AddWithValue("i",instance);
+                await using var reader=await command.ExecuteReaderAsync();await reader.NextResultAsync();await reader.ReadAsync();Assert.True(reader.GetBoolean(0));await reader.DisposeAsync();await tx.CommitAsync();
+            }
+            Assert.Equal(4,await Step(3,"quiesce"));Assert.Equal("55P03",(await Assert.ThrowsAsync<PostgresException>(()=>Step(4,"drained"))).SqlState);
+            await using(var tx=await app.BeginTransactionAsync()) {
+                await using var command=new NpgsqlCommand("SELECT set_config('app.tenant_id',@t,true),set_config('app.membership_id',@m,true);SELECT public.complete_response_v1(@tenant,@member,@r,@i,false)",app,tx);
+                command.Parameters.AddWithValue("t",p.TenantId.ToString());command.Parameters.AddWithValue("m",p.MembershipId.ToString());command.Parameters.AddWithValue("tenant",p.TenantId);command.Parameters.AddWithValue("member",p.MembershipId);command.Parameters.AddWithValue("r",request);command.Parameters.AddWithValue("i",instance);
+                await command.ExecuteNonQueryAsync();await tx.CommitAsync();
+            }
+            Assert.Equal(5,await Step(4,"drained"));using var state=JsonDocument.Parse(await ComputeRunner.InspectAsync(op,true));Assert.Equal(0,state.RootElement.GetProperty("pendingResponses").GetInt32());
+            Assert.Equal(28L,await d.Scalar<long>("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity AND c.relforcerowsecurity AND c.relname NOT IN ('ComputeControl','ComputeOperations')"));
+            Assert.Equal(2L,await d.Scalar<long>("SELECT count(*) FROM pg_class WHERE relname IN ('ComputeControl','ComputeOperations') AND relrowsecurity AND relforcerowsecurity"));
+        }
+        finally{await d.Execute($"DROP ROLE {login}");}
     }
 }

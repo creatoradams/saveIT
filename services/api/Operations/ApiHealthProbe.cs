@@ -6,10 +6,10 @@ namespace SaveIT.Api.Operations;
 
 public static partial class ApiHealthProbe
 {
-    public static Task<int> FromEnvironmentAsync() => RunAsync(
-        Environment.GetEnvironmentVariable("SAVEIT_HEALTH_PORT"), Environment.GetEnvironmentVariable("SAVEIT_HEALTH_HOST"));
+    public static Task<int> FromEnvironmentAsync(bool live = false) => RunAsync(
+        Environment.GetEnvironmentVariable("SAVEIT_HEALTH_PORT"), Environment.GetEnvironmentVariable("SAVEIT_HEALTH_HOST"),live);
 
-    public static async Task<int> RunAsync(string? portText = null, string? host = null)
+    public static async Task<int> RunAsync(string? portText = null, string? host = null, bool live = false)
     {
         portText ??= "8080";
         host ??= "127.0.0.1";
@@ -25,7 +25,7 @@ public static partial class ApiHealthProbe
                 MaxConnectionsPerServer = 1
             };
             using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(3) };
-            using var request = new HttpRequestMessage(HttpMethod.Get, new Uri($"http://127.0.0.1:{port}/health/ready"));
+            using var request = new HttpRequestMessage(HttpMethod.Get, new Uri($"http://127.0.0.1:{port}/health/{(live ? "live" : "ready")}"));
             request.Headers.Host = host;
             request.Headers.ConnectionClose = true;
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);

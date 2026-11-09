@@ -16,14 +16,19 @@ internal sealed class AccessCommitProxy : IAsyncDisposable
     private readonly string host;
     private readonly int port;
     private readonly int cutCommit;
+    private readonly bool holdRollback;
+    private int rollbacks;
     private readonly Task accepting;
     private int commits;
     public TaskCompletionSource CommitLost { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource RollbackObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource ReleaseRollback { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public string Connection { get; }
 
-    public AccessCommitProxy(string connection, int cutCommit)
+    public AccessCommitProxy(string connection, int cutCommit, bool holdRollback = false)
     {
         var settings = new NpgsqlConnectionStringBuilder(connection); host = settings.Host!; port = settings.Port; this.cutCommit = cutCommit;
+        this.holdRollback = holdRollback;
         listener.Start(); settings.Host = "127.0.0.1"; settings.Port = ((IPEndPoint)listener.LocalEndpoint).Port;
         settings.SslMode = SslMode.Disable; settings.GssEncryptionMode = GssEncryptionMode.Disable;
         settings.ApplicationName = "SaveIT.SyntheticCommitProxy"; Connection = settings.ConnectionString;
@@ -68,6 +73,8 @@ internal sealed class AccessCommitProxy : IAsyncDisposable
             var body = new byte[length - 4]; await source.ReadExactlyAsync(body, ct);
             if (header[0] == (byte)'C' && body.AsSpan().SequenceEqual("COMMIT\0"u8) && Interlocked.Increment(ref commits) == cutCommit)
             { CommitLost.TrySetResult(); return; }
+            if (holdRollback && header[0] == (byte)'C' && body.AsSpan().SequenceEqual("ROLLBACK\0"u8) && Interlocked.Increment(ref rollbacks)==1)
+            { RollbackObserved.TrySetResult(); await ReleaseRollback.Task.WaitAsync(ct); }
             await destination.WriteAsync(header, ct); await destination.WriteAsync(body, ct);
         }
     }

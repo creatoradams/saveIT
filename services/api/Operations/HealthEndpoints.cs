@@ -5,10 +5,10 @@ namespace SaveIT.Api.Operations;
 
 public static class HealthEndpoints
 {
-    public static void MapOperationalHealth(this WebApplication app, string appConnection)
+    public static void MapOperationalHealth(this WebApplication app, string appConnection, Guid? computeGeneration = null)
     {
         app.MapGet("/health/live", () => Results.Ok(new { status = "ok" })).ExcludeFromDescription();
-        app.MapGet("/health/ready", async (IWebHostEnvironment environment, HttpContext c) =>
+        async Task<IResult> Check(IWebHostEnvironment environment, HttpContext c, bool startup)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(c.RequestAborted);
             timeout.CancelAfter(TimeSpan.FromSeconds(3));
@@ -18,6 +18,8 @@ public static class HealthEndpoints
                 await connection.OpenAsync(timeout.Token);
                 await DatabaseRoleGuard.ValidateAsync(connection, timeout.Token);
                 await DatabaseRoleGuard.ValidateSchemaAsync(connection, timeout.Token, !environment.IsDevelopment());
+                if (!await ComputeAdmission.CheckAsync(connection,null,computeGeneration,timeout.Token,startup))
+                    return Results.Json(new { status = "unavailable" }, statusCode:503);
                 return Results.Ok(new { status = "ready" });
             }
             catch (Exception)
@@ -25,6 +27,8 @@ public static class HealthEndpoints
                 // Public readiness never returns schema names, roles, exceptions or connection details.
                 return Results.Json(new { status = "unavailable" }, statusCode: 503);
             }
-        }).ExcludeFromDescription();
+        }
+        app.MapGet("/health/ready", (IWebHostEnvironment environment,HttpContext c) => Check(environment,c,false)).ExcludeFromDescription();
+        app.MapGet("/health/startup", (IWebHostEnvironment environment,HttpContext c) => Check(environment,c,true)).ExcludeFromDescription();
     }
 }

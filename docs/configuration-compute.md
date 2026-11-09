@@ -5,13 +5,15 @@ Scope confirmed by the user: complete the account-free configuration-and-compute
 ## Engineering acceptance
 
 - [ ] Protected launch/change: one durable expected-version controller, trusted metadata acquisition, all four task definitions checked, fixed network/role/image/configuration targets, no arbitrary overrides, explicit handoff from zero-count Terraform ownership.
-- [ ] Authenticated intake: server-only AWS-issued workload token, existing verified web/relay TLS and relay/API mTLS, strict standard JWT verification, browser header replacement and no forwarding of the workload credential to API/browser/logs.
+- [x] Authenticated intake implementation/synthetic verification: server-only issuance client, existing verified web/relay TLS and relay/API mTLS, strict standard JWT verification, browser header replacement and no forwarding of the workload credential to API/browser/logs. Actual AWS issuance/claims/IAM verification remains below.
 - [ ] Health/drain: separate liveness/readiness/startup; atomic refusal of new admissions while existing work finishes; durable response completion remains required.
 - [ ] Fencing: exact owned process/task termination checks; uncertain acknowledgements/orphan responses block; no protocol TTL, force-close or pruning bypass.
 - [ ] Restricted paths: scoped private ingress, authenticated web/relay, relay/API, designated DB/EFS/endpoints and bounded Okta egress; direct bypass and unexpected destinations refused.
 - [ ] Executable evidence: real packaged processes and synthetic control-plane tests for concurrent operations, stalled work, crash/partition/uncertain outcomes; required repository checks and independent source review.
 
 ## Design boundaries
+
+ADR051 now supplies cooperative API/worker generation and core-quiescence primitives, a durable operator journal and separate health modes. Whole-cell drain, exclusive privileged-writer ownership and exact process/provider fencing are still required; CoreQuiescent is not a snapshot/fence acknowledgement. All services remain at zero in Terraform.
 
 Keep existing ten roots and zero-count/null bootstrap contracts. Add no secret values to Terraform. Workload admission uses a dedicated Cognito developer identity pool solely for web, not customer identity; Okta and live SQL tenant authority are unchanged. Web never reads a PFX or configuration secret. The client requests60s tokens; IAM limits issuance to the isolated pool/endpoint, and relay independently limits accepted lifetime. This is not an IAM-enforced duration or developer-identifier restriction. Relay validates standard signed JWTs using reviewed public keys, exact issuer/audience/provider and at most60s lifetime; tokens are bearer capabilities, not per-task attestation or proof of possession. No SaveIT role trusts the pool for STS exchange. Public Cognito operations cannot be controlled by an IAM Deny alone; strict receiver lifetime/amr checks remain mandatory.
 

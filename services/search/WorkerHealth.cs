@@ -18,7 +18,9 @@ public static class WorkerHealth
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
-    public static bool IsReady(string path, TimeProvider? clock = null)
+    public static bool IsReady(string path, TimeProvider? clock = null) => Check(path,clock,true);
+    public static bool IsLive(string path, TimeProvider? clock = null) => Check(path,clock,false);
+    private static bool Check(string path, TimeProvider? clock, bool requireReady)
     {
         try
         {
@@ -26,7 +28,7 @@ public static class WorkerHealth
             if (!file.Exists || file.Length > 1024) return false;
             var snapshot = JsonSerializer.Deserialize<WorkerHealthSnapshot>(File.ReadAllText(path));
             var age = (clock ?? TimeProvider.System).GetUtcNow() - snapshot!.ObservedAt;
-            return snapshot.Schema == 1 && snapshot.Ready && age >= TimeSpan.Zero && age < TimeSpan.FromSeconds(60);
+            return snapshot.Schema == 1 && (!requireReady || snapshot.Ready) && age >= TimeSpan.Zero && age < TimeSpan.FromSeconds(60);
         }
         catch (Exception) { return false; }
     }

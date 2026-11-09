@@ -6,7 +6,7 @@ public sealed record SearchBatchResult(int Completed, int Retried, int DeadLette
 
 // A dedicated consumer owns projections/receipts. Core writes occur only in the API.
 // Each invalidation rehydrates current source state, so duplicates and event order are safe.
-public sealed class SearchProcessor(string connectionString, TimeProvider? timeProvider = null, bool requireSchema = false)
+public sealed class SearchProcessor(string connectionString, TimeProvider? timeProvider = null, bool requireSchema = false, Guid? computeGeneration = null)
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
     private sealed record Event(Guid Id, Guid OrganizationId, Guid TargetId, string Type, int SchemaVersion);
@@ -16,6 +16,7 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
     public async Task ValidateAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
+        if (!await ComputeAdmission.CheckAsync(connection,null,computeGeneration,cancellationToken,startup:true)) throw new ComputeUnavailableException();
     }
 
     public async Task<SearchBatchResult> ProcessBatchAsync(Guid tenantId, CancellationToken cancellationToken = default, Action? progress = null)
@@ -166,12 +167,13 @@ public sealed class SearchProcessor(string connectionString, TimeProvider? timeP
         catch { await connection.DisposeAsync(); throw; }
     }
 
-    private static async Task<NpgsqlTransaction> BeginTenantAsync(NpgsqlConnection connection, Guid tenantId, CancellationToken cancellationToken)
+    private async Task<NpgsqlTransaction> BeginTenantAsync(NpgsqlConnection connection, Guid tenantId, CancellationToken cancellationToken)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("A configured tenant is required.", nameof(tenantId));
         var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (!await ComputeAdmission.CheckAsync(connection,transaction,computeGeneration,cancellationToken)) throw new ComputeUnavailableException();
             await using var command = new NpgsqlCommand("SELECT set_config('app.tenant_id',@tenant,true)", connection, transaction);
             command.Parameters.AddWithValue("tenant", tenantId.ToString());
             await command.ExecuteNonQueryAsync(cancellationToken);

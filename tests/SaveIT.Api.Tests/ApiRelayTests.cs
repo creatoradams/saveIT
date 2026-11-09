@@ -23,6 +23,7 @@ public sealed class ApiRelayTests(ApiClientAuthenticationTests.Fixture fixture) 
     [InlineData("/api/v1/session", "GET")]
     [InlineData("/api/v1/auth/callback?code=a%2Bb&state=a%2Fb%3D", "GET")]
     [InlineData("/health/ready", "GET")]
+    [InlineData("/health/startup", "GET")]
     public void Fixed_target_retains_exact_raw_query(string path, string method) => Assert.Equal("https://api:8443" + path, ApiRelay.Target(new Uri("https://api:8443"), path, method).AbsoluteUri);
 
     [Theory]

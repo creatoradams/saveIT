@@ -30,6 +30,6 @@ COPY --from=build --chown=1654:1654 /src/apps/web/public-trust.cjs ./public-trus
 COPY --from=saveit-trust --chmod=0444 /api-ca.crt /opt/saveit/trust/api-ca.crt
 USER 1654
 EXPOSE 3000
-HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["/usr/local/bin/node", "-e", "fetch('http://127.0.0.1:3000/health/ready',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["/usr/local/bin/node", "-e", "fetch('http://127.0.0.1:3000/health/live',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
 ENTRYPOINT ["/usr/local/bin/node"]
 CMD ["runtime.cjs"]

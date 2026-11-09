@@ -55,7 +55,7 @@ public sealed class ApiRelay(ApiRelayConfiguration configuration, CancellationTo
             raw.Any(c => c <= 32 || c >= 127 || c == '#')) throw new InvalidOperationException();
         var path = raw.Split('?', 2)[0];
         if (path.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '/' or '-' or '_')) || path.Contains("//", StringComparison.Ordinal) ||
-            !(path.StartsWith("/api/v1/", StringComparison.Ordinal) || (path == "/health/ready" && method == "GET" && raw == path))) throw new InvalidOperationException();
+            !(path.StartsWith("/api/v1/", StringComparison.Ordinal) || (path is "/health/ready" or "/health/startup" && method == "GET" && raw == path))) throw new InvalidOperationException();
         for (var i = 0; i < raw.Length; i++)
             if (raw[i] == '%' && (i + 2 >= raw.Length || !Uri.IsHexDigit(raw[++i]) || !Uri.IsHexDigit(raw[++i]))) throw new InvalidOperationException();
         var result = new Uri(origin.GetLeftPart(UriPartial.Authority) + raw, UriKind.Absolute);
@@ -104,7 +104,7 @@ public sealed class ApiRelay(ApiRelayConfiguration configuration, CancellationTo
             }
             if (count > RequestLimit) { context.Response.StatusCode = 413; return; }
             if (context.Features.Get<IHttpRequestTrailersFeature>() is { Available: true, Trailers.Count: > 0 }) { context.Response.StatusCode = 400; return; }
-            var health = request.Path == "/health/ready";
+            var health = request.Path == "/health/ready" || request.Path == "/health/startup";
             if ((health || request.Method is "GET" or "HEAD") && count != 0) { context.Response.StatusCode = 400; return; }
             using var handler = ApiPeerTransport.CreateHandler(configuration.Client, configuration.Roots);
             handler.MaxResponseHeadersLength = 32;

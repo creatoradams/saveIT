@@ -15,6 +15,13 @@ public sealed class HealthProbeCollection;
 [Collection("health-probe")]
 public sealed class ApiHealthProbeTests
 {
+    [Fact]
+    public async Task Liveness_probe_does_not_depend_on_readiness_or_contact_the_database()
+    {
+        await using var app=await StartAsync(context=>{context.Response.StatusCode=context.Request.Path=="/health/live"?200:503;return Task.CompletedTask;});
+        Assert.Equal(0,await ApiHealthProbe.RunAsync(Port(app),live:true));
+        Assert.Equal(1,await ApiHealthProbe.RunAsync(Port(app)));
+    }
     [Theory]
     [InlineData(200, 0)]
     [InlineData(204, 1)]

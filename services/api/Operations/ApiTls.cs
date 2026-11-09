@@ -84,7 +84,7 @@ public static class ApiTls
             if (context.Features.Get<ITlsConnectionFeature>() is null &&
                 !(IPAddress.IsLoopback(context.Connection.LocalIpAddress ?? IPAddress.Any) &&
                   context.Connection.LocalPort == 8080 && HttpMethods.IsGet(context.Request.Method) &&
-                  (context.Request.Path == "/health/live" || context.Request.Path == "/health/ready")))
+                  (context.Request.Path == "/health/live" || context.Request.Path == "/health/ready" || context.Request.Path == "/health/startup")))
             {
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
                 context.Response.Headers.CacheControl = "no-store";

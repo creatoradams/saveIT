@@ -4,7 +4,7 @@ namespace SaveIT.Search;
 
 public static class DatabaseRoleGuard
 {
-    public const string RequiredMigration = "20261102004553_OperatorAccess";
+    public const string RequiredMigration = "20261109120000_ComputeCoordination";
     private static readonly string[] ProtectedTables = ["Tenants", "Memberships", "Organizations", "OrganizationRevisions", "OrganizationGrants", "Assets", "AssetRelationships",
         "Documents", "DocumentRevisions", "DocumentFolders", "DocumentPlacements", "DocumentTemplates", "DocumentTemplateRevisions", "DocumentTemplateOrigins", "AuditEvents", "OutboxEvents", "SearchEntries", "SearchDeliveries", "Locations", "Contacts", "LocationRevisions", "ContactRevisions", "AssetRevisions", "AssetTypes", "AssetTypeRevisions", "AccessResponses", "AccessAudits", "AccessControlEvents"];
     private static readonly string[] CoreTables = ProtectedTables.Where(x => x is not ("SearchEntries" or "SearchDeliveries")).ToArray();
@@ -16,8 +16,8 @@ public static class DatabaseRoleGuard
                 SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                 WHERE n.nspname='public' AND c.relname=ANY(@tables)
             AND pg_has_role(current_user,c.relowner,'MEMBER'))
-            OR EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname='saveit_access_operator' AND pg_has_role(current_user,r.oid,'MEMBER'))
-            OR EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('access_change_v1','access_inspect_v1')
+            OR EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname IN ('saveit_access_operator','saveit_compute_operator') AND pg_has_role(current_user,r.oid,'MEMBER'))
+            OR EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('access_change_v1','access_inspect_v1','compute_change_v1','compute_inspect_v1','register_response_core_v1')
                 JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='public'
                 WHERE pg_has_role(current_user,r.oid,'MEMBER') AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
             OR EXISTS (SELECT 1 FROM pg_roles r CROSS JOIN unnest(@protocol) a(t)
@@ -25,8 +25,8 @@ public static class DatabaseRoleGuard
                   AND (has_table_privilege(r.oid,format('%I',a.t),'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
                     OR has_any_column_privilege(r.oid,format('%I',a.t),'SELECT,INSERT,UPDATE')))
             """, connection);
-        command.Parameters.AddWithValue("tables", ProtectedTables);
-        command.Parameters.AddWithValue("protocol", new[] { "AccessResponses", "AccessAudits", "AccessControlEvents" });
+        command.Parameters.AddWithValue("tables", ProtectedTables.Concat(["ComputeControl", "ComputeOperations"]).ToArray());
+        command.Parameters.AddWithValue("protocol", new[] { "AccessResponses", "AccessAudits", "AccessControlEvents", "ComputeControl", "ComputeOperations" });
         if (await command.ExecuteScalarAsync(cancellationToken) is not false)
             throw new InvalidOperationException("A UTF8 database and a non-owner role without superuser or BYPASSRLS privileges are required.");
     }
@@ -43,6 +43,8 @@ public static class DatabaseRoleGuard
         if (await schema.ExecuteScalarAsync(cancellationToken) is not true) throw new InvalidOperationException("The required forced-RLS schema is unavailable.");
         if (requireMigration)
         {
+            await using var compute = new NpgsqlCommand("SELECT count(*)=2 AND bool_and(c.relrowsecurity AND c.relforcerowsecurity) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN ('ComputeControl','ComputeOperations')", connection);
+            if (await compute.ExecuteScalarAsync(cancellationToken) is not true) throw new InvalidOperationException("The required compute coordination schema is unavailable.");
             await using var version = new NpgsqlCommand("SELECT max(\"MigrationId\")=@version FROM public.\"__EFMigrationsHistory\"", connection);
             version.Parameters.AddWithValue("version", RequiredMigration);
             if (await version.ExecuteScalarAsync(cancellationToken) is not true) throw new InvalidOperationException("Database schema does not match this release.");

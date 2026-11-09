@@ -562,3 +562,34 @@ run "client_binding_refuses_leaf_payload" {
   variables { api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = ["-----BEGIN CERTIFICATE-----"] } }
   expect_failures = [var.api_client_trust]
 }
+
+run "compute_bootstrap_remains_unbound_and_health_checks_are_liveness_only" {
+  command = plan
+  assert {
+    condition     = output.compute_coordination == null && alltrue([for name in ["api", "worker"] : !contains(keys(local.environment[name]), "Deployment__ComputeGeneration") && !contains(keys(local.environment[name]), "Deployment__ComputeGuard")]) && local.health.api == ["CMD", "dotnet", "SaveIT.Api.dll", "--livecheck"] && local.health.worker == ["CMD", "dotnet", "SaveIT.Workers.dll", "--livecheck"] && local.health.web == ["CMD", "/usr/local/bin/node", "-e", "fetch('http://127.0.0.1:3000/health/live',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
+    error_message = "Bootstrap must remain unbound; readiness failure/drain cannot itself trigger container replacement."
+  }
+}
+run "compute_generation_is_fixed_public_metadata_for_API_and_worker_only" {
+  command = plan
+  variables { compute_generation = "70000000-0000-0000-0000-000000000001" }
+  assert {
+    condition     = alltrue([for name in ["api", "worker"] : { for e in jsondecode(aws_ecs_task_definition.application[name].container_definitions)[0].environment : e.name => e.value if startswith(e.name, "Deployment__Compute") } == { Deployment__ComputeGuard = "true", Deployment__ComputeGeneration = "70000000-0000-0000-0000-000000000001" }]) && !contains(keys(local.environment.web), "Deployment__ComputeGeneration") && output.compute_coordination == { generation = "70000000-0000-0000-0000-000000000001", required_processes = ["api", "worker"] }
+    error_message = "Only API/worker receive a fixed generation; this is metadata, not launch or fencing authority."
+  }
+}
+run "compute_refuses_zero_generation" {
+  command = plan
+  variables { compute_generation = "00000000-0000-0000-0000-000000000000" }
+  expect_failures = [var.compute_generation]
+}
+run "compute_refuses_noncanonical_generation" {
+  command = plan
+  variables { compute_generation = "AAAAAAAA-0000-0000-0000-000000000001" }
+  expect_failures = [var.compute_generation]
+}
+run "compute_refuses_request_text_as_generation" {
+  command = plan
+  variables { compute_generation = "user-supplied-marker" }
+  expect_failures = [var.compute_generation]
+}

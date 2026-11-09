@@ -7,7 +7,9 @@ export async function proxy(request: NextRequest) {
     const origin = publicOrigin();
     if (
       origin &&
-      request.nextUrl.pathname !== "/health/ready" &&
+      !["/health/ready", "/health/live", "/health/startup"].includes(
+        request.nextUrl.pathname,
+      ) &&
       request.headers.get("host")?.toLowerCase() !== origin.host.toLowerCase()
     )
       return NextResponse.json(

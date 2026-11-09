@@ -231,4 +231,7 @@ for attempt in $(seq 1 35); do
   if [[ "$attempt" == 35 ]]; then echo 'Worker readiness stayed healthy after database failure.' >&2; exit 1; fi
   sleep 1
 done
+"${compose[@]}" exec -T api dotnet SaveIT.Api.dll --livecheck
+"${compose[@]}" exec -T worker dotnet SaveIT.Workers.dll --livecheck
+curl --silent --fail --max-time 5 --cacert "$fixture/ca.crt" --resolve saveit.localhost:8443:127.0.0.1 https://saveit.localhost:8443/health/live >/dev/null
 echo 'Production container smoke checks passed with synthetic HTTPS identity and verified database TLS.'

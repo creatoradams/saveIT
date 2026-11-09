@@ -13,9 +13,9 @@ using SaveIT.Api.Core;
 using SaveIT.Search;
 using SaveIT.Api.Operations;
 
-if (args.Contains("--healthcheck", StringComparer.Ordinal))
+if (args.Contains("--healthcheck", StringComparer.Ordinal) || args.Contains("--livecheck",StringComparer.Ordinal))
 {
-    Environment.ExitCode = args.Length == 1 ? await ApiHealthProbe.FromEnvironmentAsync() : 1;
+    Environment.ExitCode = args is ["--healthcheck"] ? await ApiHealthProbe.FromEnvironmentAsync() : args is ["--livecheck"] ? await ApiHealthProbe.FromEnvironmentAsync(live:true) : 1;
     return;
 }
 var builder = WebApplication.CreateBuilder(args);
@@ -36,9 +36,10 @@ Ingress.Configure(builder);
 using var transportCertificate = ApiTls.Configure(builder);
 
 builder.Services.AddScoped<TenantScope>();
+var computeGeneration = ComputeAdmission.ReadGeneration(builder.Configuration["Deployment:ComputeGeneration"],builder.Configuration.GetValue<bool>("Deployment:ComputeGuard"));
 builder.Services.AddDbContext<SaveItDb>(o => o.UseNpgsql(appConnection));
 builder.Services.AddScoped<TenantFilter>();
-builder.Services.AddSingleton(sp => new ResponseRegistry(appConnection, sp.GetRequiredService<ILogger<ResponseRegistry>>()));
+builder.Services.AddSingleton(sp => new ResponseRegistry(appConnection, sp.GetRequiredService<ILogger<ResponseRegistry>>(), computeGeneration));
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
 {
     o.Cookie.Name = oktaEnabled ? "SaveIT.Session" : "SaveIT.Development";
@@ -88,10 +89,22 @@ await using (var connection = new NpgsqlConnection(appConnection))
     await connection.OpenAsync();
     await DatabaseRoleGuard.ValidateAsync(connection);
     if (!app.Environment.IsDevelopment()) await DatabaseRoleGuard.ValidateSchemaAsync(connection, requireMigration: true);
+    if (!await ComputeAdmission.CheckAsync(connection,null,computeGeneration,CancellationToken.None,startup:true))
+        throw new InvalidOperationException("Compute startup binding is unavailable.");
 }
 
 if (transportCertificate is not null) ApiTls.RestrictPlaintext(app, transportCertificate.Clients);
 app.UseRouting();
+app.Use(async (context,next) => {
+    if (context.Request.Path.StartsWithSegments("/health")) { await next(context); return; }
+    using var deadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted); deadline.CancelAfter(TimeSpan.FromSeconds(4));
+    try {
+        await using var connection = new NpgsqlConnection(appConnection); await connection.OpenAsync(deadline.Token);
+        if (!await ComputeAdmission.CheckAsync(connection,null,computeGeneration,deadline.Token)) { context.Response.StatusCode=503; context.Response.Headers.CacheControl="no-store"; return; }
+    }
+    catch (Exception) { context.Response.StatusCode=503; context.Response.Headers.CacheControl="no-store"; return; }
+    await next(context);
+});
 app.Use(async (context, next) => {
     context.RequestServices.GetRequiredService<ResponseRegistry>().Initialize(context);
     await next(context);
@@ -122,7 +135,7 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "SaveIT" }));
-app.MapOperationalHealth(appConnection);
+app.MapOperationalHealth(appConnection,computeGeneration);
 app.MapOpenApi();
 app.MapGet("/api/v1/csrf", (HttpContext c, IAntiforgery antiforgery) => Results.Ok(new { token = antiforgery.GetAndStoreTokens(c).RequestToken! }));
 app.MapGet("/api/v1/auth/options", () => Results.Ok(new { development = devIdentity, okta = oktaEnabled }));

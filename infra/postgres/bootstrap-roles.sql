@@ -4,7 +4,7 @@
 DO $body$
 DECLARE role_name text;
 BEGIN
-  FOREACH role_name IN ARRAY ARRAY['saveit_migration_owner','saveit_app','saveit_search_worker','saveit_access_operator'] LOOP
+  FOREACH role_name IN ARRAY ARRAY['saveit_migration_owner','saveit_app','saveit_search_worker','saveit_access_operator','saveit_compute_operator'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=role_name) THEN
       EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION',role_name);
     END IF;
@@ -18,5 +18,9 @@ BEGIN
   IF (SELECT rolcanlogin FROM pg_roles WHERE rolname='saveit_access_operator')
     OR pg_has_role('saveit_app','saveit_access_operator','MEMBER') OR pg_has_role('saveit_search_worker','saveit_access_operator','MEMBER') THEN
     RAISE EXCEPTION 'Access operator must be a separate non-login role unreachable by workloads';
+  END IF;
+  IF (SELECT rolcanlogin FROM pg_roles WHERE rolname='saveit_compute_operator')
+    OR pg_has_role('saveit_app','saveit_compute_operator','MEMBER') OR pg_has_role('saveit_search_worker','saveit_compute_operator','MEMBER') THEN
+    RAISE EXCEPTION 'Compute operator must be a separate non-login role unreachable by workloads';
   END IF;
 END $body$;

@@ -37,12 +37,12 @@ COPY --from=build /out/api .
 COPY --from=build --chown=1654:1654 --chmod=0700 /out/key-volumes/ /var/saveit/
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8443
-HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["dotnet", "SaveIT.Api.dll", "--healthcheck"]
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["dotnet", "SaveIT.Api.dll", "--livecheck"]
 ENTRYPOINT ["dotnet", "SaveIT.Api.dll"]
 
 FROM runtime AS worker
 COPY --from=build /out/worker .
-HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["dotnet", "SaveIT.Workers.dll", "--healthcheck"]
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s CMD ["dotnet", "SaveIT.Workers.dll", "--livecheck"]
 ENTRYPOINT ["dotnet", "SaveIT.Workers.dll"]
 
 FROM runtime AS deployment

@@ -25,7 +25,7 @@ locals {
       Identity__Okta__TenantId                          = var.runtime.okta_tenant_id, Identity__Okta__ClientId = var.runtime.okta_client_id
       Identity__KeyDirectory                            = "/var/saveit/keys", SAVEIT_HEALTH_PORT = "8080", SAVEIT_HEALTH_HOST = "127.0.0.1", TMPDIR = "/var/saveit/runtime"
       Deployment__Trust__DatabaseCaSha256               = var.public_trust.database_ca_sha256
-    }, local.api_client_environment)
+    }, local.api_client_environment, local.compute_environment)
     web = merge({
       NODE_ENV             = "production", NEXT_TELEMETRY_DISABLED = "1", HOSTNAME = "0.0.0.0", PORT = "3000", TMPDIR = "/var/saveit/runtime"
       SAVEIT_API_ORIGIN    = var.relay == null ? "https://${local.api_host}:8443" : local.relay_origin, SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer
@@ -34,12 +34,12 @@ locals {
     worker = merge({
       DOTNET_ENVIRONMENT                  = "Production", DOTNET_EnableDiagnostics = "0", SearchWorker__HealthPath = "/var/saveit/runtime/saveit-worker-health.json", TMPDIR = "/var/saveit/runtime"
       Deployment__Trust__DatabaseCaSha256 = var.public_trust.database_ca_sha256
-    }, { for i, id in var.runtime.worker_tenants : "SearchWorker__Tenants__${i}" => id })
+    }, { for i, id in var.runtime.worker_tenants : "SearchWorker__Tenants__${i}" => id }, local.compute_environment)
   }
   health = {
-    api    = ["CMD", "dotnet", "SaveIT.Api.dll", "--healthcheck"]
-    worker = ["CMD", "dotnet", "SaveIT.Workers.dll", "--healthcheck"]
-    web    = ["CMD", "/usr/local/bin/node", "-e", "fetch('http://127.0.0.1:3000/health/ready',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
+    api    = ["CMD", "dotnet", "SaveIT.Api.dll", "--livecheck"]
+    worker = ["CMD", "dotnet", "SaveIT.Workers.dll", "--livecheck"]
+    web    = ["CMD", "/usr/local/bin/node", "-e", "fetch('http://127.0.0.1:3000/health/live',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
   }
 }
 

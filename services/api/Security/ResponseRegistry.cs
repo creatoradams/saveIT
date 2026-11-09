@@ -9,7 +9,7 @@ public sealed class AccessProtocolUnavailableException : Exception;
 
 // A durable pending row survives connection/process loss. Only the server's OnCompleted
 // callback may close it; middleware finally/RequestAborted alone are not completion proof.
-public sealed class ResponseRegistry(string connection, ILogger<ResponseRegistry> logger)
+public sealed class ResponseRegistry(string connection, ILogger<ResponseRegistry> logger, Guid? computeGeneration = null)
 {
     public const string EpochClaim = "saveit.session_epoch";
     private static readonly object StateKey = new();
@@ -104,10 +104,10 @@ public sealed class ResponseRegistry(string connection, ILogger<ResponseRegistry
         logger.LogError("Access response completion could not be persisted; operator changes may be blocked. Inspect the protected access protocol state.");
     }
 
-    private static async Task ContextAsync(NpgsqlConnection c, NpgsqlTransaction tx, Lease lease, CancellationToken ct)
+    private async Task ContextAsync(NpgsqlConnection c, NpgsqlTransaction tx, Lease lease, CancellationToken ct)
     {
-        await using var cmd = new NpgsqlCommand("SELECT set_config('app.tenant_id',@t,true),set_config('app.membership_id',@m,true)", c, tx);
-        cmd.Parameters.AddWithValue("t", lease.Tenant.ToString()); cmd.Parameters.AddWithValue("m", lease.Member.ToString()); await cmd.ExecuteNonQueryAsync(ct);
+        await using var cmd = new NpgsqlCommand("SELECT set_config('app.tenant_id',@t,true),set_config('app.membership_id',@m,true),set_config('app.compute_generation',@g,true)", c, tx);
+        cmd.Parameters.AddWithValue("t", lease.Tenant.ToString()); cmd.Parameters.AddWithValue("m", lease.Member.ToString()); cmd.Parameters.AddWithValue("g",computeGeneration?.ToString("D") ?? ""); await cmd.ExecuteNonQueryAsync(ct);
     }
     private static void Parameters(NpgsqlCommand cmd, Lease lease)
     {

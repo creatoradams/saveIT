@@ -10,12 +10,14 @@ var connection = PublicTrust.DatabaseConnection(builder.Configuration.GetConnect
 if (!builder.Environment.IsDevelopment())
     ConnectionPolicy.Validate(connection, builder.Configuration.GetValue<bool>("Deployment:AllowLoopbackDatabase"));
 var healthPath = builder.Configuration["SearchWorker:HealthPath"] ?? Path.Combine(Path.GetTempPath(), "saveit-worker-health.json");
-if (args.Contains("--healthcheck")) return WorkerHealth.IsReady(healthPath) ? 0 : 1;
+if (args.Contains("--healthcheck") || args.Contains("--livecheck"))
+    return args is ["--healthcheck"] ? WorkerHealth.IsReady(healthPath) ? 0 : 1 : args is ["--livecheck"] ? WorkerHealth.IsLive(healthPath) ? 0 : 1 : 1;
 var configured = builder.Configuration.GetSection("SearchWorker:Tenants").Get<string[]>() ?? [];
 if (configured.Length == 0 || configured.Length > 1000 || configured.Any(x => !Guid.TryParse(x, out var id) || id == Guid.Empty))
     throw new InvalidOperationException("Configure an explicit, bounded list of SearchWorker:Tenants.");
 var tenants = configured.Select(Guid.Parse).Distinct().ToArray();
-builder.Services.AddSingleton(new SearchProcessor(connection, requireSchema: !builder.Environment.IsDevelopment()));
+var computeGeneration = ComputeAdmission.ReadGeneration(builder.Configuration["Deployment:ComputeGeneration"],builder.Configuration.GetValue<bool>("Deployment:ComputeGuard"));
+builder.Services.AddSingleton(new SearchProcessor(connection, requireSchema: !builder.Environment.IsDevelopment(), computeGeneration: computeGeneration));
 builder.Services.AddSingleton(tenants);
 builder.Services.AddSingleton(new WorkerHealthOptions(healthPath));
 if (args.Contains("--once") || args.Contains("--rebuild") || builder.Configuration["replay-event"] is not null)
@@ -58,6 +60,11 @@ internal sealed class SearchWorker(SearchProcessor processor, Guid[] tenants, Wo
                     progress.Success(tenant);
                     if (result.Completed + result.Retried + result.DeadLettered > 0)
                         logger.LogInformation("Search tenant {Tenant}: {Completed} completed, {Retried} retried, {Dead} dead letters", tenant, result.Completed, result.Retried, result.DeadLettered);
+                }
+                catch (ComputeUnavailableException) when (!stoppingToken.IsCancellationRequested)
+                {
+                    progress.Failure(tenant); // Global admission closed; not a projection failure or retry.
+                    break;
                 }
                 catch (Exception error) when (!stoppingToken.IsCancellationRequested)
                 {
