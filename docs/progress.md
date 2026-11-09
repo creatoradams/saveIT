@@ -10,7 +10,7 @@ SaveIT is a working, persistent local documentation/inventory preview. It is not
 | Tenant authority | Server-selected membership, live organization roles, transaction-local PostgreSQL context, 28 forced-RLS tables, scoped foreign keys and non-owner runtime guards | Managed database verification, advanced permissions and broader SaaS onboarding |
 | Writes and search | Atomic business/revision/audit/outbox/queue commits; restricted PostgreSQL search worker with current-source/grant checks, retry/dead-letter/replay/rebuild | OpenSearch, generic external delivery, real connectors and measured scale |
 | Identity/access | Opt-in development identity, separate Okta adapter, restricted operator access/session epochs and durable response drain | Live Okta/MFA/assignment, human operator lifecycle and operated fencing/recovery |
-| Packaged runtime | Nonroot images, nonce/no-store web behavior, TLS/mTLS relay path, pinned-version relay startup loader, bounded health/configuration tools and synthetic logical database/key recovery | Relay task/web-target/service bindings, authenticated web workload intake, managed PKI/rotation, multi-instance keys and managed/offsite/PITR recovery |
+| Packaged runtime | Nonroot images, nonce/no-store web behavior, TLS/mTLS relay path, pinned-version relay startup loader, bounded health/configuration tools and synthetic logical database/key recovery | Private service/network attachment, authenticated web workload intake, managed PKI/rotation, multi-instance keys and managed/offsite/PITR recovery |
 | Infrastructure | Nine separate provider-mocked roots for state, private network/database, keys, identities, images/logs, tasks, endpoints, discovery and relay metadata | All roots remain unapplied; no running AWS service or production deployment exists |
 
 The nine roots include separate state and application security boundaries, not nine deployed services. The current runtime uses PostgreSQL; Redis, OpenSearch, OpenFGA, Temporal, vault/AI and connectors are not active subsystems.
@@ -41,15 +41,21 @@ Current status now lives here; [historical delivery evidence](progress-history.m
 
 [ADR045](adr/045-relay-endpoint-policy-admission.md) adds optional validated endpoint filters: relay execution may pull its exact deployment image/write its own log streams; relay task may read only its whole-secret ARN/UUID. Null retains the original policy bytes and existing resources/network output. Local validation includes all infrastructure mocks, 77 loader regressions, TypeScript/build and ignore policy; the complete Linux/source/package/final-image verification is above. Both requested source reviews closed without actionable findings; scope and limits are in the [review](reviews/2026-11-08-relay-endpoint-review.md). No relay packet path, IAM grant, apply or cloud request was added. The [previous verified checkpoint](https://github.com/creatoradams/saveIT/blob/8b92135/docs/progress.md) retains the loader delivery's earlier exact evidence.
 
-## Current delivery: relay network and private discovery
+## Prior delivery: relay network and private discovery
 
 [ADR046](adr/046-relay-network-and-private-discovery.md) adds separate opt-in relay networking and a private registry using existing roots. Enabled mode requires the bound policy contract, creates its own group with scoped443 endpoint/layer paths, and replaces declared direct web/API8443 with web/relay/API8443. API-owned transport and relay target stay distinct. Null retains initial compatibility; it is not safe operated withdrawal/failover, and protected registry removal may block a transition. No task definition/environment, application authority, dependency, root or running service is added.
 
 Local verification passes **334 mocked plans** across nine roots (9/16/13/40/39/54/76/51/36), formatting/validation, 77 loader regressions, TypeScript/build and ignore checks. Full source/Linux/browser/package evidence for this delivery is above; both requested source reviews closed without actionable defects. Downloaded artifact 13644753422 matches source and archive SHA256 bbf899fac66e25e02fb615a067f9b3c5c2f99766f57dc072fed298d788e4b10c; all four image/SBOM/report bindings verify. No AWS credentials/API/apply or managed enforcement evidence is used. The [prior checkpoint](https://github.com/creatoradams/saveIT/blob/be7ce10/docs/progress.md) retains exact endpoint-policy delivery evidence.
 
+## Current delivery: isolated relay task and web target
+
+[ADR047](adr/047-isolated-relay-task-and-web-target.md) adds an optional separate nonroot scratch-only relay task using its own roles, deployment digest and exact startup ARN/UUID arguments. Only web target/public CA hash changes among existing applications; web stays keyless and API-owned transport remains distinct. Fixed shell-free loopback liveness checks headers and empty-body EOF under one deadline, without SDK/configuration or upstream contact. No new root/dependency, tenant/schema authority, service or ENI attachment is added.
+
+Local validation passes **374 mocked plans** across nine roots (9/16/13/40/39/94/76/51/36), formatting/validation, **135 affected .NET tests with zero skipped**, TypeScript/build and ignore checks. Full Linux/source/package checks are pending; the latest verified build above remains the prior source. The security agent verified two probe/test remedies and closed with no remaining actionable finding. The efficiency agent hit its account usage limit; a fresh independent efficiency review remains outstanding. Scope and limits are in the [review](reviews/2026-11-09-relay-task-review.md). No AWS credentials/API/apply or managed trust/network evidence is used.
+
 ## Next steps
 
-1. Bind the isolated relay task and web destination to the separate network/discovery targets, retaining exact startup/version/role guards and keyless web.
+1. Implement private service/network attachment and registry health/drain using the separate task/network/transport contracts, retaining keyless web and exact startup/version/role guards.
 2. Complete referenced network/task/service bindings, ingress/restricted egress, protected population, signing/promotion, scheduling/PassRole and health/drain/fencing operations.
 3. Add redacted telemetry/alerts, API/tenant quotas, operational audit archive/retention and recovery runbooks.
 4. Use authorized staging accounts to verify actual IAM/KMS/PKI/RDS/Okta, multi-instance keys, recovery and capacity; remediate findings and obtain independent assessment before an approved pilot.

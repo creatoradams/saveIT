@@ -63,7 +63,9 @@ async function docker(args, timeout = 15000) {
   try {
     const code = await within(completion, timeout);
     if (code !== 0 || exceeded) throw new Error();
-    return Buffer.concat(args[0] === "logs" ? [...output, ...errors] : output)
+    return Buffer.concat(
+      ["logs", "exec"].includes(args[0]) ? [...output, ...errors] : output,
+    )
       .toString("utf8")
       .trim();
   } catch {
@@ -220,6 +222,26 @@ async function run(mode, expected, options = {}) {
       return !state.State.Running;
     });
     if (expected) {
+      assert.equal(
+        await docker([
+          "exec",
+          name,
+          "dotnet",
+          "SaveIT.Deployment.dll",
+          "probe-api-relay",
+        ]),
+        "",
+      );
+      await assert.rejects(() =>
+        docker([
+          "exec",
+          name,
+          "dotnet",
+          "SaveIT.Deployment.dll",
+          "probe-api-relay",
+          "extra",
+        ]),
+      );
       // A real TLS connection to the Linux listener. Unsupported routes are
       // rejected locally, so no API/DB route exists on this fixture network.
       await driver(

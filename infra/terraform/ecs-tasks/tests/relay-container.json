@@ -1,0 +1,85 @@
+{
+  "name": "relay",
+  "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment@sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "essential": true,
+  "user": "1654:1654",
+  "readonlyRootFilesystem": true,
+  "privileged": false,
+  "interactive": false,
+  "pseudoTerminal": false,
+  "stopTimeout": 30,
+  "linuxParameters": {
+    "capabilities": {
+      "drop": [
+        "ALL"
+      ]
+    }
+  },
+  "entryPoint": [
+    "dotnet",
+    "SaveIT.Deployment.dll"
+  ],
+  "command": [
+    "serve-api-relay-secrets",
+    "https://api.pilot.staging.saveit.internal:8443",
+    "https://relay.pilot.staging.saveit.internal:8443",
+    "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+    "10000000-0000-0000-0000-000000000009"
+  ],
+  "environment": [
+    {
+      "name": "ASPNETCORE_ENVIRONMENT",
+      "value": "Production"
+    },
+    {
+      "name": "DOTNET_ENVIRONMENT",
+      "value": "Production"
+    },
+    {
+      "name": "DOTNET_EnableDiagnostics",
+      "value": "0"
+    },
+    {
+      "name": "TMPDIR",
+      "value": "/var/saveit/runtime"
+    }
+  ],
+  "secrets": [],
+  "mountPoints": [
+    {
+      "sourceVolume": "runtime",
+      "containerPath": "/var/saveit/runtime",
+      "readOnly": false
+    }
+  ],
+  "portMappings": [
+    {
+      "containerPort": 8443,
+      "hostPort": 8443,
+      "protocol": "tcp"
+    }
+  ],
+  "healthCheck": {
+    "command": [
+      "CMD",
+      "dotnet",
+      "SaveIT.Deployment.dll",
+      "probe-api-relay"
+    ],
+    "interval": 10,
+    "timeout": 5,
+    "retries": 3,
+    "startPeriod": 30
+  },
+  "logConfiguration": {
+    "logDriver": "awslogs",
+    "options": {
+      "awslogs-group": "/saveit/pilot/staging/relay",
+      "awslogs-region": "us-east-1",
+      "awslogs-stream-prefix": "relay",
+      "awslogs-create-group": "false",
+      "mode": "non-blocking",
+      "max-buffer-size": "4m"
+    }
+  }
+}

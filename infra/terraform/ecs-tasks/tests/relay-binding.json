@@ -1,0 +1,38 @@
+{
+  "roles": {
+    "task_arn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task",
+    "execution_arn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+  },
+  "configuration": {
+    "arn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+    "version_id": "10000000-0000-0000-0000-000000000009",
+    "key_arn": "arn:aws:kms:us-east-1:111122223333:key/90000000-0000-0000-0000-000000000001"
+  },
+  "operational_log": {
+    "arn": "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay",
+    "execution_role_arn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution",
+    "name": "/saveit/pilot/staging/relay",
+    "key_arn": "arn:aws:kms:us-east-1:111122223333:key/90000000-0000-0000-0000-000000000002",
+    "retention_days": 90
+  },
+  "image_repository": {
+    "arn": "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+    "url": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment",
+    "pull_execution_roles": [
+      "arn:aws:iam::111122223333:role/saveit-pilot-staging-migration-execution",
+      "arn:aws:iam::111122223333:role/saveit-pilot-staging-access-execution",
+      "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution"
+    ]
+  },
+  "binding_ready": true,
+  "network": {
+    "vpc_id": "vpc-00000000000000001",
+    "application_subnet_ids": [
+      "subnet-00000000000000001",
+      "subnet-00000000000000002"
+    ],
+    "security_group_id": "sg-00000000000000006"
+  },
+  "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment@sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "web_ca_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}

@@ -575,3 +575,647 @@ run "relay_discovery_consumes_actual_api_transport" {
     error_message = "Actual task transport remains the API origin while the separate relay target is declared; no task launch or web-target delivery follows."
   }
 }
+
+# ADR047 optional isolated relay task contracts; mocks do not prove IAM/TLS/attachment.
+override_data {
+  target = data.aws_iam_role.workload["relay-task"]
+  values = {
+    "arn" : "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task",
+    "path" : "/",
+    "permissions_boundary" : "arn:aws:iam::111122223333:policy/saveit-pilot-staging-relay-task-boundary",
+    "assume_role_policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OnlyAccountRegionalECSTasks\",\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"},\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"111122223333\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:ecs:us-east-1:111122223333:*\"}}}]}"
+  }
+}
+override_data {
+  target = data.aws_iam_role.workload["relay-execution"]
+  values = {
+    "arn" : "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution",
+    "path" : "/",
+    "permissions_boundary" : "arn:aws:iam::111122223333:policy/saveit-pilot-staging-relay-execution-boundary",
+    "assume_role_policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OnlyAccountRegionalECSTasks\",\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"},\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"111122223333\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:ecs:us-east-1:111122223333:*\"}}}]}"
+  }
+}
+override_data {
+  target = data.aws_ecr_repository.relay[0]
+  values = {
+    "arn" : "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+    "repository_url" : "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment",
+    "image_tag_mutability" : "IMMUTABLE",
+    "encryption_configuration" : [
+      {
+        "encryption_type" : "KMS",
+        "kms_key" : "arn:aws:kms:us-east-1:111122223333:key/20000000-0000-0000-0000-000000000000"
+      }
+    ]
+  }
+}
+override_data {
+  target = data.aws_cloudwatch_log_group.relay[0]
+  values = {
+    "arn" : "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay",
+    "kms_key_id" : "arn:aws:kms:us-east-1:111122223333:key/90000000-0000-0000-0000-000000000002",
+    "retention_in_days" : 90
+  }
+}
+override_data {
+  target = data.aws_security_group.relay[0]
+  values = {
+    "id" : "sg-00000000000000006",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+    "vpc_id" : "vpc-00000000000000001",
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging",
+      "Process" : "relay"
+    }
+  }
+}
+
+run "null_relay_retains_three_task_contract" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = null
+  }
+  assert {
+    condition     = output.relay_task == null && length(aws_ecs_task_definition.relay) == 0 && length(local.roles) == 6 && toset(keys(aws_ecs_task_definition.application)) == toset(["api", "web", "worker"]) && local.environment.web.SAVEIT_API_ORIGIN == "https://api.pilot.staging.saveit.internal:8443" && local.environment.web.SAVEIT_API_CA_SHA256 == var.public_trust.api_ca_sha256
+    error_message = "Null creates no relay resource/identity and preserves the three legacy task contracts."
+  }
+}
+
+run "separate_relay_task_and_keyless_web" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  assert {
+    condition     = one(jsondecode(aws_ecs_task_definition.relay[0].container_definitions)) == jsondecode(file("tests/relay-container.json")) && aws_ecs_task_definition.relay[0].task_role_arn == var.relay.roles.task_arn && aws_ecs_task_definition.relay[0].execution_role_arn == var.relay.roles.execution_arn && aws_ecs_task_definition.relay[0].network_mode == "awsvpc" && aws_ecs_task_definition.relay[0].requires_compatibilities == toset(["FARGATE"]) && aws_ecs_task_definition.relay[0].cpu == "512" && aws_ecs_task_definition.relay[0].memory == "1024" && one(aws_ecs_task_definition.relay[0].runtime_platform).operating_system_family == "LINUX" && one(aws_ecs_task_definition.relay[0].runtime_platform).cpu_architecture == "X86_64" && length(aws_ecs_task_definition.relay[0].volume) == 1 && one(aws_ecs_task_definition.relay[0].volume).name == "runtime" && length(one(aws_ecs_task_definition.relay[0].volume).efs_volume_configuration) == 0 && one(aws_ecs_task_definition.relay[0].volume).host_path == null
+    error_message = "Entire independently reviewed relay container, roles and isolated scratch-only Fargate definition must match."
+  }
+  assert {
+    condition     = local.environment.web.SAVEIT_API_ORIGIN == "https://relay.pilot.staging.saveit.internal:8443" && local.environment.web.SAVEIT_API_CA_SHA256 == "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" && output.api_transport.origin == "https://api.pilot.staging.saveit.internal:8443" && output.relay_task.api_origin == output.api_transport.origin && output.relay_task.origin == local.environment.web.SAVEIT_API_ORIGIN && output.relay_task.network == var.relay.network && toset(keys(output.task_definitions)) == toset(["api", "web", "worker"]) && alltrue([for name in ["api", "web", "worker"] : one(jsondecode(aws_ecs_task_definition.application[name].container_definitions)).secrets == [for s in var.identity.workloads[name].secrets : { name = s.name, valueFrom = s.valueFrom }]])
+    error_message = "Web must remain keyless with distinct relay/API targets and all legacy selectors preserved."
+  }
+}
+
+run "relay_bootstrap" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { binding_ready = false })
+  }
+  expect_failures = [var.relay]
+}
+
+run "borrowed_relay_task" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { roles = merge(jsondecode(file("tests/relay-binding.json")).roles, { task_arn = var.identity.workloads.api.task_role_arn }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "crossed_relay_roles" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { roles = { task_arn = jsondecode(file("tests/relay-binding.json")).roles.execution_arn, execution_arn = jsondecode(file("tests/relay-binding.json")).roles.task_arn } })
+  }
+  expect_failures = [var.relay]
+}
+
+run "foreign_relay_role" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { roles = merge(jsondecode(file("tests/relay-binding.json")).roles, { task_arn = replace(jsondecode(file("tests/relay-binding.json")).roles.task_arn, "111122223333", "999988887777") }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "selector_relay_secret" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { arn = "${jsondecode(file("tests/relay-binding.json")).configuration.arn}:CertificateBase64::${jsondecode(file("tests/relay-binding.json")).configuration.version_id}" }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "stage_relay_version" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { version_id = "AWSCURRENT" }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "uppercase_relay_version" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { version_id = "aaaaaaaa-bbbb-cccc-DDDD-eeeeeeeeeeee" }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "foreign_relay_secret" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { arn = replace(jsondecode(file("tests/relay-binding.json")).configuration.arn, "us-east-1", "us-west-2") }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "same_relay_keys" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { key_arn = jsondecode(file("tests/relay-binding.json")).operational_log.key_arn }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "legacy_configuration_key_collision" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { configuration = merge(jsondecode(file("tests/relay-binding.json")).configuration, { key_arn = var.identity.operational_log_keys.api }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "legacy_log_key_collision" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { operational_log = merge(jsondecode(file("tests/relay-binding.json")).operational_log, { key_arn = var.identity.operational_log_keys.api }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "wrong_relay_log_execution" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { operational_log = merge(jsondecode(file("tests/relay-binding.json")).operational_log, { execution_role_arn = jsondecode(file("tests/relay-binding.json")).roles.task_arn }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "tagged_relay_image" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { image = "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment:latest" })
+  }
+  expect_failures = [var.relay]
+}
+
+run "borrowed_relay_image" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { image = var.images.api })
+  }
+  expect_failures = [var.relay]
+}
+
+run "uppercase_relay_digest" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { image = replace(jsondecode(file("tests/relay-binding.json")).image, "444444", "AAAAAA") })
+  }
+  expect_failures = [var.relay]
+}
+
+run "null_relay_repository" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { image_repository = null })
+  }
+  expect_failures = [var.relay]
+}
+
+run "duplicate_relay_readers" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { image_repository = merge(jsondecode(file("tests/relay-binding.json")).image_repository, { pull_execution_roles = [jsondecode(file("tests/relay-binding.json")).roles.execution_arn, jsondecode(file("tests/relay-binding.json")).roles.execution_arn, jsondecode(file("tests/relay-binding.json")).roles.execution_arn] }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "missing_relay_reader" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { image_repository = merge(jsondecode(file("tests/relay-binding.json")).image_repository, { pull_execution_roles = slice(jsondecode(file("tests/relay-binding.json")).image_repository.pull_execution_roles, 0, 2) }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "invalid_web_ca_hash" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { web_ca_sha256 = "-----BEGIN CERTIFICATE-----" })
+  }
+  expect_failures = [var.relay]
+}
+
+run "uppercase_web_ca_hash" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { web_ca_sha256 = upper(jsondecode(file("tests/relay-binding.json")).web_ca_sha256) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "duplicate_relay_subnets" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { network = merge(jsondecode(file("tests/relay-binding.json")).network, { application_subnet_ids = ["subnet-00000000000000001", "subnet-00000000000000001"] }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "invalid_relay_vpc" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = merge(jsondecode(file("tests/relay-binding.json")), { network = merge(jsondecode(file("tests/relay-binding.json")).network, { vpc_id = "default" }) })
+  }
+  expect_failures = [var.relay]
+}
+
+run "unconfigured_receiver_rejects_relay" {
+  command = plan
+  variables {
+    relay            = jsondecode(file("tests/relay-binding.json"))
+    api_client_trust = null
+  }
+  expect_failures = [var.relay]
+}
+
+run "wrong_relay_task_boundary" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_iam_role.workload["relay-task"]
+    values = {
+      "arn" : "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task",
+      "path" : "/",
+      "permissions_boundary" : "arn:aws:iam::111122223333:policy/saveit-pilot-staging-api-task-boundary",
+      "assume_role_policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OnlyAccountRegionalECSTasks\",\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"},\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"111122223333\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:ecs:us-east-1:111122223333:*\"}}}]}"
+    }
+  }
+  expect_failures = [data.aws_iam_role.workload["relay-task"]]
+}
+
+run "wrong_relay_execution_trust" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_iam_role.workload["relay-execution"]
+    values = {
+      "arn" : "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution",
+      "path" : "/",
+      "permissions_boundary" : "arn:aws:iam::111122223333:policy/saveit-pilot-staging-relay-execution-boundary",
+      "assume_role_policy" : "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    }
+  }
+  expect_failures = [data.aws_iam_role.workload["relay-execution"]]
+}
+
+run "mutable_relay_repository" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_ecr_repository.relay[0]
+    values = {
+      "arn" : "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+      "repository_url" : "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment",
+      "image_tag_mutability" : "MUTABLE",
+      "encryption_configuration" : [
+        {
+          "encryption_type" : "KMS",
+          "kms_key" : "arn:aws:kms:us-east-1:111122223333:key/20000000-0000-0000-0000-000000000000"
+        }
+      ]
+    }
+  }
+  expect_failures = [data.aws_ecr_repository.relay[0]]
+}
+
+run "unencrypted_relay_repository" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_ecr_repository.relay[0]
+    values = {
+      "arn" : "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment",
+      "repository_url" : "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment",
+      "image_tag_mutability" : "IMMUTABLE",
+      "encryption_configuration" : [
+        {
+          "encryption_type" : "AES256"
+        }
+      ]
+    }
+  }
+  expect_failures = [data.aws_ecr_repository.relay[0]]
+}
+
+run "wrong_relay_log_key" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_cloudwatch_log_group.relay[0]
+    values = {
+      "arn" : "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay",
+      "kms_key_id" : "arn:aws:kms:us-east-1:111122223333:key/90000000-0000-0000-0000-000000000001",
+      "retention_in_days" : 90
+    }
+  }
+  expect_failures = [data.aws_cloudwatch_log_group.relay[0]]
+}
+
+run "wrong_relay_log_retention" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_cloudwatch_log_group.relay[0]
+    values = {
+      "arn" : "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay",
+      "kms_key_id" : "arn:aws:kms:us-east-1:111122223333:key/90000000-0000-0000-0000-000000000002",
+      "retention_in_days" : 30
+    }
+  }
+  expect_failures = [data.aws_cloudwatch_log_group.relay[0]]
+}
+
+run "borrowed_relay_group" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "web"
+      }
+    }
+  }
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "foreign_relay_group" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-west-2:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "wrong_relay_group_vpc" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000002",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "wrong_relay_group_cell" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = jsondecode(file("tests/relay-binding.json"))
+  }
+  override_data {
+    target = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "other",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "actual_relay_bootstrap_before_endpoint_admission" {
+  command = plan
+  module { source = "../relay-identity" }
+  variables {
+
+    key_administrators       = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    secret_custodians        = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+    configuration_version_id = "10000000-0000-0000-0000-000000000009"
+
+  }
+
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.configuration
+    values          = { arn = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000001", key_id = "30000000-0000-0000-0000-000000000001" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.logs
+    values          = { arn = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002", key_id = "30000000-0000-0000-0000-000000000002" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_secretsmanager_secret.configuration
+    values          = { arn = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.task
+    values          = { arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task", id = "saveit-pilot-staging-relay-task" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution
+    values          = { arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution", id = "saveit-pilot-staging-relay-execution" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_cloudwatch_log_group.relay
+    values          = { arn = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay" }
+  }
+
+  assert {
+    condition     = !output.binding_ready && output.image_repository == null && length(aws_iam_role_policy.task) == 0 && length(aws_iam_role_policy.execution) == 0
+    error_message = "The actual relay root's bootstrap metadata has no usable task/execution grants."
+  }
+}
+
+run "actual_store_prepares_relay_endpoint_repository" {
+  command = plan
+  module { source = "../artifact-stores" }
+  variables {
+    key_administrators       = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    publisher_role           = "arn:aws:iam::111122223333:role/SaveITProtectedPublisher"
+    relay_execution_role_arn = run.actual_relay_bootstrap_before_endpoint_admission.roles.execution_arn
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_ecr_repository.images["deployment"]
+    values          = { arn = "arn:aws:ecr:us-east-1:111122223333:repository/saveit/pilot/staging/deployment", repository_url = "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment", registry_id = "111122223333" }
+  }
+  assert {
+    condition     = length(output.repositories.deployment.pull_execution_roles) == 3 && contains(output.repositories.deployment.pull_execution_roles, run.actual_relay_bootstrap_before_endpoint_admission.roles.execution_arn)
+    error_message = "Actual store metadata must explicitly include the isolated relay execution reader."
+  }
+}
+
+run "actual_bound_relay_output_for_endpoint_filters" {
+  command = plan
+  module { source = "../relay-identity" }
+  variables {
+
+    key_administrators       = ["arn:aws:iam::111122223333:role/SaveITInfrastructureAdministrator"]
+    secret_custodians        = ["arn:aws:iam::111122223333:role/SaveITSecretCustodian"]
+    configuration_version_id = "10000000-0000-0000-0000-000000000009"
+
+    image_repository = run.actual_store_prepares_relay_endpoint_repository.repositories.deployment
+  }
+
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.configuration
+    values          = { arn = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000001", key_id = "30000000-0000-0000-0000-000000000001" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_kms_key.logs
+    values          = { arn = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002", key_id = "30000000-0000-0000-0000-000000000002" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_secretsmanager_secret.configuration
+    values          = { arn = "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.task
+    values          = { arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task", id = "saveit-pilot-staging-relay-task" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_iam_role.execution
+    values          = { arn = "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution", id = "saveit-pilot-staging-relay-execution" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_cloudwatch_log_group.relay
+    values          = { arn = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay" }
+  }
+
+  assert {
+    condition     = output.binding_ready && length(aws_iam_role_policy.task) == 1 && length(aws_iam_role_policy.execution) == 1
+    error_message = "Actual relay output must consume the staged store binding before being admitted by endpoints."
+  }
+}
+
+run "task_consumes_actual_bound_relay_producer" {
+  command = plan
+  variables {
+    api_client_trust = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay            = { roles = run.actual_bound_relay_output_for_endpoint_filters.roles, configuration = run.actual_bound_relay_output_for_endpoint_filters.configuration, operational_log = run.actual_bound_relay_output_for_endpoint_filters.operational_log, image_repository = run.actual_bound_relay_output_for_endpoint_filters.image_repository, binding_ready = run.actual_bound_relay_output_for_endpoint_filters.binding_ready, network = jsondecode(file("tests/relay-binding.json")).network, image = jsondecode(file("tests/relay-binding.json")).image, web_ca_sha256 = jsondecode(file("tests/relay-binding.json")).web_ca_sha256 }
+  }
+  override_data {
+    target = data.aws_cloudwatch_log_group.relay[0]
+    values = { arn = "arn:aws:logs:us-east-1:111122223333:log-group:/saveit/pilot/staging/relay", kms_key_id = "arn:aws:kms:us-east-1:111122223333:key/30000000-0000-0000-0000-000000000002", retention_in_days = 90 }
+  }
+  assert {
+    condition     = aws_ecs_task_definition.relay[0].task_role_arn == run.actual_bound_relay_output_for_endpoint_filters.roles.task_arn && one(jsondecode(aws_ecs_task_definition.relay[0].container_definitions)).command[3] == run.actual_bound_relay_output_for_endpoint_filters.configuration.arn && one(jsondecode(aws_ecs_task_definition.relay[0].container_definitions)).command[4] == run.actual_bound_relay_output_for_endpoint_filters.configuration.version_id && output.relay_task.api_origin == output.api_transport.origin && output.relay_task.origin != output.api_transport.origin
+    error_message = "Actual staged store/relay producer contracts must feed the isolated task without conflating relay and API targets; mocks are not managed enforcement proof."
+  }
+}
+
+run "discovery_follows_bound_task_without_a_cycle" {
+  command = plan
+  module { source = "../private-discovery" }
+  variables {
+    network       = run.discovery_consumes_actual_task_transport.api_discovery
+    api_transport = run.task_consumes_actual_bound_relay_producer.api_transport
+    relay_network = run.task_consumes_actual_bound_relay_producer.relay_task.network
+  }
+  assert {
+    condition     = output.relay_discovery.origin == run.task_consumes_actual_bound_relay_producer.relay_task.origin && output.relay_discovery.api_origin == run.task_consumes_actual_bound_relay_producer.api_transport.origin && aws_vpc_security_group_ingress_rule.api_https.referenced_security_group_id == run.task_consumes_actual_bound_relay_producer.relay_task.network.security_group_id
+    error_message = "Discovery consumes task-owned API transport downstream; no discovery-to-task dependency or parallel direct web/API declaration is introduced."
+  }
+}

@@ -1,0 +1,9 @@
+# Isolated relay task and liveness review
+
+Scope: [ADR047](../adr/047-isolated-relay-task-and-web-target.md), optional relay task/web target, fixed local liveness command and their tests. No tenant authority/schema, IAM grants, service launch or runtime dependency changes.
+
+The requested security agent reviewed design and concrete source/tests. It found two liveness refinements: announced trailers needed rejection even without received fields, and late environment poisoning could miss .NET's cached default proxy. Both were fixed with announced/actual trailer regressions and an active saved/restored HttpClient.DefaultProxy control with exact direct/proxy request counts. The agent verified the remedies in source and closed with no remaining actionable finding. It ran no tests or AWS calls.
+
+The requested efficiency agent could not execute this new review because it hit its account usage limit. Its earlier ADR046 review does not count as an ADR047 review. Local review kept the three application tasks intact, reused existing roots/image/SDK and added no service framework or runtime dependency. A fresh independent efficiency review remains outstanding.
+
+Local and CI execution status is recorded once in [progress](../progress.md). Mocked producer/consumer plans are declared contracts; network subnets here are not independently queried or attached. Image/public-CA/protected payload/receiver-pin association, real IAM/KMS/PKI, service health/drain, SG/DNS enforcement and operated fencing remain unverified. Loopback liveness does not prove API readiness. Agent review is not a penetration test or production approval.

@@ -2,7 +2,8 @@ locals {
   name      = "saveit-${var.cell}-${var.environment}"
   workloads = toset(["api", "web", "worker"])
   api_host  = "api.${var.cell}.${var.environment}.saveit.internal"
-  roles     = { for pair in setproduct(local.workloads, ["task", "execution"]) : "${pair[0]}-${pair[1]}" => "${local.name}-${pair[0]}-${pair[1]}" }
+  roles = merge({ for pair in setproduct(local.workloads, ["task", "execution"]) : "${pair[0]}-${pair[1]}" => "${local.name}-${pair[0]}-${pair[1]}" },
+  var.relay == null ? {} : { relay-task = "${local.name}-relay-task", relay-execution = "${local.name}-relay-execution" })
   trust = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -27,8 +28,8 @@ locals {
     }, local.api_client_environment)
     web = {
       NODE_ENV             = "production", NEXT_TELEMETRY_DISABLED = "1", HOSTNAME = "0.0.0.0", PORT = "3000", TMPDIR = "/var/saveit/runtime"
-      SAVEIT_API_ORIGIN    = "https://${local.api_host}:8443", SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer
-      SAVEIT_API_CA_SHA256 = var.public_trust.api_ca_sha256, NODE_EXTRA_CA_CERTS = "/opt/saveit/trust/api-ca.crt"
+      SAVEIT_API_ORIGIN    = var.relay == null ? "https://${local.api_host}:8443" : local.relay_origin, SAVEIT_PUBLIC_ORIGIN = var.runtime.public_origin, SAVEIT_OKTA_ISSUER = var.runtime.okta_issuer
+      SAVEIT_API_CA_SHA256 = var.relay == null ? var.public_trust.api_ca_sha256 : var.relay.web_ca_sha256, NODE_EXTRA_CA_CERTS = "/opt/saveit/trust/api-ca.crt"
     }
     worker = merge({
       DOTNET_ENVIRONMENT                  = "Production", DOTNET_EnableDiagnostics = "0", SearchWorker__HealthPath = "/var/saveit/runtime/saveit-worker-health.json", TMPDIR = "/var/saveit/runtime"

@@ -1,5 +1,8 @@
 # Synthetic metadata only. These digests are NOT published images. Do not apply.
 api_client_trust = null # Required receiver stays unconfigured and refuses startup.
+# Optional bound metadata shape: tests/relay-binding.json. Never a payload.
+# Set only after reviewed image/public trust and separate relay identity/network binding.
+relay = null
 # Public-only shape after review; synthetic values below are not certificates:
 # api_client_trust = { ca_sha256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", leaf_sha256 = ["dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"] }
 account_id = "111122223333"

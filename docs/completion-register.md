@@ -25,7 +25,7 @@ This is a current capability summary, not a release approval. [Progress](progres
 
 ## Delivery order
 
-1. Complete relay task/web-target/service/ingress/egress bindings consuming the unapplied [ADR046](adr/046-relay-network-and-private-discovery.md) network/discovery contracts and ADR045 endpoint filters.
+1. Complete private service/network attachment, registry/health/drain and ingress/egress bindings consuming the unapplied [ADR047](adr/047-isolated-relay-task-and-web-target.md) task contracts, ADR046 network/discovery and ADR045 endpoint filters.
 2. Complete protected population, signing/promotion/rollback, scheduler/PassRole/operator paths, health/drain/fencing and telemetry/quotas/audit archive engineering.
 3. With authorized staging accounts, verify managed PostgreSQL roles/TLS/KMS, actual workload isolation, real Okta/access lifecycle, multi-instance keys and managed/offsite recovery.
 4. Measure capacity/recovery, remediate findings and obtain independent assessment and an approved pilot scope.

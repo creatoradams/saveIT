@@ -8,6 +8,8 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
+if (args.FirstOrDefault() == "probe-api-relay")
+    return args is ["probe-api-relay"] ? await RelayLivenessProbe.RunAsync() : 1;
 if (args.FirstOrDefault() == "serve-api-relay-secrets")
 {
     try

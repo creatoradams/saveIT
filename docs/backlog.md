@@ -4,7 +4,9 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
-- [x] Account-free opt-in dedicated relay network/private discovery contracts (ADR046; current verification in [progress](progress.md)): separate group, exact endpoint/layer paths, replaced web/relay/API directions, protected private registry and distinct targets. Unapplied mock contracts do not prove packet reach/IAM/DNS/TLS; relay task/web-target/service binding and managed verification remain unfinished.
+- [x] Account-free optional isolated relay task and keyless web target, exact-version startup arguments and bounded local liveness command (ADR047; current verification/review limits in [progress](progress.md)). No service/ENI attachment, managed certificate/image/receiver-pin association or launch is proven; private services/registration/health/drain, protected population/promotion, caller admission and managed verification remain unfinished.
+
+- [x] Account-free opt-in dedicated relay network/private discovery contracts (ADR046; current verification in [progress](progress.md)): separate group, exact endpoint/layer paths, replaced web/relay/API directions, protected private registry and distinct targets. Unapplied mock contracts do not prove packet reach/IAM/DNS/TLS; service binding and managed verification remain unfinished.
 
 - [x] Account-free optional relay endpoint policy admission with exact separate task/execution filters, original null-policy compatibility and actual staged producer-module mock contracts (ADR045; current verification in [progress](progress.md)). These are unapplied filters, with no IAM grant. ADR046 adds separate network/discovery opt-in; task/service bindings and all managed verification remain unfinished.
 
