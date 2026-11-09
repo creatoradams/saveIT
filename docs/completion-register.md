@@ -25,7 +25,7 @@ This is a current capability summary, not a release approval. [Progress](progres
 
 ## Delivery order
 
-1. Verify the [ADR045](adr/045-relay-endpoint-policy-admission.md) endpoint filters, then complete dedicated relay network/discovery/task/service/ingress/egress bindings.
+1. Complete dedicated relay network/discovery/task/service/ingress/egress bindings consuming the verified [ADR045](adr/045-relay-endpoint-policy-admission.md) endpoint filters.
 2. Complete protected population, signing/promotion/rollback, scheduler/PassRole/operator paths, health/drain/fencing and telemetry/quotas/audit archive engineering.
 3. With authorized staging accounts, verify managed PostgreSQL roles/TLS/KMS, actual workload isolation, real Okta/access lifecycle, multi-instance keys and managed/offsite recovery.
 4. Measure capacity/recovery, remediate findings and obtain independent assessment and an approved pilot scope.

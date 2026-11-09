@@ -12,7 +12,7 @@ Production-mode containers, seed-free deployment/provisioning, isolated access o
 
 | Priority | Work that can proceed without credentials | Evidence requiring authorized external setup |
 | --- | --- | --- |
-| 1 — Configuration and compute | Verify the [ADR045 endpoint filters](adr/045-relay-endpoint-policy-admission.md), then dedicated relay network/discovery/task/service bindings; authenticated intake and ingress/restricted egress | Actual role isolation, ECR pull, protected secret delivery, DNS/packet paths, managed CA/TLS and PKI issuance/rotation/revocation |
+| 1 — Configuration and compute | Dedicated relay network/discovery/task/service bindings consuming the [ADR045 endpoint filters](adr/045-relay-endpoint-policy-admission.md); authenticated intake and ingress/restricted egress | Actual role isolation, ECR pull, protected secret delivery, DNS/packet paths, managed CA/TLS and PKI issuance/rotation/revocation |
 | 2 — Protected release and operations | Signing/provenance and immutable promotion/rollback; restricted scheduler/PassRole/operator paths; health/drain and old-instance fencing/runbooks | Approved registry publication, rollback, operator credential lifecycle and recovery/fencing exercises |
 | 3 — Identity and onboarding | Finish operating procedures and broader connection/lifecycle design | Real Okta issuer/app, assignment/MFA/assurance, subject mapping, existing-cookie offboarding and session/key behavior |
 | 4 — Telemetry and resilience | Redacted collection/alerts, API/tenant quotas, denied/auth/admin auditing, protected audit archive/retention and worker operations | Managed database/config/key backup, independent-target/offsite/PITR restore, multi-instance key access and measured recovery |
