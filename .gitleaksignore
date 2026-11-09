@@ -1,3 +1,5 @@
 # Historical ADR prose reviewed as a false positive; no issued credential.
 # No credential; exact commit/file/rule/line fingerprint. Do not add blanket path/value ignores.
 ff154eba2c36e22c7155ff00302a50d0119589f3:docs/adr/008-asset-relationships.md:generic-api-key:27
+# Independently reviewed expired unsigned synthetic SDK response token; no issued credential.
+4f3a26550d6bd6bcc8ae2e03983b56eb1e7ab2f1:tests/workload-auth.test.mjs:generic-api-key:52

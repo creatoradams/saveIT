@@ -6,7 +6,7 @@ import { securityTool } from "./security-tools.mjs";
 const tool = securityTool("gitleaks");
 mkdirSync(".local/security", { recursive: true });
 const report = resolve(".local/security/gitleaks.json");
-// CI checkout must fetch reachable history. Only the reviewed exact prose fingerprint
+// CI checkout must fetch reachable history. Only individually reviewed exact fingerprints
 // and inherited upstream exclusions apply; inline allow comments are disabled.
 if (
   execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
