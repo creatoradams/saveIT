@@ -11,8 +11,9 @@ locals {
     logs          = { service = "logs", policy = local.logs_policy }
     configuration = { service = "secretsmanager", policy = local.secrets_policy }
   }
-  clients         = merge(var.network.client_security_groups, { web = aws_security_group.web.id })
-  interface_paths = { for pair in setproduct(keys(local.interfaces), keys(local.clients)) : "${pair[0]}-${pair[1]}" => { endpoint = pair[0], client = pair[1] } if pair[0] != "configuration" || pair[1] != "web" }
+  clients          = merge(var.network.client_security_groups, { web = aws_security_group.web.id })
+  endpoint_clients = merge(local.clients, var.relay_network_enabled ? { relay = aws_security_group.relay[0].id } : {})
+  interface_paths  = { for pair in setproduct(keys(local.interfaces), keys(local.endpoint_clients)) : "${pair[0]}-${pair[1]}" => { endpoint = pair[0], client = pair[1] } if pair[0] != "configuration" || pair[1] != "web" }
 }
 data "aws_vpc" "cell" {
   id = var.network.vpc_id
@@ -79,24 +80,31 @@ resource "aws_security_group" "endpoint" {
   description = "Private ${each.value.service} endpoint; declared client443 paths only"
   vpc_id      = var.network.vpc_id
 }
+resource "aws_security_group" "relay" {
+  count       = var.relay_network_enabled ? 1 : 0
+  name_prefix = "${local.name}-relay-"
+  description = "Separate relay process; endpoint paths here, web/API paths owned by discovery"
+  vpc_id      = var.network.vpc_id
+  tags        = { Process = "relay" }
+}
 resource "aws_vpc_security_group_ingress_rule" "interface" {
   for_each                     = local.interface_paths
   security_group_id            = aws_security_group.endpoint[each.value.endpoint].id
-  referenced_security_group_id = local.clients[each.value.client]
+  referenced_security_group_id = local.endpoint_clients[each.value.client]
   ip_protocol                  = "tcp"
   from_port                    = 443
   to_port                      = 443
 }
 resource "aws_vpc_security_group_egress_rule" "interface" {
   for_each                     = local.interface_paths
-  security_group_id            = local.clients[each.value.client]
+  security_group_id            = local.endpoint_clients[each.value.client]
   referenced_security_group_id = aws_security_group.endpoint[each.value.endpoint].id
   ip_protocol                  = "tcp"
   from_port                    = 443
   to_port                      = 443
 }
 resource "aws_vpc_security_group_egress_rule" "layers" {
-  for_each          = local.clients
+  for_each          = local.endpoint_clients
   security_group_id = each.value
   prefix_list_id    = data.aws_prefix_list.s3.id
   ip_protocol       = "tcp"

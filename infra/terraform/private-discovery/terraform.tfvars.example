@@ -3,6 +3,9 @@ account_id = "111122223333"
 region = "us-east-1"
 cell = "pilot"
 environment = "staging"
+# Optional runtime-endpoints.relay_network output, not the policy-only admission.
+# Null is initial compatibility, not safe withdrawal/failover for a running relay.
+relay_network = null
 network = {
   "vpc_id": "vpc-00000000000000001",
   "application_subnet_ids": [

@@ -50,3 +50,18 @@ variable "api_transport" {
     error_message = "Bind the same cell's exact HTTPS API DNS name and fixed8443 server-TLS task contract."
   }
 }
+
+variable "relay_network" {
+  type        = object({ vpc_id = string, application_subnet_ids = list(string), security_group_id = string })
+  default     = null
+  description = "Optional runtime-endpoints.relay_network output. Null retains initial direct web/API declarations; nonnull requires a distinct same-cell relay group and selects web/relay/API paths."
+  validation {
+    condition = var.relay_network == null || try(
+      var.relay_network.vpc_id == var.network.vpc_id &&
+      length(var.relay_network.application_subnet_ids) == 2 &&
+      toset(var.relay_network.application_subnet_ids) == toset(var.network.application_subnet_ids) &&
+      can(regex("^sg-[0-9a-f]{17}$", var.relay_network.security_group_id)) &&
+    !contains(values(var.network.client_security_groups), var.relay_network.security_group_id), false)
+    error_message = "Bind the same VPC/exact private application subnet set and a separate relay group, never a web/API/worker/deployment group."
+  }
+}

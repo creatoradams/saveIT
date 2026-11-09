@@ -1164,3 +1164,68 @@ run "null_after_bound_retains_legacy_filters" {
     error_message = "Null retains all four exact policy bytes from committed8b92135 and no relay admission. This is a mock contract, not applied revocation."
   }
 }
+
+
+run "network_bootstrap_creates_no_relay_group" {
+  command = plan
+  assert {
+    condition     = length(aws_security_group.relay) == 0 && output.relay_network == null && length(local.endpoint_clients) == 4 && length(aws_vpc_security_group_ingress_rule.interface) == 15
+    error_message = "Initial mode preserves the legacy resource graph and has no relay network binding."
+  }
+}
+run "network_cannot_skip_relay_admission" {
+  command = plan
+  variables { relay_network_enabled = true }
+  expect_failures = [var.relay_network_enabled]
+}
+run "admission_alone_does_not_opt_into_relay_network" {
+  command = plan
+  variables { relay = jsondecode(file("tests/relay-binding.json")) }
+  assert {
+    condition     = length(aws_security_group.relay) == 0 && output.relay_network == null && length(local.endpoint_clients) == 4
+    error_message = "The existing policy-only contract remains policy-only unless network preparation is explicitly selected."
+  }
+}
+run "separate_relay_endpoint_and_layer_network" {
+  command = plan
+  variables {
+    relay                 = jsondecode(file("tests/relay-binding.json"))
+    relay_network_enabled = true
+  }
+
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.relay[0]
+    values          = { id = "sg-00000000000000006" }
+  }
+
+  assert {
+    condition = (length(aws_security_group.relay) == 1 && aws_security_group.relay[0].vpc_id == var.network.vpc_id && aws_security_group.relay[0].tags.Process == "relay" &&
+      aws_security_group.relay[0].name_prefix == "saveit-pilot-staging-relay-" && length(aws_security_group.relay[0].ingress) == 0 && length(aws_security_group.relay[0].egress) == 0 &&
+      length(aws_vpc_security_group_ingress_rule.interface) == 19 && length(aws_vpc_security_group_egress_rule.interface) == 19 && length(aws_vpc_security_group_egress_rule.layers) == 5 &&
+      alltrue([for endpoint in ["ecr-api", "ecr-dkr", "logs", "configuration"] :
+        aws_vpc_security_group_ingress_rule.interface[format("%s-relay", endpoint)].security_group_id == aws_security_group.endpoint[endpoint].id &&
+        aws_vpc_security_group_ingress_rule.interface[format("%s-relay", endpoint)].referenced_security_group_id == "sg-00000000000000006" &&
+        aws_vpc_security_group_egress_rule.interface[format("%s-relay", endpoint)].security_group_id == "sg-00000000000000006" &&
+        aws_vpc_security_group_egress_rule.interface[format("%s-relay", endpoint)].referenced_security_group_id == aws_security_group.endpoint[endpoint].id
+    ]))
+    error_message = "Own relay group gets exactly four endpoint pairs, never legacy/DB/NFS group reuse or inline rules."
+  }
+  assert {
+    condition = (alltrue([for r in concat(values(aws_vpc_security_group_ingress_rule.interface), values(aws_vpc_security_group_egress_rule.interface)) :
+      r.ip_protocol == "tcp" && r.from_port == 443 && r.to_port == 443 && r.cidr_ipv4 == null && r.cidr_ipv6 == null && r.prefix_list_id == null]) &&
+      aws_vpc_security_group_egress_rule.layers["relay"].security_group_id == "sg-00000000000000006" &&
+      aws_vpc_security_group_egress_rule.layers["relay"].prefix_list_id == data.aws_prefix_list.s3.id &&
+      aws_vpc_security_group_egress_rule.layers["relay"].ip_protocol == "tcp" && aws_vpc_security_group_egress_rule.layers["relay"].from_port == 443 && aws_vpc_security_group_egress_rule.layers["relay"].to_port == 443 &&
+      aws_vpc_security_group_egress_rule.layers["relay"].cidr_ipv4 == null && aws_vpc_security_group_egress_rule.layers["relay"].cidr_ipv6 == null &&
+    sha256(aws_vpc_endpoint.layers.policy) == "0ce6c8d4624f3bb29f44262a9596e3acfd0c618b8758cbe637535b96de34c7aa")
+    error_message = "Keep only referenced endpoint443 and regional layer prefix443; no public/default/CIDR/plaintext paths or S3 policy widening."
+  }
+  assert {
+    condition = (jsonencode(output.relay_network) == jsonencode({ vpc_id = var.network.vpc_id, application_subnet_ids = var.network.application_subnet_ids, security_group_id = "sg-00000000000000006" }) &&
+      jsonencode(output.runtime_network.client_security_groups) == jsonencode(merge(var.network.client_security_groups, { web = "sg-00000000000000005" })) &&
+      alltrue([for pair in [{ actual = local.ecr_policy, expected = "ecr" }, { actual = local.logs_policy, expected = "logs" }, { actual = local.secrets_policy, expected = "configuration" }] :
+    jsonencode(jsondecode(pair.actual)) == jsonencode(jsondecode(file("tests/relay-policies.json"))[pair.expected])]))
+    error_message = "Return the separate group contract while retaining all49 reviewed policy statements and the legacy four-group output."
+  }
+}

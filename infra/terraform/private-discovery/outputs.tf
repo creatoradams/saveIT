@@ -12,3 +12,13 @@ output "api_discovery" {
     client_security_groups = var.network.client_security_groups
   }
 }
+
+output "relay_discovery" {
+  description = "Optional declared relay registry/transport targets only. No instances, active health, actual TLS/caller identity or launch approval; API and relay targets stay distinct."
+  value = var.relay_network == null ? null : {
+    namespace_id = aws_service_discovery_private_dns_namespace.cell.id, namespace_arn = aws_service_discovery_private_dns_namespace.cell.arn
+    service_arn  = aws_service_discovery_service.relay[0].arn, hostname = "relay.${local.namespace}"
+    origin       = "https://relay.${local.namespace}:${local.relay_port}", port = local.relay_port, api_origin = var.api_transport.origin
+    vpc_id       = var.network.vpc_id, application_subnet_ids = var.network.application_subnet_ids, security_group_id = var.relay_network.security_group_id
+  }
+}

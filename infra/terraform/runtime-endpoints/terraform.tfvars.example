@@ -7,6 +7,8 @@ environment = "staging"
 # Optional relay is metadata from the staged relay-identity outputs only;
 # tests/relay-binding.json illustrates its shape. No private value or selector.
 relay = null
+# Separate opt-in; true requires a fully bound relay above. Still not launch approval.
+relay_network_enabled = false
 network = {
 "vpc_id" = "vpc-00000000000000001"
 "application_subnet_ids" = ["subnet-00000000000000001", "subnet-00000000000000002"]

@@ -94,3 +94,14 @@ variable "relay" {
     error_message = "Use null or the bound same-cell relay task/execution, exact own log, UUID-pinned whole secret and staged deployment repository ARN/URL/three execution-reader outputs. Bootstrap metadata is not admission."
   }
 }
+
+variable "relay_network_enabled" {
+  type        = bool
+  default     = false
+  nullable    = false
+  description = "Opt in to a separate relay SG and endpoint/layer paths only after relay admission. No API/web path, running task or launch approval."
+  validation {
+    condition     = !var.relay_network_enabled || var.relay != null
+    error_message = "Relay network preparation requires the separately validated bound relay admission; null remains policy/network bootstrap."
+  }
+}

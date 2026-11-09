@@ -766,3 +766,294 @@ run "foreign_worker_environment" {
   }
   expect_failures = [data.aws_security_group.client["worker"]]
 }
+
+
+override_data {
+  override_during = plan
+  target          = data.aws_security_group.relay[0]
+  values = {
+    "id" : "sg-00000000000000006",
+    "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+    "vpc_id" : "vpc-00000000000000001",
+    "tags" : {
+      "Project" : "SaveIT",
+      "Cell" : "pilot",
+      "Environment" : "staging",
+      "Process" : "relay"
+    }
+  }
+}
+
+override_resource {
+  override_during = plan
+  target          = aws_service_discovery_service.relay[0]
+  values          = { id = "srv-0000000000000002", arn = "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002" }
+}
+run "null_relay_keeps_initial_discovery_graph" {
+  command = plan
+  assert {
+    condition     = output.relay_discovery == null && length(data.aws_security_group.relay) == 0 && length(aws_service_discovery_service.relay) == 0 && length(aws_vpc_security_group_ingress_rule.relay_https) == 0 && length(aws_vpc_security_group_egress_rule.relay_https) == 0 && aws_vpc_security_group_ingress_rule.api_https.referenced_security_group_id == var.network.client_security_groups.web
+    error_message = "Null initial mode is unchanged; this fresh mock plan is not withdrawal/failover/fencing evidence."
+  }
+}
+run "relay_private_registry_and_exact_transport_paths" {
+  command = plan
+  variables { relay_network = jsondecode(file("tests/relay-network.json")) }
+  assert {
+    condition = (length(aws_service_discovery_service.relay) == 1 && aws_service_discovery_service.relay[0].name == "relay" && !aws_service_discovery_service.relay[0].force_destroy &&
+      one(aws_service_discovery_service.relay[0].dns_config).namespace_id == aws_service_discovery_private_dns_namespace.cell.id &&
+      one(aws_service_discovery_service.relay[0].dns_config).routing_policy == "MULTIVALUE" && one(one(aws_service_discovery_service.relay[0].dns_config).dns_records).type == "A" &&
+      one(one(aws_service_discovery_service.relay[0].dns_config).dns_records).ttl == 10 && length(aws_service_discovery_service.relay[0].health_check_config) == 0 &&
+      one(aws_service_discovery_service.relay[0].health_check_custom_config).failure_threshold == 1 &&
+    aws_service_discovery_service.api.name == "api" && aws_service_discovery_service.api.arn != aws_service_discovery_service.relay[0].arn)
+    error_message = "Separate protected-source private relay registry retains IPv4/MULTIVALUE/TTL10/custom-health1 and no public probes/forced instance deletion."
+  }
+  assert {
+    condition = (aws_vpc_security_group_ingress_rule.api_https.security_group_id == var.network.client_security_groups.api &&
+      aws_vpc_security_group_ingress_rule.api_https.referenced_security_group_id == var.relay_network.security_group_id &&
+      aws_vpc_security_group_egress_rule.api_https.security_group_id == var.relay_network.security_group_id &&
+      aws_vpc_security_group_egress_rule.api_https.referenced_security_group_id == var.network.client_security_groups.api &&
+      aws_vpc_security_group_ingress_rule.relay_https[0].security_group_id == var.relay_network.security_group_id &&
+      aws_vpc_security_group_ingress_rule.relay_https[0].referenced_security_group_id == var.network.client_security_groups.web &&
+      aws_vpc_security_group_egress_rule.relay_https[0].security_group_id == var.network.client_security_groups.web &&
+      aws_vpc_security_group_egress_rule.relay_https[0].referenced_security_group_id == var.relay_network.security_group_id &&
+      alltrue([for r in [aws_vpc_security_group_ingress_rule.api_https, aws_vpc_security_group_egress_rule.api_https, aws_vpc_security_group_ingress_rule.relay_https[0], aws_vpc_security_group_egress_rule.relay_https[0]] :
+    r.ip_protocol == "tcp" && r.from_port == 8443 && r.to_port == 8443 && r.cidr_ipv4 == null && r.cidr_ipv6 == null && r.prefix_list_id == null]))
+    error_message = "Replace direct web/API with exactly web/relay and relay/API8443; no reverse/general/DB/NFS/plaintext directions."
+  }
+  assert {
+    condition = (jsonencode(output.relay_discovery) == jsonencode({ namespace_id = "ns-0000000000000001", namespace_arn = "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001", service_arn = "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002", hostname = "relay.pilot.staging.saveit.internal", origin = "https://relay.pilot.staging.saveit.internal:8443", port = 8443, api_origin = var.api_transport.origin, vpc_id = var.network.vpc_id, application_subnet_ids = var.network.application_subnet_ids, security_group_id = var.relay_network.security_group_id }) &&
+    output.api_discovery.hostname == "api.pilot.staging.saveit.internal" && output.api_discovery.origin == var.api_transport.origin && output.api_discovery.client_security_groups == var.network.client_security_groups)
+    error_message = "Distinct fixed API/relay origins and legacy API output retain public scoped metadata only, not TLS/workload/launch readiness."
+  }
+}
+run "relay_subnet_order_is_not_authority" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { application_subnet_ids = reverse(var.network.application_subnet_ids) }) }
+  assert {
+    condition     = output.relay_discovery.application_subnet_ids == var.network.application_subnet_ids
+    error_message = "The exact subnet set is required and canonical consumer placement order is retained."
+  }
+}
+run "relay_origin_never_replaces_api_origin" {
+  command = plan
+  variables {
+    relay_network = jsondecode(file("tests/relay-network.json"))
+    api_transport = { origin = "https://relay.pilot.staging.saveit.internal:8443", port = 8443, server_tls_declared = true }
+  }
+  expect_failures = [var.api_transport]
+}
+
+run "foreign_relay_vpc" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { vpc_id = "vpc-00000000000000002" }) }
+  expect_failures = [var.relay_network]
+}
+
+run "wrong_relay_subnet" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { application_subnet_ids = ["subnet-00000000000000001", "subnet-00000000000000003"] }) }
+  expect_failures = [var.relay_network]
+}
+
+run "duplicate_relay_subnet" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { application_subnet_ids = ["subnet-00000000000000001", "subnet-00000000000000001"] }) }
+  expect_failures = [var.relay_network]
+}
+
+run "extra_relay_subnet" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { application_subnet_ids = concat(var.network.application_subnet_ids, ["subnet-00000000000000003"]) }) }
+  expect_failures = [var.relay_network]
+}
+
+run "malformed_relay_group" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { security_group_id = "default" }) }
+  expect_failures = [var.relay_network]
+}
+
+run "borrowed_api_group" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { security_group_id = var.network.client_security_groups.api }) }
+  expect_failures = [var.relay_network]
+}
+
+run "borrowed_web_group" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { security_group_id = var.network.client_security_groups.web }) }
+  expect_failures = [var.relay_network]
+}
+
+run "borrowed_worker_group" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { security_group_id = var.network.client_security_groups.worker }) }
+  expect_failures = [var.relay_network]
+}
+
+run "borrowed_deployment_group" {
+  command = plan
+  variables { relay_network = merge(jsondecode(file("tests/relay-network.json")), { security_group_id = var.network.client_security_groups.deployment }) }
+  expect_failures = [var.relay_network]
+}
+
+run "foreign_relay_group_account" {
+  command = plan
+  variables { relay_network = jsondecode(file("tests/relay-network.json")) }
+
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:999900001111:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "foreign_relay_group_region" {
+  command = plan
+  variables { relay_network = jsondecode(file("tests/relay-network.json")) }
+
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-west-2:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "foreign_relay_group_vpc" {
+  command = plan
+  variables { relay_network = jsondecode(file("tests/relay-network.json")) }
+
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000002",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "wrong_relay_process" {
+  command = plan
+  variables { relay_network = jsondecode(file("tests/relay-network.json")) }
+
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "deployment"
+      }
+    }
+  }
+
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "wrong_relay_group_cell" {
+  command = plan
+  variables { relay_network = jsondecode(file("tests/relay-network.json")) }
+
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "other",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "wrong_relay_group_environment" {
+  command = plan
+  variables { relay_network = jsondecode(file("tests/relay-network.json")) }
+
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "production",
+        "Process" : "relay"
+      }
+    }
+  }
+
+  expect_failures = [data.aws_security_group.relay[0]]
+}
+
+run "missing_relay_project" {
+  command = plan
+  variables { relay_network = jsondecode(file("tests/relay-network.json")) }
+
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+
+  expect_failures = [data.aws_security_group.relay[0]]
+}

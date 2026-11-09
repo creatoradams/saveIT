@@ -543,3 +543,35 @@ run "actual_task_plaintext_port_disagreement_fails" {
   }
   expect_failures = [var.api_transport]
 }
+
+
+run "relay_discovery_consumes_actual_api_transport" {
+  command = plan
+  module { source = "../private-discovery" }
+  variables {
+    network       = run.discovery_consumes_actual_task_transport.api_discovery
+    api_transport = run.tasks_consume_actual_identity_outputs.api_transport
+    relay_network = jsondecode(file("../private-discovery/tests/relay-network.json"))
+  }
+
+  override_data {
+    override_during = plan
+    target          = data.aws_security_group.relay[0]
+    values = {
+      "id" : "sg-00000000000000006",
+      "arn" : "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000006",
+      "vpc_id" : "vpc-00000000000000001",
+      "tags" : {
+        "Project" : "SaveIT",
+        "Cell" : "pilot",
+        "Environment" : "staging",
+        "Process" : "relay"
+      }
+    }
+  }
+
+  assert {
+    condition     = output.relay_discovery.api_origin == run.tasks_consume_actual_identity_outputs.api_transport.origin && output.relay_discovery.api_origin == "https://api.pilot.staging.saveit.internal:8443" && output.relay_discovery.origin == "https://relay.pilot.staging.saveit.internal:8443" && aws_vpc_security_group_egress_rule.api_https.security_group_id == output.relay_discovery.security_group_id
+    error_message = "Actual task transport remains the API origin while the separate relay target is declared; no task launch or web-target delivery follows."
+  }
+}

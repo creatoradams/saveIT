@@ -1,0 +1,8 @@
+{
+  "vpc_id": "vpc-00000000000000001",
+  "application_subnet_ids": [
+    "subnet-00000000000000001",
+    "subnet-00000000000000002"
+  ],
+  "security_group_id": "sg-00000000000000006"
+}

@@ -16,3 +16,11 @@ output "relay_admission" {
     repository_arn = var.relay.image_repository.arn, log_group_arn = var.relay.operational_log.arn
   }
 }
+
+output "relay_network" {
+  description = "Optional separate relay group with declared endpoint/layer paths. No API/web transport, SG attachment/rule enforcement, task or launch readiness."
+  value = var.relay_network_enabled ? {
+    vpc_id            = var.network.vpc_id, application_subnet_ids = var.network.application_subnet_ids
+    security_group_id = aws_security_group.relay[0].id
+  } : null
+}
