@@ -15,19 +15,22 @@ let relay;
 function command(args, input, timeout = 15000) {
   const child = spawn("docker", args, { stdio: ["pipe", "pipe", "pipe"] });
   let output = "",
-    exceeded = false;
+    exceeded = false,
+    count = 0;
   const failed = Promise.withResolvers();
-  const collect = (chunk) => {
+  const collect = (protocol) => (chunk) => {
     if (exceeded) return;
-    output += chunk;
-    if (output.length > 65536) {
+    count += chunk.length;
+    if (protocol) output += chunk;
+    if (count > 65536) {
       exceeded = true;
       output = "";
       failed.reject(new Error());
     }
   };
-  child.stdout.on("data", collect);
-  child.stderr.on("data", collect);
+  child.stdout.on("data", collect(true));
+  // Compose's bounded setup/progress stderr is not the container stdout protocol.
+  child.stderr.on("data", collect(false));
   child.stdin.on("error", () => {});
   const completion = new Promise((resolve, reject) => {
     child.once("error", reject);
