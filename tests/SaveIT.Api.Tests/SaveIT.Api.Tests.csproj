@@ -9,4 +9,5 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup><Content Include="../../infra/terraform/ecs-tasks/tests/relay-container.json" Link="Fixtures/relay-container.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="../../infra/terraform/ecs-tasks/tests/compute-release-*.json" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

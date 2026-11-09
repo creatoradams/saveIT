@@ -156,6 +156,8 @@ Both sign-in adapters seal a live session epoch into cookies and register before
 
 ## Source and image release checks
 
+ADR052 adds independently pinned short-lived PS256 release approval and derived four-task contracts to the existing offline deployment executable. Signed metadata binds operation/expected control version/generation/source, exact immutable references and public runtime/network identities. It grants no tenant authority and performs no provider side effects. Trusted live acquisition, durable single-use admission, image/configuration/promotion evidence, explicit ownership handoff and operated launch/fencing remain required; see [release admission](compute-release-admission.md).
+
 ADR 026 defines pinned full-reachable-history Gitleaks with explicit upstream exclusions and a runtime detection/redaction canary, CodeQL security-extended threshold gates, and native/CycloneDX inventories tied to the same four verified packaged images. Actual execution status is in progress. Local configuration IDs and SBOM hashes are unsigned bookkeeping; registry promotion, signatures, vulnerability/license policy and branch/environment enforcement remain unfinished. See [source security](source-security.md).
 
 ADR 027 extends image inventory with pinned Grype/fresh public database checks and a patched minimal Node runtime on Ubuntu 24.04 chiseled runtime-deps. Full-image and packaged execution are required; base-only scans do not establish application results. High/critical/unknown matches block, lower findings remain visible. See source-security/progress for scope, inherited matcher defaults and execution evidence.

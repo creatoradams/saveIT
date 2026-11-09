@@ -1,0 +1,570 @@
+{
+  "api": {
+    "taskDefinition": {
+      "taskDefinitionArn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-api:10",
+      "family": "saveit-pilot-staging-api",
+      "revision": 10,
+      "status": "ACTIVE",
+      "taskRoleArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-task",
+      "executionRoleArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-api-execution",
+      "networkMode": "awsvpc",
+      "requiresCompatibilities": ["FARGATE"],
+      "cpu": "512",
+      "memory": "1024",
+      "runtimePlatform": {
+        "operatingSystemFamily": "LINUX",
+        "cpuArchitecture": "X86_64"
+      },
+      "volumes": [
+        {
+          "name": "session-keys",
+          "configuredAtLaunch": false,
+          "efsVolumeConfiguration": {
+            "fileSystemId": "fs-00000000000000001",
+            "rootDirectory": "/",
+            "transitEncryption": "ENABLED",
+            "authorizationConfig": {
+              "accessPointId": "fsap-00000000000000001",
+              "iam": "ENABLED"
+            }
+          }
+        },
+        {
+          "name": "runtime",
+          "configuredAtLaunch": false
+        }
+      ],
+      "containerDefinitions": [
+        {
+          "environment": [
+            {
+              "name": "ASPNETCORE_ENVIRONMENT",
+              "value": "Production"
+            },
+            {
+              "name": "AllowedHosts",
+              "value": "api.pilot.staging.saveit.internal;saveit.example.com;127.0.0.1"
+            },
+            {
+              "name": "DOTNET_ENVIRONMENT",
+              "value": "Production"
+            },
+            {
+              "name": "DOTNET_EnableDiagnostics",
+              "value": "0"
+            },
+            {
+              "name": "Deployment__ApiTls__ClientAuthentication__CaSha256",
+              "value": "00000000000000000000000000000000000000000000000000000000000000c0"
+            },
+            {
+              "name": "Deployment__ApiTls__ClientAuthentication__Enabled",
+              "value": "true"
+            },
+            {
+              "name": "Deployment__ApiTls__ClientAuthentication__LeafSha256__0",
+              "value": "0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            {
+              "name": "Deployment__ApiTls__Enabled",
+              "value": "true"
+            },
+            {
+              "name": "Deployment__ComputeGeneration",
+              "value": "70000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "Deployment__ComputeGuard",
+              "value": "true"
+            },
+            {
+              "name": "Deployment__Trust__DatabaseCaSha256",
+              "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            {
+              "name": "DevelopmentIdentity__Enabled",
+              "value": "false"
+            },
+            {
+              "name": "Identity__KeyDirectory",
+              "value": "/var/saveit/keys"
+            },
+            {
+              "name": "Identity__Okta__ClientId",
+              "value": "synthetic-client"
+            },
+            {
+              "name": "Identity__Okta__Enabled",
+              "value": "true"
+            },
+            {
+              "name": "Identity__Okta__Issuer",
+              "value": "https://synthetic.example.okta.com/oauth2/default"
+            },
+            {
+              "name": "Identity__Okta__PublicOrigin",
+              "value": "https://saveit.example.com"
+            },
+            {
+              "name": "Identity__Okta__TenantId",
+              "value": "30000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "SAVEIT_HEALTH_HOST",
+              "value": "127.0.0.1"
+            },
+            {
+              "name": "SAVEIT_HEALTH_PORT",
+              "value": "8080"
+            },
+            {
+              "name": "TMPDIR",
+              "value": "/var/saveit/runtime"
+            }
+          ],
+          "essential": true,
+          "healthCheck": {
+            "command": ["CMD", "dotnet", "SaveIT.Api.dll", "--livecheck"],
+            "interval": 10,
+            "retries": 3,
+            "startPeriod": 30,
+            "timeout": 5
+          },
+          "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/api@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "interactive": false,
+          "linuxParameters": {
+            "capabilities": {
+              "drop": ["ALL"]
+            }
+          },
+          "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-create-group": "false",
+              "awslogs-group": "/saveit/pilot/staging/api",
+              "awslogs-region": "us-east-1",
+              "awslogs-stream-prefix": "api",
+              "max-buffer-size": "4m",
+              "mode": "non-blocking"
+            }
+          },
+          "mountPoints": [
+            {
+              "containerPath": "/var/saveit/runtime",
+              "readOnly": false,
+              "sourceVolume": "runtime"
+            },
+            {
+              "containerPath": "/var/saveit/keys",
+              "readOnly": false,
+              "sourceVolume": "session-keys"
+            }
+          ],
+          "name": "api",
+          "portMappings": [
+            {
+              "containerPort": 8443,
+              "hostPort": 8443,
+              "protocol": "tcp"
+            }
+          ],
+          "privileged": false,
+          "pseudoTerminal": false,
+          "readonlyRootFilesystem": true,
+          "secrets": [
+            {
+              "name": "ConnectionStrings__App",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:ConnectionStrings__App::10000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "Identity__Okta__ClientSecret",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__Okta__ClientSecret::10000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "Identity__KeyCertificateBase64",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__KeyCertificateBase64::10000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "Identity__KeyCertificatePassword",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Identity__KeyCertificatePassword::10000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "Deployment__ApiTls__CertificateBase64",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Deployment__ApiTls__CertificateBase64::10000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "Deployment__ApiTls__CertificatePassword",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00:Deployment__ApiTls__CertificatePassword::10000000-0000-0000-0000-000000000001"
+            }
+          ],
+          "stopTimeout": 30,
+          "user": "1654:1654"
+        }
+      ]
+    }
+  },
+  "web": {
+    "taskDefinition": {
+      "taskDefinitionArn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-web:10",
+      "family": "saveit-pilot-staging-web",
+      "revision": 10,
+      "status": "ACTIVE",
+      "taskRoleArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-task",
+      "executionRoleArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-web-execution",
+      "networkMode": "awsvpc",
+      "requiresCompatibilities": ["FARGATE"],
+      "cpu": "512",
+      "memory": "1024",
+      "runtimePlatform": {
+        "operatingSystemFamily": "LINUX",
+        "cpuArchitecture": "X86_64"
+      },
+      "volumes": [
+        {
+          "name": "runtime",
+          "configuredAtLaunch": false
+        }
+      ],
+      "containerDefinitions": [
+        {
+          "environment": [
+            {
+              "name": "HOSTNAME",
+              "value": "0.0.0.0"
+            },
+            {
+              "name": "NEXT_TELEMETRY_DISABLED",
+              "value": "1"
+            },
+            {
+              "name": "NODE_ENV",
+              "value": "production"
+            },
+            {
+              "name": "NODE_EXTRA_CA_CERTS",
+              "value": "/opt/saveit/trust/api-ca.crt"
+            },
+            {
+              "name": "PORT",
+              "value": "3000"
+            },
+            {
+              "name": "SAVEIT_API_CA_SHA256",
+              "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            },
+            {
+              "name": "SAVEIT_API_ORIGIN",
+              "value": "https://relay.pilot.staging.saveit.internal:8443"
+            },
+            {
+              "name": "SAVEIT_OKTA_ISSUER",
+              "value": "https://synthetic.example.okta.com/oauth2/default"
+            },
+            {
+              "name": "SAVEIT_PUBLIC_ORIGIN",
+              "value": "https://saveit.example.com"
+            },
+            {
+              "name": "SAVEIT_WORKLOAD_ACCOUNT_ID",
+              "value": "111122223333"
+            },
+            {
+              "name": "SAVEIT_WORKLOAD_POOL_ID",
+              "value": "us-east-1:10000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "SAVEIT_WORKLOAD_PROVIDER",
+              "value": "saveit.pilot.staging.web"
+            },
+            {
+              "name": "TMPDIR",
+              "value": "/var/saveit/runtime"
+            }
+          ],
+          "essential": true,
+          "healthCheck": {
+            "command": [
+              "CMD",
+              "/usr/local/bin/node",
+              "-e",
+              "fetch('http://127.0.0.1:3000/health/live',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"
+            ],
+            "interval": 10,
+            "retries": 3,
+            "startPeriod": 30,
+            "timeout": 5
+          },
+          "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/web@sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "interactive": false,
+          "linuxParameters": {
+            "capabilities": {
+              "drop": ["ALL"]
+            }
+          },
+          "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-create-group": "false",
+              "awslogs-group": "/saveit/pilot/staging/web",
+              "awslogs-region": "us-east-1",
+              "awslogs-stream-prefix": "web",
+              "max-buffer-size": "4m",
+              "mode": "non-blocking"
+            }
+          },
+          "mountPoints": [
+            {
+              "containerPath": "/var/saveit/runtime",
+              "readOnly": false,
+              "sourceVolume": "runtime"
+            }
+          ],
+          "name": "web",
+          "portMappings": [
+            {
+              "containerPort": 3000,
+              "hostPort": 3000,
+              "protocol": "tcp"
+            }
+          ],
+          "privileged": false,
+          "pseudoTerminal": false,
+          "readonlyRootFilesystem": true,
+          "secrets": [],
+          "stopTimeout": 30,
+          "user": "1654:1654"
+        }
+      ]
+    }
+  },
+  "worker": {
+    "taskDefinition": {
+      "taskDefinitionArn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-worker:10",
+      "family": "saveit-pilot-staging-worker",
+      "revision": 10,
+      "status": "ACTIVE",
+      "taskRoleArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-task",
+      "executionRoleArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-worker-execution",
+      "networkMode": "awsvpc",
+      "requiresCompatibilities": ["FARGATE"],
+      "cpu": "256",
+      "memory": "1024",
+      "runtimePlatform": {
+        "operatingSystemFamily": "LINUX",
+        "cpuArchitecture": "X86_64"
+      },
+      "volumes": [
+        {
+          "name": "runtime",
+          "configuredAtLaunch": false
+        }
+      ],
+      "containerDefinitions": [
+        {
+          "environment": [
+            {
+              "name": "DOTNET_ENVIRONMENT",
+              "value": "Production"
+            },
+            {
+              "name": "DOTNET_EnableDiagnostics",
+              "value": "0"
+            },
+            {
+              "name": "Deployment__ComputeGeneration",
+              "value": "70000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "Deployment__ComputeGuard",
+              "value": "true"
+            },
+            {
+              "name": "Deployment__Trust__DatabaseCaSha256",
+              "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            {
+              "name": "SearchWorker__HealthPath",
+              "value": "/var/saveit/runtime/saveit-worker-health.json"
+            },
+            {
+              "name": "SearchWorker__Tenants__0",
+              "value": "30000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "TMPDIR",
+              "value": "/var/saveit/runtime"
+            }
+          ],
+          "essential": true,
+          "healthCheck": {
+            "command": ["CMD", "dotnet", "SaveIT.Workers.dll", "--livecheck"],
+            "interval": 10,
+            "retries": 3,
+            "startPeriod": 30,
+            "timeout": 5
+          },
+          "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/worker@sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "interactive": false,
+          "linuxParameters": {
+            "capabilities": {
+              "drop": ["ALL"]
+            }
+          },
+          "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-create-group": "false",
+              "awslogs-group": "/saveit/pilot/staging/worker",
+              "awslogs-region": "us-east-1",
+              "awslogs-stream-prefix": "worker",
+              "max-buffer-size": "4m",
+              "mode": "non-blocking"
+            }
+          },
+          "mountPoints": [
+            {
+              "containerPath": "/var/saveit/runtime",
+              "readOnly": false,
+              "sourceVolume": "runtime"
+            }
+          ],
+          "name": "worker",
+          "portMappings": [],
+          "privileged": false,
+          "pseudoTerminal": false,
+          "readonlyRootFilesystem": true,
+          "secrets": [
+            {
+              "name": "ConnectionStrings__SearchWorker",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/worker/config-Abcd00:ConnectionStrings__SearchWorker::10000000-0000-0000-0000-000000000001"
+            }
+          ],
+          "stopTimeout": 30,
+          "user": "1654:1654"
+        }
+      ]
+    }
+  },
+  "relay": {
+    "taskDefinition": {
+      "taskDefinitionArn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-relay:10",
+      "family": "saveit-pilot-staging-relay",
+      "revision": 10,
+      "status": "ACTIVE",
+      "taskRoleArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-task",
+      "executionRoleArn": "arn:aws:iam::111122223333:role/saveit-pilot-staging-relay-execution",
+      "networkMode": "awsvpc",
+      "requiresCompatibilities": ["FARGATE"],
+      "cpu": "512",
+      "memory": "1024",
+      "runtimePlatform": {
+        "operatingSystemFamily": "LINUX",
+        "cpuArchitecture": "X86_64"
+      },
+      "volumes": [
+        {
+          "name": "runtime",
+          "configuredAtLaunch": false
+        }
+      ],
+      "containerDefinitions": [
+        {
+          "command": [
+            "serve-api-relay-secrets",
+            "https://api.pilot.staging.saveit.internal:8443",
+            "https://relay.pilot.staging.saveit.internal:8443",
+            "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+            "10000000-0000-0000-0000-000000000009"
+          ],
+          "entryPoint": ["dotnet", "SaveIT.Deployment.dll"],
+          "environment": [
+            {
+              "name": "ASPNETCORE_ENVIRONMENT",
+              "value": "Production"
+            },
+            {
+              "name": "DOTNET_ENVIRONMENT",
+              "value": "Production"
+            },
+            {
+              "name": "DOTNET_EnableDiagnostics",
+              "value": "0"
+            },
+            {
+              "name": "SAVEIT_WORKLOAD_ISSUER",
+              "value": "https://cognito-identity.amazonaws.com"
+            },
+            {
+              "name": "SAVEIT_WORKLOAD_JWKS_SHA256",
+              "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            {
+              "name": "SAVEIT_WORKLOAD_POOL_ID",
+              "value": "us-east-1:10000000-0000-0000-0000-000000000001"
+            },
+            {
+              "name": "SAVEIT_WORKLOAD_PROVIDER",
+              "value": "saveit.pilot.staging.web"
+            },
+            {
+              "name": "TMPDIR",
+              "value": "/var/saveit/runtime"
+            }
+          ],
+          "essential": true,
+          "healthCheck": {
+            "command": [
+              "CMD",
+              "dotnet",
+              "SaveIT.Deployment.dll",
+              "probe-api-relay"
+            ],
+            "interval": 10,
+            "retries": 3,
+            "startPeriod": 30,
+            "timeout": 5
+          },
+          "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment@sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "interactive": false,
+          "linuxParameters": {
+            "capabilities": {
+              "drop": ["ALL"]
+            }
+          },
+          "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-create-group": "false",
+              "awslogs-group": "/saveit/pilot/staging/relay",
+              "awslogs-region": "us-east-1",
+              "awslogs-stream-prefix": "relay",
+              "max-buffer-size": "4m",
+              "mode": "non-blocking"
+            }
+          },
+          "mountPoints": [
+            {
+              "containerPath": "/var/saveit/runtime",
+              "readOnly": false,
+              "sourceVolume": "runtime"
+            }
+          ],
+          "name": "relay",
+          "portMappings": [
+            {
+              "containerPort": 8443,
+              "hostPort": 8443,
+              "protocol": "tcp"
+            }
+          ],
+          "privileged": false,
+          "pseudoTerminal": false,
+          "readonlyRootFilesystem": true,
+          "secrets": [],
+          "stopTimeout": 30,
+          "user": "1654:1654"
+        }
+      ]
+    }
+  }
+}

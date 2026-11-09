@@ -1378,6 +1378,37 @@ run "bound_workload_environment_is_public_and_scoped" {
   }
 
 }
+run "bound_compute_release_task_fixture" {
+  command = plan
+  variables {
+    api_client_trust   = { ca_sha256 = format("%064x", 192), leaf_sha256 = [format("%064x", 1)] }
+    relay              = jsondecode(file("tests/relay-binding.json"))
+    workload_admission = jsondecode(file("tests/workload-admission.json"))
+    compute_generation = "70000000-0000-0000-0000-000000000001"
+  }
+  assert {
+    condition = alltrue([for process, task in merge(aws_ecs_task_definition.application, { relay = aws_ecs_task_definition.relay[0] }) :
+      jsonencode(jsondecode(task.container_definitions)[0]) == jsonencode(jsondecode(file("tests/compute-release-observations.json"))[process].taskDefinition.containerDefinitions[0]) &&
+      task.family == jsondecode(file("tests/compute-release-observations.json"))[process].taskDefinition.family &&
+      task.task_role_arn == jsondecode(file("tests/compute-release-observations.json"))[process].taskDefinition.taskRoleArn &&
+      task.execution_role_arn == jsondecode(file("tests/compute-release-observations.json"))[process].taskDefinition.executionRoleArn &&
+      task.network_mode == "awsvpc" && task.requires_compatibilities == toset(["FARGATE"]) &&
+      task.cpu == jsondecode(file("tests/compute-release-observations.json"))[process].taskDefinition.cpu && task.memory == "1024" &&
+      one(task.runtime_platform).operating_system_family == "LINUX" && one(task.runtime_platform).cpu_architecture == "X86_64" &&
+      length(task.volume) == (process == "api" ? 2 : 1) &&
+      length([for v in task.volume : v if v.name == "runtime" && !v.configure_at_launch && v.host_path == null && length(v.efs_volume_configuration) == 0]) == 1
+    ])
+    error_message = "The independently frozen four-task release fixture must match complete producer containers and fixed task identities/platform/scratch. These mocked metadata are not AWS observations or signed promotion."
+  }
+  assert {
+    condition = jsonencode(one([for v in aws_ecs_task_definition.application["api"].volume : one(v.efs_volume_configuration) if v.name == "session-keys"])) == jsonencode({
+      file_system_id       = "fs-00000000000000001", root_directory = "/", transit_encryption = "ENABLED", transit_encryption_port = null,
+      authorization_config = [{ access_point_id = "fsap-00000000000000001", iam = "ENABLED" }]
+    })
+    error_message = "The frozen API EFS binding must keep the exact IAM/TLS access point."
+  }
+}
+
 run "reject_workload_unready" {
 
   command = plan

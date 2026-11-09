@@ -1,0 +1,62 @@
+{
+  "expectedVersion": 1,
+  "generation": "70000000-0000-0000-0000-000000000001",
+  "sourceRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "tasks": {
+    "api": {
+      "taskDefinitionArn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-api:10",
+      "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/api@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "configurationArn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/api/config-Abcd00",
+      "configurationVersionId": "10000000-0000-0000-0000-000000000001"
+    },
+    "web": {
+      "taskDefinitionArn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-web:10",
+      "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/web@sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "configurationArn": null,
+      "configurationVersionId": null
+    },
+    "worker": {
+      "taskDefinitionArn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-worker:10",
+      "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/worker@sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "configurationArn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/worker/config-Abcd00",
+      "configurationVersionId": "10000000-0000-0000-0000-000000000001"
+    },
+    "relay": {
+      "taskDefinitionArn": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-relay:10",
+      "image": "111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/deployment@sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "configurationArn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:saveit/pilot/staging/relay/config-Abcd90",
+      "configurationVersionId": "10000000-0000-0000-0000-000000000009"
+    }
+  },
+  "runtime": {
+    "publicOrigin": "https://saveit.example.com",
+    "oktaIssuer": "https://synthetic.example.okta.com/oauth2/default",
+    "oktaClientId": "synthetic-client",
+    "oktaTenantId": "30000000-0000-0000-0000-000000000001",
+    "workerTenants": ["30000000-0000-0000-0000-000000000001"],
+    "retiredKeyCount": 0,
+    "databaseCaSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "relayCaSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "clientCaSha256": "00000000000000000000000000000000000000000000000000000000000000c0",
+    "clientLeafSha256": [
+      "0000000000000000000000000000000000000000000000000000000000000001"
+    ],
+    "fileSystemId": "fs-00000000000000001",
+    "accessPointId": "fsap-00000000000000001",
+    "poolId": "us-east-1:10000000-0000-0000-0000-000000000001",
+    "workloadIssuer": "https://cognito-identity.amazonaws.com",
+    "workloadJwksSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "network": {
+    "vpcId": "vpc-00000000000000001",
+    "subnetIds": ["subnet-00000000000000001", "subnet-00000000000000002"],
+    "securityGroups": {
+      "api": "sg-00000000000000001",
+      "web": "sg-00000000000000002",
+      "worker": "sg-00000000000000003",
+      "relay": "sg-00000000000000006"
+    },
+    "apiDiscoveryServiceArn": "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000001",
+    "relayDiscoveryServiceArn": "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002"
+  }
+}

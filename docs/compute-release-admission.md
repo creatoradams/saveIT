@@ -1,0 +1,23 @@
+# Compute release admission
+
+`check-compute-release` is an offline admission prerequisite in the existing deployment executable. It performs no database/AWS access, launch, secret lookup, image pull or fencing. All services remain parked at zero in unapplied Terraform. See [ADR052](adr/052-protected-compute-release-admission.md) and the unfinished [section acceptance register](configuration-compute.md).
+
+The protected runner supplies these independently managed public trust settings:
+
+| Setting | Meaning |
+| --- | --- |
+| `SAVEIT_COMPUTE_ACCOUNT_ID`, `SAVEIT_COMPUTE_REGION`, `SAVEIT_COMPUTE_CELL`, `SAVEIT_COMPUTE_STAGE` | Exact target, separately configured from the release |
+| `SAVEIT_COMPUTE_RELEASE_PUBLIC_KEY_FILE` | Read-only DER SubjectPublicKeyInfo for one RSA3072–4096 public key; at most2048 bytes, one open file through EOF |
+| `SAVEIT_COMPUTE_RELEASE_KEY_SHA256` | Independently reviewed lowercase SHA256 of those exact public bytes |
+
+Managing the pin and file in the same caller-controlled input would defeat this boundary. The runner/operator and signer are trusted custodians; this does not implement their credential lifecycle, hardware custody or separation of duties. No private signing value belongs in arguments, environment examples, Terraform or source control. This command neither creates signing keys nor signs releases.
+
+Standard compact JWS uses header `alg=PS256`, `typ=saveit-compute-release+jwt`, `kid=sha256-<public-key-hash>`. Exact payload fields are `iss=saveit-release`, string `aud=saveit-compute:<account>:<region>:<cell>:<stage>`, integer `iat`/`exp`, canonical nonzero UUID `jti` and `contract`. Lifetime is at most900 seconds, with zero skew and no future issuance. The maintained IdentityModel verifier checks signature, key, issuer, audience and expiration; bounded manual checks additionally enforce claim shape/age. Inline keys, key URLs, extra claims, aliases/duplicates and noncanonical base64url fail. The command accepts no algorithm/key override.
+
+The unsigned synthetic [contract shape](../infra/terraform/ecs-tasks/tests/compute-release-contract.json) binds expected database version, operation/generation, source SHA and all four exact task/image/configuration references, public runtime settings and scoped network/discovery identities. Its invented source/image values are not published artifacts. Web must have no configuration secret; API/worker use exact field/version selectors; relay uses its whole-secret startup ARN/version. Compute generation, workload intake, mTLS, nonroot/read-only runtime, IAM/TLS EFS, liveness and log shape are mandatory. No arbitrary environment, command or extra process is accepted. Image entrypoints inherited by API/web/worker still require trusted registry/config acquisition; a task comparison cannot inspect image contents.
+
+Stdin contains exactly `{"signedRelease":"<compact-JWS>","observations":{"api":{},"web":{},"worker":{},"relay":{}}}`. Each observation has an ECS-shaped `taskDefinition` and optional nonauthoritative `tags`; see the [frozen producer fixtures](../infra/terraform/ecs-tasks/tests/compute-release-observations.json). The complete original input is limited to64KiB/depth24, requires EOF and runs under a10-second CLI deadline. Known service defaults normalize; unknown semantics and extra authority fail. Success/failure output is fixed and content-free. Terraform mocks check the complete producer container JSON against these fixtures, not actual AWS responses.
+
+Short lifetime is **not replay prevention**. Repeated offline inspection is allowed and confers no provider authority. The future controller must acquire trustworthy live metadata, atomically admit one operation at the expected control version and persist the plan/key identity and side-effect intent before any launch/change. A lost acknowledgement requires inspection of that exact operation. Its durable admission must survive expiry without authorizing another operation. No caller-supplied `approved` or `fenced` boolean can replace this work.
+
+Current tests cover real PS256/DER verification, all four producer fixtures, target/key/claim/schema substitutions, cryptographic provider-cache lifetime, bounds/EOF, canonical task privileges and native CLI output. Packaged tests generate a fresh synthetic private key only in the fixture process and mount only its public SPKI into a network-disabled nonroot image. Executed source-specific results belong in [progress](progress.md); Docker is unavailable locally. Managed signing/promotion, actual registry/configuration/IAM/network enforcement and whole-cell operation/fencing remain unimplemented or unverified as recorded in the acceptance register.

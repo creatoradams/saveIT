@@ -45,6 +45,7 @@ export async function runProtectedCommand(
   failure,
   holdOpen = false,
   network = "none",
+  containerOptions = [],
 ) {
   const owner = `saveit-preflight-${process.pid}`;
   const name = `${owner}-${++sequence}`;
@@ -61,6 +62,7 @@ export async function runProtectedCommand(
       "--label",
       `com.saveit.preflight-owner=${owner}`,
       "-i",
+      ...containerOptions,
       "saveit-deployment:test",
       ...command,
     ],

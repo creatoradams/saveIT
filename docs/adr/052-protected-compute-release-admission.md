@@ -1,0 +1,15 @@
+# ADR052: Protected compute release admission
+
+Status: implemented offline; full source/Linux/package verification pending. No provider launch or managed verification.
+
+Continue ADR049's strict metadata comparison and ADR051's durable coordination in the existing deployment executable. Do not add another service, database, credential store or general-purpose command runner. Release admission is a separate prerequisite to the provider controller; it cannot itself launch a task or acknowledge a fence.
+
+A standard compact JWS uses PS256 with an independently pinned RSA public SPKI (3072–4096 bits) and at most15 minutes validity with zero skew. The identifier, type, issuer and cell audience are fixed. The protected runner's scope and key pin are configured separately from the input. Reject inline keys and remote discovery URLs. Reject unknown or duplicate fields and noncanonical encodings. No private key, signing command, secret payload or AWS credential belongs in the input or Terraform. Signing custody, publication, promotion and population remain separate managed gates.
+
+The signed contract binds one operation identifier, exact expected control version, fresh nonzero generation, source revision, all four immutable task/image/configuration references and fixed public runtime/network/discovery metadata. Task comparisons derive required settings rather than trusting a supplied arbitrary environment or command template. Require authenticated workload intake, API mTLS and bound generation; zero-count/null-bootstrap Terraform remains available but cannot satisfy release admission. Ordinary runtime roles and protected configuration payload formats remain unchanged.
+
+Only explicitly understood service-computed metadata and harmless defaults may normalize away. Reject sidecars, overrides, extra environment/secrets/ports/volumes/capabilities, writable root, shell health checks and substitutions of role/image/configuration/network identity. Reuse the original bounded JSON reader and relay comparison helpers. Test against independently authored Terraform fixtures and positive/negative producer mock contracts.
+
+Signature/freshness and supplied metadata checks are not trusted AWS acquisition, durable single-use admission, image signature verification, actual configuration checks or launch permission. The provider controller must acquire observations itself, persist admission/intent before any external side effect, enforce expected-version/single-use semantics, inspect uncertain outcomes without blind retries and independently observe exact process/task/ENI termination. Expiry never authorizes a new operation or erases an already admitted intent. No response protocol row can expire or be closed by this controller. Privileged-writer exclusion and explicit Terraform/controller ownership handoff remain required before whole-cell operations.
+
+All ten roots stay unapplied. Managed IAM/PKI/ECR/ECS/ENI enforcement, real credentials and live Okta remain unverified. The account-free section remains incomplete until its full acceptance register passes.
