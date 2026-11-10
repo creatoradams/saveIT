@@ -113,6 +113,7 @@ resource "aws_ecs_service" "application" {
   enable_execute_command             = false
   enable_ecs_managed_tags            = true
   propagate_tags                     = "SERVICE"
+  availability_zone_rebalancing      = "ENABLED"
   force_delete                       = false
   force_new_deployment               = false
   deployment_minimum_healthy_percent = 100

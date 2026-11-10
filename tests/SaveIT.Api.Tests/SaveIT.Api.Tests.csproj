@@ -10,4 +10,5 @@
   </ItemGroup>
   <ItemGroup><Content Include="../../infra/terraform/ecs-tasks/tests/relay-container.json" Link="Fixtures/relay-container.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="../../infra/terraform/ecs-tasks/tests/compute-release-*.json" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="../../infra/terraform/private-services/tests/compute-parked-observations.json" Link="Fixtures/compute-parked-observations.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

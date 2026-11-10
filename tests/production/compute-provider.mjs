@@ -6,12 +6,15 @@ import { readFileSync } from "node:fs";
 import { verifySyntheticSigV4 } from "./synthetic-sigv4.mjs";
 const root = "/run/compute/";
 const fixtures = JSON.parse(readFileSync(root + "observations.json", "utf8"));
+const parked = JSON.parse(readFileSync(root + "parked.json", "utf8"));
 const access = "ASIA" + "0".repeat(16),
   secret = "a".repeat(40),
   token = "synthetic-temporary-session-token";
 const counts = {
   sts: 0,
   ecs: 0,
+  cluster: 0,
+  services: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -41,7 +44,28 @@ const service = httpsServer(options, (request, response) => {
         token,
         service: kind,
       });
-      counts[kind]++;
+      const action =
+        kind === "sts"
+          ? "identity"
+          : request.headers["x-amz-target"]?.split(".")[1];
+      if (
+        ![
+          "identity",
+          "DescribeTaskDefinition",
+          "DescribeClusters",
+          "DescribeServices",
+        ].includes(action)
+      )
+        throw new Error();
+      counts[
+        kind === "sts"
+          ? "sts"
+          : action === "DescribeTaskDefinition"
+            ? "ecs"
+            : action === "DescribeClusters"
+              ? "cluster"
+              : "services"
+      ]++;
       if (mode === "redirect") {
         response.writeHead(302, { Location: "https://foreign.invalid/" });
         response.end();
@@ -88,6 +112,50 @@ const service = httpsServer(options, (request, response) => {
         response.end(
           `<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><GetCallerIdentityResult><Arn>arn:aws:sts::111122223333:assumed-role/saveit-pilot-staging-${role}/synthetic</Arn><UserId>AROA00000000000000000:synthetic</UserId><Account>111122223333</Account></GetCallerIdentityResult><ResponseMetadata><RequestId>synthetic-request</RequestId></ResponseMetadata></GetCallerIdentityResponse>`,
         );
+        return;
+      }
+      if (action === "DescribeClusters" || action === "DescribeServices") {
+        const query = JSON.parse(body),
+          clusterArn = parked.cluster.clusters[0].clusterArn;
+        const expected =
+          action === "DescribeClusters"
+            ? {
+                clusters: [clusterArn],
+                include: ["ATTACHMENTS", "CONFIGURATIONS", "SETTINGS", "TAGS"],
+              }
+            : {
+                cluster: clusterArn,
+                services: parked.services.services.map((x) => x.serviceArn),
+                include: ["TAGS"],
+              };
+        if (
+          JSON.stringify(Object.keys(query).sort()) !==
+            JSON.stringify(Object.keys(expected).sort()) ||
+          Object.keys(expected).some(
+            (k) => JSON.stringify(query[k]) !== JSON.stringify(expected[k]),
+          )
+        )
+          throw new Error();
+        const result = structuredClone(
+          action === "DescribeClusters" ? parked.cluster : parked.services,
+        );
+        if (mode === "foreign-cluster" && action === "DescribeClusters")
+          result.clusters[0].clusterArn =
+            "arn:aws:ecs:us-east-1:111122223333:cluster/foreign";
+        if (action === "DescribeServices") {
+          const service = result.services[0];
+          if (mode === "active-service") service.runningCount = 1;
+          if (mode === "unknown-service")
+            service.unknownAuthority = { unexpected: true };
+          if (mode === "extra-group")
+            service.networkConfiguration.awsvpcConfiguration.securityGroups.push(
+              "sg-00000000000000004",
+            );
+          if (mode === "service-load-balancer")
+            service.loadBalancers = [{ targetGroupArn: "foreign" }];
+        }
+        response.setHeader("Content-Type", "application/x-amz-json-1.1");
+        response.end(JSON.stringify(result));
         return;
       }
       if (
@@ -141,6 +209,11 @@ httpServer((request, response) => {
           "redirect",
           "stall",
           "stall-body",
+          "foreign-cluster",
+          "active-service",
+          "unknown-service",
+          "extra-group",
+          "service-load-balancer",
         ].includes(body)
       ) {
         response.writeHead(400);

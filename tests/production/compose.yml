@@ -128,6 +128,7 @@ services:
       - ./compute-provider.mjs:/run/compute/provider.mjs:ro
       - ./synthetic-sigv4.mjs:/run/compute/synthetic-sigv4.mjs:ro
       - ../../infra/terraform/ecs-tasks/tests/compute-release-observations.json:/run/compute/observations.json:ro
+      - ../../infra/terraform/private-services/tests/compute-parked-observations.json:/run/compute/parked.json:ro
       - ../../.local/container-fixture/compute.key:/run/compute/compute.key:ro
       - ../../.local/container-fixture/compute.crt:/run/compute/compute.crt:ro
       - ../../.local/container-fixture/compute-wrong.crt:/run/compute/compute-wrong.crt:ro

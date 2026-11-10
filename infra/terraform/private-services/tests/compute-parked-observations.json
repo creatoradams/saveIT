@@ -1,0 +1,421 @@
+{
+  "cluster": {
+    "clusters": [
+      {
+        "clusterArn": "arn:aws:ecs:us-east-1:111122223333:cluster/saveit-pilot-staging",
+        "clusterName": "saveit-pilot-staging",
+        "status": "ACTIVE",
+        "registeredContainerInstancesCount": 0,
+        "runningTasksCount": 0,
+        "pendingTasksCount": 0,
+        "activeServicesCount": 4,
+        "settings": [
+          {
+            "name": "containerInsights",
+            "value": "disabled"
+          }
+        ],
+        "capacityProviders": [],
+        "defaultCapacityProviderStrategy": [],
+        "attachments": [],
+        "configuration": {
+          "executeCommandConfiguration": {
+            "logging": "DEFAULT"
+          }
+        },
+        "tags": [
+          {
+            "key": "Project",
+            "value": "SaveIT"
+          },
+          {
+            "key": "Cell",
+            "value": "pilot"
+          },
+          {
+            "key": "Environment",
+            "value": "staging"
+          },
+          {
+            "key": "ManagedBy",
+            "value": "Terraform"
+          }
+        ]
+      }
+    ],
+    "failures": []
+  },
+  "services": {
+    "services": [
+      {
+        "serviceArn": "arn:aws:ecs:us-east-1:111122223333:service/saveit-pilot-staging/saveit-pilot-staging-api",
+        "serviceName": "saveit-pilot-staging-api",
+        "clusterArn": "arn:aws:ecs:us-east-1:111122223333:cluster/saveit-pilot-staging",
+        "taskDefinition": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-api:10",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "pendingCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "platformVersion": "1.4.0",
+        "platformFamily": "Linux",
+        "schedulingStrategy": "REPLICA",
+        "enableExecuteCommand": false,
+        "enableECSManagedTags": true,
+        "propagateTags": "SERVICE",
+        "availabilityZoneRebalancing": "ENABLED",
+        "roleArn": "arn:aws:iam::111122223333:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "deploymentController": {
+          "type": "ECS"
+        },
+        "deploymentConfiguration": {
+          "minimumHealthyPercent": 100,
+          "maximumPercent": 200,
+          "deploymentCircuitBreaker": {
+            "enable": true,
+            "rollback": true
+          }
+        },
+        "networkConfiguration": {
+          "awsvpcConfiguration": {
+            "subnets": ["subnet-00000000000000001", "subnet-00000000000000002"],
+            "securityGroups": ["sg-00000000000000001"],
+            "assignPublicIp": "DISABLED"
+          }
+        },
+        "serviceRegistries": [
+          {
+            "registryArn": "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000001"
+          }
+        ],
+        "tags": [
+          {
+            "key": "Project",
+            "value": "SaveIT"
+          },
+          {
+            "key": "Cell",
+            "value": "pilot"
+          },
+          {
+            "key": "Environment",
+            "value": "staging"
+          },
+          {
+            "key": "ManagedBy",
+            "value": "Terraform"
+          },
+          {
+            "key": "Process",
+            "value": "api"
+          }
+        ],
+        "createdAt": 1700000000,
+        "events": [],
+        "deployments": [
+          {
+            "id": "ecs-svc/1234567890000000000",
+            "status": "PRIMARY",
+            "taskDefinition": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-api:10",
+            "desiredCount": 0,
+            "pendingCount": 0,
+            "runningCount": 0,
+            "failedTasks": 0,
+            "launchType": "FARGATE",
+            "platformVersion": "1.4.0",
+            "platformFamily": "Linux",
+            "networkConfiguration": {
+              "awsvpcConfiguration": {
+                "subnets": [
+                  "subnet-00000000000000001",
+                  "subnet-00000000000000002"
+                ],
+                "securityGroups": ["sg-00000000000000001"],
+                "assignPublicIp": "DISABLED"
+              }
+            },
+            "rolloutState": "COMPLETED",
+            "createdAt": 1700000000,
+            "updatedAt": 1700000001,
+            "rolloutStateReason": "Synthetic zero-count metadata only."
+          }
+        ]
+      },
+      {
+        "serviceArn": "arn:aws:ecs:us-east-1:111122223333:service/saveit-pilot-staging/saveit-pilot-staging-web",
+        "serviceName": "saveit-pilot-staging-web",
+        "clusterArn": "arn:aws:ecs:us-east-1:111122223333:cluster/saveit-pilot-staging",
+        "taskDefinition": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-web:10",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "pendingCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "platformVersion": "1.4.0",
+        "platformFamily": "Linux",
+        "schedulingStrategy": "REPLICA",
+        "enableExecuteCommand": false,
+        "enableECSManagedTags": true,
+        "propagateTags": "SERVICE",
+        "availabilityZoneRebalancing": "ENABLED",
+        "roleArn": "arn:aws:iam::111122223333:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "deploymentController": {
+          "type": "ECS"
+        },
+        "deploymentConfiguration": {
+          "minimumHealthyPercent": 100,
+          "maximumPercent": 200,
+          "deploymentCircuitBreaker": {
+            "enable": true,
+            "rollback": true
+          }
+        },
+        "networkConfiguration": {
+          "awsvpcConfiguration": {
+            "subnets": ["subnet-00000000000000001", "subnet-00000000000000002"],
+            "securityGroups": ["sg-00000000000000002"],
+            "assignPublicIp": "DISABLED"
+          }
+        },
+        "serviceRegistries": [],
+        "tags": [
+          {
+            "key": "Project",
+            "value": "SaveIT"
+          },
+          {
+            "key": "Cell",
+            "value": "pilot"
+          },
+          {
+            "key": "Environment",
+            "value": "staging"
+          },
+          {
+            "key": "ManagedBy",
+            "value": "Terraform"
+          },
+          {
+            "key": "Process",
+            "value": "web"
+          }
+        ],
+        "createdAt": 1700000000,
+        "events": [],
+        "deployments": [
+          {
+            "id": "ecs-svc/1234567890000000000",
+            "status": "PRIMARY",
+            "taskDefinition": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-web:10",
+            "desiredCount": 0,
+            "pendingCount": 0,
+            "runningCount": 0,
+            "failedTasks": 0,
+            "launchType": "FARGATE",
+            "platformVersion": "1.4.0",
+            "platformFamily": "Linux",
+            "networkConfiguration": {
+              "awsvpcConfiguration": {
+                "subnets": [
+                  "subnet-00000000000000001",
+                  "subnet-00000000000000002"
+                ],
+                "securityGroups": ["sg-00000000000000002"],
+                "assignPublicIp": "DISABLED"
+              }
+            },
+            "rolloutState": "COMPLETED",
+            "createdAt": 1700000000,
+            "updatedAt": 1700000001,
+            "rolloutStateReason": "Synthetic zero-count metadata only."
+          }
+        ]
+      },
+      {
+        "serviceArn": "arn:aws:ecs:us-east-1:111122223333:service/saveit-pilot-staging/saveit-pilot-staging-worker",
+        "serviceName": "saveit-pilot-staging-worker",
+        "clusterArn": "arn:aws:ecs:us-east-1:111122223333:cluster/saveit-pilot-staging",
+        "taskDefinition": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-worker:10",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "pendingCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "platformVersion": "1.4.0",
+        "platformFamily": "Linux",
+        "schedulingStrategy": "REPLICA",
+        "enableExecuteCommand": false,
+        "enableECSManagedTags": true,
+        "propagateTags": "SERVICE",
+        "availabilityZoneRebalancing": "ENABLED",
+        "roleArn": "arn:aws:iam::111122223333:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "deploymentController": {
+          "type": "ECS"
+        },
+        "deploymentConfiguration": {
+          "minimumHealthyPercent": 100,
+          "maximumPercent": 200,
+          "deploymentCircuitBreaker": {
+            "enable": true,
+            "rollback": true
+          }
+        },
+        "networkConfiguration": {
+          "awsvpcConfiguration": {
+            "subnets": ["subnet-00000000000000001", "subnet-00000000000000002"],
+            "securityGroups": ["sg-00000000000000003"],
+            "assignPublicIp": "DISABLED"
+          }
+        },
+        "serviceRegistries": [],
+        "tags": [
+          {
+            "key": "Project",
+            "value": "SaveIT"
+          },
+          {
+            "key": "Cell",
+            "value": "pilot"
+          },
+          {
+            "key": "Environment",
+            "value": "staging"
+          },
+          {
+            "key": "ManagedBy",
+            "value": "Terraform"
+          },
+          {
+            "key": "Process",
+            "value": "worker"
+          }
+        ],
+        "createdAt": 1700000000,
+        "events": [],
+        "deployments": [
+          {
+            "id": "ecs-svc/1234567890000000000",
+            "status": "PRIMARY",
+            "taskDefinition": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-worker:10",
+            "desiredCount": 0,
+            "pendingCount": 0,
+            "runningCount": 0,
+            "failedTasks": 0,
+            "launchType": "FARGATE",
+            "platformVersion": "1.4.0",
+            "platformFamily": "Linux",
+            "networkConfiguration": {
+              "awsvpcConfiguration": {
+                "subnets": [
+                  "subnet-00000000000000001",
+                  "subnet-00000000000000002"
+                ],
+                "securityGroups": ["sg-00000000000000003"],
+                "assignPublicIp": "DISABLED"
+              }
+            },
+            "rolloutState": "COMPLETED",
+            "createdAt": 1700000000,
+            "updatedAt": 1700000001,
+            "rolloutStateReason": "Synthetic zero-count metadata only."
+          }
+        ]
+      },
+      {
+        "serviceArn": "arn:aws:ecs:us-east-1:111122223333:service/saveit-pilot-staging/saveit-pilot-staging-relay",
+        "serviceName": "saveit-pilot-staging-relay",
+        "clusterArn": "arn:aws:ecs:us-east-1:111122223333:cluster/saveit-pilot-staging",
+        "taskDefinition": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-relay:10",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "pendingCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "platformVersion": "1.4.0",
+        "platformFamily": "Linux",
+        "schedulingStrategy": "REPLICA",
+        "enableExecuteCommand": false,
+        "enableECSManagedTags": true,
+        "propagateTags": "SERVICE",
+        "availabilityZoneRebalancing": "ENABLED",
+        "roleArn": "arn:aws:iam::111122223333:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "deploymentController": {
+          "type": "ECS"
+        },
+        "deploymentConfiguration": {
+          "minimumHealthyPercent": 100,
+          "maximumPercent": 200,
+          "deploymentCircuitBreaker": {
+            "enable": true,
+            "rollback": true
+          }
+        },
+        "networkConfiguration": {
+          "awsvpcConfiguration": {
+            "subnets": ["subnet-00000000000000001", "subnet-00000000000000002"],
+            "securityGroups": ["sg-00000000000000006"],
+            "assignPublicIp": "DISABLED"
+          }
+        },
+        "serviceRegistries": [
+          {
+            "registryArn": "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002"
+          }
+        ],
+        "tags": [
+          {
+            "key": "Project",
+            "value": "SaveIT"
+          },
+          {
+            "key": "Cell",
+            "value": "pilot"
+          },
+          {
+            "key": "Environment",
+            "value": "staging"
+          },
+          {
+            "key": "ManagedBy",
+            "value": "Terraform"
+          },
+          {
+            "key": "Process",
+            "value": "relay"
+          }
+        ],
+        "createdAt": 1700000000,
+        "events": [],
+        "deployments": [
+          {
+            "id": "ecs-svc/1234567890000000000",
+            "status": "PRIMARY",
+            "taskDefinition": "arn:aws:ecs:us-east-1:111122223333:task-definition/saveit-pilot-staging-relay:10",
+            "desiredCount": 0,
+            "pendingCount": 0,
+            "runningCount": 0,
+            "failedTasks": 0,
+            "launchType": "FARGATE",
+            "platformVersion": "1.4.0",
+            "platformFamily": "Linux",
+            "networkConfiguration": {
+              "awsvpcConfiguration": {
+                "subnets": [
+                  "subnet-00000000000000001",
+                  "subnet-00000000000000002"
+                ],
+                "securityGroups": ["sg-00000000000000006"],
+                "assignPublicIp": "DISABLED"
+              }
+            },
+            "rolloutState": "COMPLETED",
+            "createdAt": 1700000000,
+            "updatedAt": 1700000001,
+            "rolloutStateReason": "Synthetic zero-count metadata only."
+          }
+        ]
+      }
+    ],
+    "failures": []
+  }
+}

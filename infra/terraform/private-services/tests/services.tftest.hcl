@@ -236,6 +236,50 @@ run "four_parked_private_services" {
   }
 }
 
+run "bound_parked_service_fixture" {
+  command = plan
+  variables {
+    task_definitions = { for name in ["api", "web", "worker"] : name => one([for service in jsondecode(file("tests/compute-parked-observations.json")).services.services : service.taskDefinition if service.serviceName == "saveit-pilot-staging-${name}"]) }
+    api_discovery = merge(jsondecode(file("tests/binding.json")).api_discovery, {
+      client_security_groups = { api = "sg-00000000000000001", web = "sg-00000000000000002", worker = "sg-00000000000000003", deployment = "sg-00000000000000004" }
+    })
+    relay_task = merge(jsondecode(file("tests/binding.json")).relay_task, { task_definition_arn = one([for service in jsondecode(file("tests/compute-parked-observations.json")).services.services : service.taskDefinition if service.serviceName == "saveit-pilot-staging-relay"]) })
+  }
+  override_data {
+    target = data.aws_security_group.client["api"]
+    values = { id = "sg-00000000000000001", arn = "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000001", vpc_id = "vpc-00000000000000001", tags = { Project = "SaveIT", Cell = "pilot", Environment = "staging", Process = "api" } }
+  }
+  override_data {
+    target = data.aws_security_group.client["web"]
+    values = { id = "sg-00000000000000002", arn = "arn:aws:ec2:us-east-1:111122223333:security-group/sg-00000000000000002", vpc_id = "vpc-00000000000000001", tags = { Project = "SaveIT", Cell = "pilot", Environment = "staging", Process = "web" } }
+  }
+  assert {
+    condition = (alltrue([for observed in jsondecode(file("tests/compute-parked-observations.json")).services.services : one([
+      for name, service in aws_ecs_service.application : (
+        service.cluster == observed.clusterArn && service.task_definition == observed.taskDefinition && service.desired_count == observed.desiredCount &&
+        service.launch_type == observed.launchType && service.platform_version == observed.platformVersion && service.scheduling_strategy == observed.schedulingStrategy &&
+        service.enable_execute_command == observed.enableExecuteCommand && service.enable_ecs_managed_tags == observed.enableECSManagedTags && service.propagate_tags == observed.propagateTags &&
+        service.availability_zone_rebalancing == observed.availabilityZoneRebalancing &&
+        one(service.deployment_controller).type == observed.deploymentController.type &&
+        service.deployment_minimum_healthy_percent == observed.deploymentConfiguration.minimumHealthyPercent && service.deployment_maximum_percent == observed.deploymentConfiguration.maximumPercent &&
+        one(service.deployment_circuit_breaker).enable == observed.deploymentConfiguration.deploymentCircuitBreaker.enable && one(service.deployment_circuit_breaker).rollback == observed.deploymentConfiguration.deploymentCircuitBreaker.rollback &&
+        one(service.network_configuration).subnets == toset(observed.networkConfiguration.awsvpcConfiguration.subnets) &&
+        one(service.network_configuration).security_groups == toset(observed.networkConfiguration.awsvpcConfiguration.securityGroups) &&
+        one(service.network_configuration).assign_public_ip == (observed.networkConfiguration.awsvpcConfiguration.assignPublicIp == "ENABLED") &&
+        toset([for registry in service.service_registries : registry.registry_arn]) == toset([for registry in observed.serviceRegistries : registry.registryArn]) &&
+        alltrue([for registry in service.service_registries : registry.container_name == null && registry.container_port == null && registry.port == null]) &&
+        service.tags == tomap({ Process = name }) &&
+        length(service.load_balancer) == 0 && length(service.capacity_provider_strategy) == 0 && length(service.ordered_placement_strategy) == 0 && length(service.placement_constraints) == 0 &&
+        length(service.service_connect_configuration) == 0 && length(service.vpc_lattice_configurations) == 0 && length(service.volume_configuration) == 0
+      ) if service.name == observed.serviceName
+      ])]) && aws_ecs_cluster.cell.arn == one(jsondecode(file("tests/compute-parked-observations.json")).cluster.clusters).clusterArn &&
+      aws_ecs_cluster.cell.name == one(jsondecode(file("tests/compute-parked-observations.json")).cluster.clusters).clusterName &&
+      one(aws_ecs_cluster.cell.setting).name == "containerInsights" && one(aws_ecs_cluster.cell.setting).value == "disabled" &&
+    length(aws_ecs_cluster.cell.configuration) == 0 && length(aws_ecs_cluster.cell.service_connect_defaults) == 0)
+    error_message = "Bind the exact producer-controlled parked service, network, registry and deployment settings to the independent acquisition fixture. Computed statuses/counts/roles/tags remain synthetic observations, not provider/IAM/fencing evidence."
+  }
+}
+
 run "reject_latest_task_alias" {
   command = plan
   variables {

@@ -37,7 +37,7 @@ internal sealed class AcquiredComputeTasks
             using var http=new HttpClient(wire,false){Timeout=Timeout.InfiniteTimeSpan};
             using var ecs=new AmazonECSClient(session.Credentials,ComputeSdkConfiguration.Ecs(scope.Region,http));
             _=await ecs.DescribeTaskDefinitionAsync(new DescribeTaskDefinitionRequest{TaskDefinition=reference.TaskDefinitionArn,Include=[TaskDefinitionField.TAGS]},global.Token);
-            ComputeTaskContract.Validate(release,process,wire.TaskResponse);
+            ComputeTaskContract.Validate(release,process,wire.ResponseJson);
         }
         global.Token.ThrowIfCancellationRequested();session.RequireFresh();
         if(release.ExpiresAt<=DateTimeOffset.UtcNow.ToUnixTimeSeconds())throw new InvalidOperationException();
@@ -51,8 +51,11 @@ public static class ComputeTaskAcquisition
     public const string Failure="SaveIT compute task acquisition failed.";
     public static async Task ValidateAsync(Stream input,CancellationToken ct=default)
     {
-        try
-        {
+        try{await AcquireAsync(input,false,ct);}
+        catch(Exception){throw new InvalidOperationException(Failure);}
+    }
+    internal static async Task AcquireAsync(Stream input,bool parkedCell,CancellationToken ct)
+    {
             if(!OperatingSystem.IsLinux())throw new InvalidOperationException();
             using var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct);deadline.CancelAfter(TimeSpan.FromSeconds(40));
             var trust=await ComputeReleaseTrust.ReadAsync(deadline.Token);
@@ -60,8 +63,7 @@ public static class ComputeTaskAcquisition
             var token=await ProtectedJsonInput.ReadAsync(input,2,root=>{RejectDuplicates(root);return Object(root,"signedRelease")["signedRelease"].GetString()??throw new InvalidOperationException();},inputDeadline.Token);
             var release=await ComputeRelease.VerifyAsync(token,trust.Scope,trust.PublicSpki,trust.Pin,deadline.Token);
             var session=await ComputeAwsSession.ReadAsync(Environment.GetEnvironmentVariable("SAVEIT_COMPUTE_AWS_SESSION_FILE")??throw new InvalidOperationException(),Environment.GetEnvironmentVariable,deadline.Token);
-            _=await AcquiredComputeTasks.ReadAsync(release,session,_=>RelayStartupTransport.Native(),deadline.Token);
-        }
-        catch(Exception){throw new InvalidOperationException(Failure);}
+            if(parkedCell)_=await AcquiredParkedComputeCell.ReadAsync(release,session,_=>RelayStartupTransport.Native(),deadline.Token);
+            else _=await AcquiredComputeTasks.ReadAsync(release,session,_=>RelayStartupTransport.Native(),deadline.Token);
     }
 }

@@ -175,7 +175,8 @@ const counts = async () => JSON.parse(await control("/counts"));
 const success =
   "SaveIT acquired task metadata passed (no launch, image/configuration verification or fencing).";
 const failure = "SaveIT compute task acquisition failed.";
-let stage = "private session fixture setup";
+let stage = "private session fixture setup",
+  checks = 0;
 async function check(
   mode,
   expected,
@@ -184,6 +185,7 @@ async function check(
   carrier = "valid",
   extras = [],
   hold = false,
+  parked = false,
 ) {
   stage = label;
   await control("/mode", mode);
@@ -199,12 +201,14 @@ async function check(
     ...extras,
   ];
   await runProtectedCommand(
-    ["check-compute-tasks"],
+    [parked ? "check-compute-parked-services" : "check-compute-tasks"],
     JSON.stringify({ signedRelease: token() }),
     expected,
     "compute acquisition " + label,
-    success,
-    failure,
+    parked
+      ? "SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing)."
+      : success,
+    parked ? "SaveIT compute cell acquisition failed." : failure,
     hold,
     "saveit-release_compute",
     options,
@@ -229,9 +233,12 @@ async function check(
   assert.equal(after.stallFallbacks, 0);
   assert.equal(after.sts - before.sts, expectedCounts[0]);
   assert.equal(after.ecs - before.ecs, expectedCounts[1]);
+  assert.equal(after.cluster - before.cluster, expectedCounts[2] ?? 0);
+  assert.equal(after.services - before.services, expectedCounts[3] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
+  checks++;
 }
 try {
   // Known synthetic files only. Operator input stays private and owned by default UID1654.
@@ -331,8 +338,42 @@ try {
   );
   await check("valid", false, "stdin EOF deadline", [0, 0], "valid", [], true);
   await check("valid", true, "positive control after refusals", [1, 4]);
+  for (const [mode, passed, label, expected] of [
+    ["valid", true, "parked cluster/four services", [1, 4, 1, 1]],
+    ["foreign-cluster", false, "foreign parked cluster", [1, 4, 1, 0]],
+    ["active-service", false, "active parked service", [1, 4, 1, 1]],
+    [
+      "unknown-service",
+      false,
+      "original unknown service semantics",
+      [1, 4, 1, 1],
+    ],
+    ["extra-group", false, "extra service network authority", [1, 4, 1, 1]],
+    ["service-load-balancer", false, "unexpected load balancer", [1, 4, 1, 1]],
+  ])
+    await check(mode, passed, label, expected, "valid", [], false, true);
+  await check(
+    "valid",
+    false,
+    "parked stdin EOF deadline",
+    [0, 0, 0, 0],
+    "valid",
+    [],
+    true,
+    true,
+  );
+  await check(
+    "valid",
+    true,
+    "parked positive control after refusals",
+    [1, 4, 1, 1],
+    "valid",
+    [],
+    false,
+    true,
+  );
   console.log(
-    "Packaged compute acquisition passed: 13 synthetic checks, isolated native TLS/SDK identity and four original task contracts; no AWS or provider writes.",
+    `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity, original task and parked service contracts; no AWS or provider writes.`,
   );
 } catch {
   console.error("Packaged compute acquisition failed during " + stage + ".");

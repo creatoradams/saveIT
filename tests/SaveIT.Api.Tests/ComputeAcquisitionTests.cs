@@ -177,8 +177,12 @@ public sealed class ComputeAcquisitionTests(ComputeReleaseFixture signing):IClas
     public async Task Cancellation_stops_a_stalled_provider_before_any_additional_attempt()
     {
         var release=await Release();var session=await Session();var calls=0;
-        using var timeout=new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
-        await Failed(AcquiredComputeTasks.ReadAsync(release,session,_=>new Handler(async(_,ct)=>{calls++;await Task.Delay(Timeout.Infinite,ct);throw new InvalidOperationException();}),timeout.Token));
+        using var timeout=new CancellationTokenSource();
+        var entered=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var operation=AcquiredComputeTasks.ReadAsync(release,session,_=>new Handler(async(_,ct)=>{calls++;entered.TrySetResult();await Task.Delay(Timeout.Infinite,ct);throw new InvalidOperationException();}),timeout.Token);
+        try {await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));}
+        finally {timeout.Cancel();}
+        await Failed(operation).WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(1,calls);
     }
     [Fact]
