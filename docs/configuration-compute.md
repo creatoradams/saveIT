@@ -13,7 +13,7 @@ Scope confirmed by the user: complete the account-free configuration-and-compute
 
 ## Design boundaries
 
-ADR052 now supplies an independently pinned short-lived signed release and exact API/web/worker/relay metadata checks. This is offline admission only: replay prevention, trusted provider acquisition and side-effect ownership are still unfinished. The completion boxes above remain open until the complete controller and failure evidence exist.
+ADR052 supplies an independently pinned short-lived signed release and exact API/web/worker/relay metadata checks. ADR053 now persists verified approval identity with expected-version/single-use admission and body-free uncertain-operation inspection in the existing journal. Trusted provider acquisition, side-effect intent/ownership and actual launch/change/fencing are still unfinished. The completion boxes above remain open until the complete controller and failure evidence exist.
 
 ADR051 now supplies cooperative API/worker generation and core-quiescence primitives, a durable operator journal and separate health modes. Whole-cell drain, exclusive privileged-writer ownership and exact process/provider fencing are still required; CoreQuiescent is not a snapshot/fence acknowledgement. All services remain at zero in Terraform.
 

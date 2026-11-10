@@ -408,8 +408,10 @@ public sealed class DeploymentTests(DatabaseFixture fixture)
         try {
             var op=new NpgsqlConnectionStringBuilder(d.Admin){Username=login,Password="synthetic-release-test-only",Pooling=false}.ConnectionString;
             async Task<long> Step(long version,string action,Guid? generation=null,string? plan=null)=>await ComputeRunner.ChangeAsync(op,JsonSerializer.Serialize(new ComputeChange(version,Guid.NewGuid(),action,generation,plan,"synthetic-owner-compute"),new JsonSerializerOptions{PropertyNamingPolicy=JsonNamingPolicy.CamelCase}),true);
-            Assert.Equal(1,await Step(0,"initialize"));var generation=Guid.NewGuid();Assert.Equal(2,await Step(1,"prepare",generation,new string('a',64)));Assert.Equal(3,await Step(2,"activate"));
-            Assert.True(await d.Scalar<bool>("SELECT bool_and(p.proowner=(SELECT oid FROM pg_roles WHERE rolname='saveit_migration_owner')) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('compute_change_v1','compute_enter_v1','compute_startup_v1','compute_inspect_v1','register_response_v1','register_response_core_v1')"));
+            Assert.Equal(1,await Step(0,"initialize"));var generation=Guid.NewGuid();
+            using var signing=new ComputeReleaseFixture();var release=await signing.CreateAsync(generation:generation);
+            Assert.Equal(2,await ComputeRunner.AdmitReleaseAsync(op,release,"synthetic-owner-release",true));Assert.Equal(3,await Step(2,"activate"));
+            Assert.True(await d.Scalar<bool>("SELECT bool_and(p.proowner=(SELECT oid FROM pg_roles WHERE rolname='saveit_migration_owner')) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('compute_change_v1','compute_enter_v1','compute_startup_v1','compute_inspect_v1','compute_admit_v1','compute_release_status_v1','compute_release_v1','register_response_v1','register_response_core_v1')"));
             await using var app=new NpgsqlConnection(d.App);await app.OpenAsync();var request=Guid.NewGuid();var instance=Guid.NewGuid();
             await using(var tx=await app.BeginTransactionAsync()) {
                 await using var command=new NpgsqlCommand("SELECT set_config('app.tenant_id',@t,true),set_config('app.membership_id',@m,true),set_config('app.compute_generation',@g,true);SELECT public.register_response_v1(@tenant,@member,@subject,1,@r,@i)",app,tx);

@@ -4,7 +4,7 @@ namespace SaveIT.Search;
 
 public static class DatabaseRoleGuard
 {
-    public const string RequiredMigration = "20261109120000_ComputeCoordination";
+    public const string RequiredMigration = "20261109140000_ComputeReleaseAdmission";
     private static readonly string[] ProtectedTables = ["Tenants", "Memberships", "Organizations", "OrganizationRevisions", "OrganizationGrants", "Assets", "AssetRelationships",
         "Documents", "DocumentRevisions", "DocumentFolders", "DocumentPlacements", "DocumentTemplates", "DocumentTemplateRevisions", "DocumentTemplateOrigins", "AuditEvents", "OutboxEvents", "SearchEntries", "SearchDeliveries", "Locations", "Contacts", "LocationRevisions", "ContactRevisions", "AssetRevisions", "AssetTypes", "AssetTypeRevisions", "AccessResponses", "AccessAudits", "AccessControlEvents"];
     private static readonly string[] CoreTables = ProtectedTables.Where(x => x is not ("SearchEntries" or "SearchDeliveries")).ToArray();
@@ -17,7 +17,7 @@ public static class DatabaseRoleGuard
                 WHERE n.nspname='public' AND c.relname=ANY(@tables)
             AND pg_has_role(current_user,c.relowner,'MEMBER'))
             OR EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname IN ('saveit_access_operator','saveit_compute_operator') AND pg_has_role(current_user,r.oid,'MEMBER'))
-            OR EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('access_change_v1','access_inspect_v1','compute_change_v1','compute_inspect_v1','register_response_core_v1')
+            OR EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('access_change_v1','access_inspect_v1','compute_change_v1','compute_inspect_v1','compute_admit_v1','compute_release_status_v1','compute_release_v1','register_response_core_v1')
                 JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='public'
                 WHERE pg_has_role(current_user,r.oid,'MEMBER') AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
             OR EXISTS (SELECT 1 FROM pg_roles r CROSS JOIN unnest(@protocol) a(t)

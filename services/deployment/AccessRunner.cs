@@ -40,7 +40,7 @@ public static class AccessRunner
                   AND NOT (SELECT rolcanlogin FROM pg_roles WHERE rolname=current_user)
                   AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER')
                     AND (r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR has_schema_privilege(r.oid,'public','CREATE') OR r.rolname='saveit_compute_operator'))
-                  AND NOT EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('compute_change_v1','compute_inspect_v1','register_response_core_v1','register_response_v1','complete_response_v1')
+                  AND NOT EXISTS (SELECT 1 FROM pg_roles r JOIN pg_proc p ON p.proname IN ('compute_change_v1','compute_inspect_v1','compute_admit_v1','compute_release_status_v1','compute_release_v1','register_response_core_v1','register_response_v1','complete_response_v1')
                     JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='public'
                     WHERE pg_has_role(session_user,r.oid,'MEMBER') AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
                   AND NOT EXISTS (SELECT 1 FROM pg_roles r CROSS JOIN pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace

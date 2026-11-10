@@ -44,8 +44,9 @@ internal sealed class ComputeRelease
     internal string PlanSha256 { get; }
     internal string KeySha256 { get; }
     internal long ExpiresAt { get; }
-    private ComputeRelease(ComputeScope scope, ComputeReleaseData data, Guid operation, string hash, string keyHash, long expires)
-    { Scope=scope; Data=data; OperationId=operation; PlanSha256=hash; KeySha256=keyHash; ExpiresAt=expires; }
+    internal string SignedToken { get; }
+    private ComputeRelease(ComputeScope scope, ComputeReleaseData data, Guid operation, string hash, string keyHash, long expires,string signedToken)
+    { Scope=scope; Data=data; OperationId=operation; PlanSha256=hash; KeySha256=keyHash; ExpiresAt=expires; SignedToken=signedToken; }
 
     // This verifies approval identity and freshness, not replay prevention or AWS provenance.
     internal static async Task<ComputeRelease> VerifyAsync(string token, ComputeScope scope, ReadOnlyMemory<byte> publicSpki, string keySha256, CancellationToken ct=default)
@@ -80,7 +81,7 @@ internal sealed class ComputeRelease
                 RespectRequiredConstructorParameters=true,UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow,MaxDepth=12
             }) ?? throw new InvalidOperationException();
             ValidateData(scope,data); ct.ThrowIfCancellationRequested();
-            return new(scope,data,operation,Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(token))),keySha256,expires);
+            return new(scope,data,operation,Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(token))),keySha256,expires,token);
         }
         catch (Exception) { throw new InvalidOperationException(Failure); }
     }

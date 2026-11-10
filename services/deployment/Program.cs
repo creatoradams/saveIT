@@ -97,6 +97,15 @@ try
         var computeConnection = SaveIT.Search.PublicTrust.DatabaseConnection(Environment.GetEnvironmentVariable("SAVEIT_COMPUTE_CONNECTION") ?? throw new InvalidOperationException(),Environment.GetEnvironmentVariable("Deployment__Trust__DatabaseCaSha256"));
         var localCompute = Environment.GetEnvironmentVariable("SAVEIT_COMPUTE_ALLOW_LOOPBACK")=="true";
         if (args is ["compute","inspect"]) Console.WriteLine(await ComputeRunner.InspectAsync(computeConnection,localCompute));
+        else if(args is ["compute","inspect-release",var releaseOperation]) Console.WriteLine(await ComputeRunner.InspectReleaseAsync(computeConnection,ComputeRelease.CanonicalGuid(releaseOperation),localCompute));
+        else if(args is ["compute","admit-release"] && Console.IsInputRedirected) {
+            using var admissionDeadline=new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            using var releaseInput=Console.OpenStandardInput();
+            var release=await ComputeReleasePreflight.ReadAsync(releaseInput,admissionDeadline.Token);
+            var attribution=Environment.GetEnvironmentVariable("SAVEIT_COMPUTE_OPERATOR")??throw new InvalidOperationException();
+            var admitted=await ComputeRunner.AdmitReleaseAsync(computeConnection,release,attribution,localCompute,admissionDeadline.Token);
+            Console.WriteLine($"SaveIT compute release intent committed at version {admitted} (supplied observations; no provider actions).");
+        }
         else if (args is ["compute","change",var computeFile]) {
             var computeManifest = await DeploymentRunner.ReadManifestAsync(computeFile);
             Console.WriteLine($"SaveIT compute decision committed at version {await ComputeRunner.ChangeAsync(computeConnection,computeManifest,localCompute)} (no provider fencing evidence).");

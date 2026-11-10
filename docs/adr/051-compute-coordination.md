@@ -1,6 +1,6 @@
 # ADR051: durable core compute coordination
 
-Status: implemented cooperative source with local real PostgreSQL evidence; full CI/native evidence pending. Not launch or fencing evidence.
+Status: implemented cooperative source with real PostgreSQL and full CI/native evidence in progress.md. Not launch or fencing evidence.
 
 Use the existing PostgreSQL authority store for a separate cell control row and append-only operation journal, not a new service or second state store. These operational tables contain no tenant content. They have forced RLS, owner-only policies and no runtime table/column authority. A separate restricted NOLOGIN compute operator reaches checked expected-version functions; API/worker credentials cannot reach that role or its functions. Forward migration remains seed-free; explicit insert-only initialization starts Parked.
 

@@ -1,0 +1,9 @@
+# Durable compute admission review
+
+Scope: ADR053's seed-free journal extension, checked admission/inspection functions, restricted .NET runner/CLI and real PostgreSQL tests. No provider calls, task launch or fence is introduced.
+
+The independent security agent found no actionable atomicity, RLS, null-input, replay or custody defect in this bounded implementation. It reviewed the post-wait freshness check under the existing exclusive global gate, expected-version/operation/generation constraints, exact signed-input digest and key attachment, rollback of state/journal/receipt on statement or deferred failure and the body-free exact-operation status. New function authority and column access remain denied to runtime/access roles, including reachable PUBLIC/NOINHERIT paths. Reusing the existing two operational tables keeps the 28 tenant tables unchanged.
+
+The agent also reviewed the actual stdin CLI, synthetic PGOPTIONS refusal, non-superuser owner with revoked PUBLIC schema usage, concurrent/replayed admissions, lost COMMIT acknowledgement and predecessor downgrade/no invented approval tests. It did not execute tests; source-specific executed results are recorded in progress.
+
+The database function checks binding/freshness but does not verify PS256; that is the protected runner's responsibility. A malicious trusted compute operator can invoke raw SQL or cooperative primitive transitions. Future reconciliation must independently reverify the retained signed release with approved public trust and immutable bindings before provider effects. Status/admitted flags and stored hashes alone cannot authorize a launch. Signing custody, trusted acquisition, privileged-writer exclusion, ownership handoff, launch/change, exact fencing and whole-section failure drills remain unfinished. The independent efficiency review remains unavailable after its agent's usage limit.

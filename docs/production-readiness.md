@@ -22,6 +22,8 @@ The target remains AWS with Okta; the user has not yet supplied an AWS staging a
 
 ## Specific unresolved boundaries
 
+- ADR053 records verified release intent with expected-version/single-use admission and exact-operation inspection. A stored row is a trusted operator assertion, not provider authority: future reconciliation must independently reverify its signature/bindings and acquire trustworthy live metadata. Side-effect intent, privileged-writer exclusion, ownership handoff and launch/fencing remain unfinished.
+
 - [ADR052 release admission](compute-release-admission.md) checks independently pinned short-lived signed metadata and exact four-task contracts offline. It does not acquire provider observations or establish replay prevention, protected signing/promotion/population, launch/change authority or fencing; those remain unfinished. A trusted runner's approval key/pin cannot come from the same caller-controlled input.
 
 - The separate relay identity root reserves exact whole-secret ARN/UUID/via-Secrets-Manager/account/context authority for the implemented ADR044 task loader. Execution owns exact image/own-log authority. Null bootstrap denies all AWS actions; bound metadata is not launch approval. ADR045 optionally admits the distinct callers in endpoint filters. ADR046 separately opts into its own group, private registry and declared web/relay/API paths without an IAM grant or task attachment. Initial null compatibility is not safe withdrawal/failover; it can restore direct declarations and protected registry removal can block a transition.

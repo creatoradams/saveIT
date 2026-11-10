@@ -8,7 +8,9 @@ public static class ComputeReleasePreflight
     public const string Success="SaveIT compute release admission passed (supplied observations only; no launch or fencing).";
     public const string Failure="SaveIT compute release admission failed.";
 
-    public static async Task ValidateAsync(Stream input,CancellationToken ct=default)
+    public static async Task ValidateAsync(Stream input,CancellationToken ct=default) => _=await ReadAsync(input,ct);
+
+    internal static async Task<ComputeRelease> ReadAsync(Stream input,CancellationToken ct=default)
     {
         try
         {
@@ -20,7 +22,7 @@ public static class ComputeReleasePreflight
             var bytes=new byte[2049];var count=0;
             while(count<bytes.Length) { var read=await file.ReadAsync(bytes.AsMemory(count),ct); if(read==0) break;count+=read; }
             if(count is <1 or >2048) throw new InvalidOperationException();
-            await ValidateAsync(input,scope,bytes.AsMemory(0,count),pin,ct);
+            return await ValidateAsync(input,scope,bytes.AsMemory(0,count),pin,ct);
         }
         catch(Exception) { throw new InvalidOperationException(Failure); }
     }
