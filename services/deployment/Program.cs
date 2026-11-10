@@ -8,6 +8,15 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
+if(args.FirstOrDefault()=="check-compute-tasks")
+{
+    try {
+        if(args is not ["check-compute-tasks"] || !Console.IsInputRedirected)throw new InvalidOperationException();
+        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(40));using var input=Console.OpenStandardInput();
+        await ComputeTaskAcquisition.ValidateAsync(input,timeout.Token);Console.WriteLine(ComputeTaskAcquisition.Success);return 0;
+    }
+    catch(Exception){Console.Error.WriteLine(ComputeTaskAcquisition.Failure);return 1;}
+}
 if (args.FirstOrDefault() == "check-compute-release")
 {
     try

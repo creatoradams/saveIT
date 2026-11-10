@@ -117,6 +117,23 @@ services:
       SAVEIT_API_CA_SHA256: ${SAVEIT_API_CA_SHA256:?Prepare public trust before running the fixture}
       SAVEIT_PUBLIC_ORIGIN: https://saveit.localhost:8443
       SAVEIT_OKTA_ISSUER: https://idp.localhost:8443
+  compute-provider:
+    image: saveit-web:test
+    profiles: ["tools"]
+    read_only: true
+    sysctls: { net.ipv4.ip_unprivileged_port_start: 0 }
+    command: ["/run/compute/provider.mjs"]
+    labels: { com.saveit.compute-fixture: saveit-release }
+    volumes:
+      - ./compute-provider.mjs:/run/compute/provider.mjs:ro
+      - ./synthetic-sigv4.mjs:/run/compute/synthetic-sigv4.mjs:ro
+      - ../../infra/terraform/ecs-tasks/tests/compute-release-observations.json:/run/compute/observations.json:ro
+      - ../../.local/container-fixture/compute.key:/run/compute/compute.key:ro
+      - ../../.local/container-fixture/compute.crt:/run/compute/compute.crt:ro
+      - ../../.local/container-fixture/compute-wrong.crt:/run/compute/compute-wrong.crt:ro
+    networks:
+      compute:
+        aliases: ["sts.us-east-1.amazonaws.com", "ecs.us-east-1.amazonaws.com"]
   workload-provider:
     image: saveit-web:test
     profiles: ["tools"]
@@ -125,6 +142,7 @@ services:
     command: ["/run/workload/workload-provider.mjs"]
     volumes:
       - ./workload-provider.mjs:/run/workload/workload-provider.mjs:ro
+      - ./synthetic-sigv4.mjs:/run/workload/synthetic-sigv4.mjs:ro
       - ../../.local/container-fixture/cognito.key:/run/workload/cognito.key:ro
       - ../../.local/container-fixture/cognito.crt:/run/workload/cognito.crt:ro
       - ../../.local/container-fixture/workload.key:/run/workload/workload.key:ro
@@ -171,6 +189,8 @@ volumes:
   keyring:
   recovered_keyring:
 networks:
+  compute:
+    internal: true
   workload:
     internal: true
     ipam:

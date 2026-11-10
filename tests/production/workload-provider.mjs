@@ -2,13 +2,12 @@
 import { createServer as httpServer } from "node:http";
 import { createServer as httpsServer } from "node:https";
 import { readFileSync } from "node:fs";
-import { createHash, createHmac, sign, timingSafeEqual } from "node:crypto";
+import { sign } from "node:crypto";
+import { verifySyntheticSigV4 } from "./synthetic-sigv4.mjs";
 const root = "/run/workload/";
 const pool = "us-east-1:10000000-0000-0000-0000-000000000001";
 const provider = "saveit.pilot.staging.web";
 const counts = { metadata: 0, issuance: 0, unexpected: 0 };
-const hash = (value) => createHash("sha256").update(value).digest("hex");
-const hmac = (key, value) => createHmac("sha256", key).update(value).digest();
 const encode = (value) =>
   Buffer.from(JSON.stringify(value)).toString("base64url");
 let mode = "valid";
@@ -64,40 +63,16 @@ const service = httpsServer(
     });
     request.on("end", () => {
       try {
-        const auth =
-          /^AWS4-HMAC-SHA256 Credential=synthetic-access\/(\d{8}\/us-east-1\/cognito-identity\/aws4_request), SignedHeaders=([a-z0-9;-]+), Signature=([a-f0-9]{64})$/.exec(
-            request.headers.authorization ?? "",
-          );
+        verifySyntheticSigV4(request, body, {
+          access: "synthetic-access",
+          secret: "synthetic-secret",
+          token: "synthetic-session",
+          service: "cognito-identity",
+        });
         if (
-          !auth ||
-          request.method !== "POST" ||
-          request.url !== "/" ||
-          request.headers.host !== "cognito-identity.us-east-1.amazonaws.com" ||
-          request.headers["x-amz-security-token"] !== "synthetic-session" ||
           request.headers["x-amz-target"] !==
-            "AWSCognitoIdentityService.GetOpenIdTokenForDeveloperIdentity"
+          "AWSCognitoIdentityService.GetOpenIdTokenForDeveloperIdentity"
         )
-          throw new Error();
-        const headers = auth[2]
-          .split(";")
-          .map(
-            (name) =>
-              `${name}:${String(request.headers[name]).trim().replace(/\s+/g, " ")}\n`,
-          )
-          .join("");
-        const canonical = `POST\n/\n\n${headers}\n${auth[2]}\n${hash(body)}`;
-        const toSign = `AWS4-HMAC-SHA256\n${request.headers["x-amz-date"]}\n${auth[1]}\n${hash(canonical)}`;
-        const key = hmac(
-          hmac(
-            hmac(
-              hmac("AWS4synthetic-secret", auth[1].slice(0, 8)),
-              "us-east-1",
-            ),
-            "cognito-identity",
-          ),
-          "aws4_request",
-        );
-        if (!timingSafeEqual(hmac(key, toSign), Buffer.from(auth[3], "hex")))
           throw new Error();
         if (
           JSON.stringify(JSON.parse(body)) !==

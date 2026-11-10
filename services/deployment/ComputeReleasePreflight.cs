@@ -14,15 +14,8 @@ public static class ComputeReleasePreflight
     {
         try
         {
-            string Required(string name)=>Environment.GetEnvironmentVariable(name) ?? throw new InvalidOperationException();
-            var scope=new ComputeScope(Required("SAVEIT_COMPUTE_ACCOUNT_ID"),Required("SAVEIT_COMPUTE_REGION"),Required("SAVEIT_COMPUTE_CELL"),Required("SAVEIT_COMPUTE_STAGE"));
-            var pin=Required("SAVEIT_COMPUTE_RELEASE_KEY_SHA256");
-            using var file=new FileStream(Required("SAVEIT_COMPUTE_RELEASE_PUBLIC_KEY_FILE"),FileMode.Open,FileAccess.Read,FileShare.Read);
-            if(file.Length is <1 or >2048) throw new InvalidOperationException();
-            var bytes=new byte[2049];var count=0;
-            while(count<bytes.Length) { var read=await file.ReadAsync(bytes.AsMemory(count),ct); if(read==0) break;count+=read; }
-            if(count is <1 or >2048) throw new InvalidOperationException();
-            return await ValidateAsync(input,scope,bytes.AsMemory(0,count),pin,ct);
+            var trust=await ComputeReleaseTrust.ReadAsync(ct);
+            return await ValidateAsync(input,trust.Scope,trust.PublicSpki,trust.Pin,ct);
         }
         catch(Exception) { throw new InvalidOperationException(Failure); }
     }

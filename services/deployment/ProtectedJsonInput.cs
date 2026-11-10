@@ -25,9 +25,10 @@ internal static class ProtectedJsonInput
         }, cancellationToken);
 
     // The callback must finish before the original byte buffer is cleared.
-    internal static async Task<T> ReadAsync<T>(Stream input, int maximumDepth, Func<JsonElement, T> validate, CancellationToken cancellationToken)
+    internal static async Task<T> ReadAsync<T>(Stream input, int maximumDepth, Func<JsonElement, T> validate, CancellationToken cancellationToken, int maximumBytes = MaximumBytes)
     {
-        var buffer = new byte[MaximumBytes + 1];
+        if(maximumBytes is <1 or >MaximumBytes)throw new InvalidOperationException("SaveIT protected input is invalid.");
+        var buffer = new byte[maximumBytes + 1];
         try
         {
             var count = 0;
@@ -47,7 +48,7 @@ internal static class ProtectedJsonInput
                 count += read;
             }
             cancellationToken.ThrowIfCancellationRequested();
-            if (count is 0 or > MaximumBytes) throw new InvalidOperationException();
+            if (count==0 || count>maximumBytes) throw new InvalidOperationException();
             _ = new UTF8Encoding(false, true).GetCharCount(buffer.AsSpan(0, count));
             using var document = JsonDocument.Parse(buffer.AsMemory(0, count), new JsonDocumentOptions { MaxDepth = maximumDepth });
             var result = validate(document.RootElement);

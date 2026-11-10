@@ -55,13 +55,17 @@ cleanup() {
 }
 trap cleanup EXIT
 test -s "$fixture/ca.key" && test -s "$fixture/ca.crt"
-for name in tls pg api relay secrets cognito; do
-  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth,DNS:api-server-only'; elif [[ "$name" == relay ]]; then san='DNS:relay,DNS:relay-workload'; elif [[ "$name" == secrets ]]; then san='DNS:secretsmanager.us-east-1.amazonaws.com'; elif [[ "$name" == cognito ]]; then san='DNS:cognito-identity.us-east-1.amazonaws.com'; else san='DNS:db'; fi
+for name in tls pg api relay secrets cognito compute; do
+  if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth,DNS:api-server-only'; elif [[ "$name" == relay ]]; then san='DNS:relay,DNS:relay-workload'; elif [[ "$name" == secrets ]]; then san='DNS:secretsmanager.us-east-1.amazonaws.com'; elif [[ "$name" == cognito ]]; then san='DNS:cognito-identity.us-east-1.amazonaws.com'; elif [[ "$name" == compute ]]; then san='DNS:sts.us-east-1.amazonaws.com,DNS:ecs.us-east-1.amazonaws.com'; else san='DNS:db'; fi
   openssl req -newkey rsa:2048 -nodes -keyout "$fixture/$name.new.key" -out "$fixture/$name.csr" -subj "/CN=$name" >/dev/null 2>&1
   mv -f "$fixture/$name.new.key" "$fixture/$name.key"
   printf 'subjectAltName=%s\nextendedKeyUsage=serverAuth\n' "$san" > "$fixture/$name.ext"
   openssl x509 -req -in "$fixture/$name.csr" -CA "$fixture/ca.crt" -CAkey "$fixture/ca.key" -CAcreateserial -out "$fixture/$name.crt" -days 2 -extfile "$fixture/$name.ext" >/dev/null 2>&1
 done
+printf 'subjectAltName=DNS:foreign.invalid\nextendedKeyUsage=serverAuth\n' > "$fixture/compute-wrong.ext"
+openssl x509 -req -in "$fixture/compute.csr" -CA "$fixture/ca.crt" -CAkey "$fixture/ca.key" -CAcreateserial -out "$fixture/compute-wrong.crt" -days 2 -extfile "$fixture/compute-wrong.ext" >/dev/null 2>&1
+# Only the isolated synthetic provider receives its test server key.
+chmod 644 "$fixture/compute.key" "$fixture/compute.crt" "$fixture/compute-wrong.crt"
 openssl pkcs12 -export -out "$fixture/relay.pfx" -inkey "$fixture/relay.key" -in "$fixture/relay.crt" -passout pass:synthetic-relay-only >/dev/null 2>&1
 chmod 600 "$fixture/relay.pfx"
 openssl pkcs12 -export -out "$fixture/secrets.pfx" -inkey "$fixture/secrets.key" -in "$fixture/secrets.crt" -passout pass:synthetic-secrets-only >/dev/null 2>&1
@@ -106,6 +110,7 @@ export SAVEIT_CLIENT_PIN_FOREIGN="$(openssl x509 -in "$fixture/client-foreign.cr
 node tests/production/configuration-preflight.mjs
 node tests/production/relay-task-preflight.mjs
 node tests/production/compute-release-preflight.mjs
+node tests/production/compute-acquisition.mjs
 sudo chown 999:999 "$fixture/pg.key"
 "${compose[@]}" up -d --wait db
 "${compose[@]}" exec -T db psql -U postgres -d saveit -v ON_ERROR_STOP=1 < infra/postgres/bootstrap-roles.sql

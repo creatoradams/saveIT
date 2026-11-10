@@ -1,0 +1,9 @@
+# Compute task acquisition review
+
+Scope: ADR054's explicit private temporary-session carrier, exact STS caller check before four signed ECS task reads, pinned SDK/Core update, fixed verified TLS/attempt/deadline bounds, original raw metadata validation and isolated native fixture. No provider write, launch, ownership handoff or fence is added.
+
+The independent security agent found no production bypass in this bounded source review. It identified three native evidence gaps: server disconnect could masquerade as client deadline, ordinary HTTP counters missed HTTPS CONNECT, and synchronous Docker waits could block cleanup. Remedies add late server fallback plus early observed client close and elapsed assertions, counted/refused CONNECT with an acknowledged positive control, and asynchronous bounded spawn/output/kill/stdio cleanup. Setup and cleanup use independent exact owner-label checks. The test-only signature verifier is shared with the existing workload provider; production signing remains SDK-owned. Follow-up review source-closed these gaps and found an invalid-date NaN comparison in the test verifier; it now rejects nonfinite dates, with a correctly signed impossible-month regression. The agent has not executed tests or AWS calls.
+
+Local tests retain original SDK-discarded unknown-field positive controls, strict XML/JSON/envelope/credential refusals, TLS-related transport defaults and cancellation. Native execution remains CI-only because the local Docker daemon is unavailable. All fixtures contain synthetic identities and private keys only; none is managed provider, credential-custody, process-fencing or production capacity evidence. Source-specific executed results belong in progress.
+
+The independent efficiency agent remains unavailable after its account usage limit. No independent efficiency completion or penetration-testing claim follows from this source review.
