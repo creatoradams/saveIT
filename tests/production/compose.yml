@@ -142,8 +142,21 @@ services:
             "ecs.us-east-1.amazonaws.com",
             "api.ecr.us-east-1.amazonaws.com",
             "111122223333.dkr.ecr.us-east-1.amazonaws.com",
-            "foreign-control.invalid",
           ]
+  compute-foreign-provider:
+    image: saveit-web:test
+    profiles: ["tools"]
+    read_only: true
+    sysctls: { net.ipv4.ip_unprivileged_port_start: 0 }
+    command: ["/run/compute/foreign-provider.mjs"]
+    labels: { com.saveit.compute-fixture: saveit-release }
+    volumes:
+      - ./compute-foreign-provider.mjs:/run/compute/foreign-provider.mjs:ro
+      - ../../.local/container-fixture/compute.key:/run/compute/compute.key:ro
+      - ../../.local/container-fixture/compute.crt:/run/compute/compute.crt:ro
+    networks:
+      compute:
+        aliases: ["foreign-control.invalid"]
   workload-provider:
     image: saveit-web:test
     profiles: ["tools"]

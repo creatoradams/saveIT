@@ -166,19 +166,25 @@ function token(mode) {
   );
 }
 const requestCode = `const h=require('node:http');const p=process.argv[1],body=process.argv[2];const r=h.request({host:'127.0.0.1',port:80,path:p,method:body?'POST':'GET',timeout:2000},s=>{let b='';s.on('data',c=>{b+=c;if(b.length>2048)r.destroy()});s.on('end',()=>{if(s.statusCode!==200)process.exitCode=1;else process.stdout.write(b)})});r.on('timeout',()=>r.destroy());r.on('error',()=>process.exitCode=1);r.end(body);`;
-const control = (path, body) =>
+const control = (path, body, service = "compute-provider") =>
   docker([
     ...compose,
     "exec",
     "-T",
-    "compute-provider",
+    service,
     "node",
     "-e",
     requestCode,
     path,
     ...(body ? [body] : []),
   ]);
-const counts = async () => JSON.parse(await control("/counts"));
+const counts = async () => {
+  const [main, foreign] = await Promise.all([
+    control("/counts"),
+    control("/counts", undefined, "compute-foreign-provider"),
+  ]);
+  return { ...JSON.parse(main), foreign: JSON.parse(foreign).requests };
+};
 const success =
   "SaveIT acquired task metadata passed (no launch, image/configuration verification or fencing).";
 const failure = "SaveIT compute task acquisition failed.";
@@ -323,7 +329,13 @@ try {
     { mode: 0o644 },
   );
   stage = "internal network setup";
-  await docker([...compose, "up", "-d", "compute-provider"]);
+  await docker([
+    ...compose,
+    "up",
+    "-d",
+    "compute-provider",
+    "compute-foreign-provider",
+  ]);
   assert.equal(
     await docker([
       "network",
@@ -334,13 +346,19 @@ try {
     ]),
     "true",
   );
-  const provider = await docker([...compose, "ps", "-q", "compute-provider"]);
-  const state = JSON.parse(await docker(["inspect", provider]))[0];
-  assert.deepEqual(Object.keys(state.NetworkSettings.Networks), [
-    "saveit-release_compute",
-  ]);
-  assert.equal(state.Config.User, "1654");
-  assert.equal(state.HostConfig.ReadonlyRootfs, true);
+  for (const name of ["compute-provider", "compute-foreign-provider"]) {
+    const provider = await docker([...compose, "ps", "-q", name]);
+    const state = JSON.parse(await docker(["inspect", provider]))[0];
+    assert.deepEqual(Object.keys(state.NetworkSettings.Networks), [
+      "saveit-release_compute",
+    ]);
+    assert.equal(state.Config.User, "1654");
+    assert.equal(state.HostConfig.ReadonlyRootfs, true);
+    assert.equal(
+      state.Config.Labels["com.saveit.compute-fixture"],
+      "saveit-release",
+    );
+  }
   for (let i = 0; ; i++) {
     try {
       await counts();
@@ -534,15 +552,18 @@ try {
   console.error("Packaged compute acquisition failed during " + stage + ".");
   process.exitCode = 1;
 } finally {
-  let cleanupFailed = false,
-    provider;
-  try {
-    provider = await docker([...compose, "ps", "-aq", "compute-provider"]);
-  } catch {
-    cleanupFailed = true;
+  let cleanupFailed = false;
+  const providers = [];
+  for (const name of ["compute-provider", "compute-foreign-provider"]) {
+    try {
+      const id = await docker([...compose, "ps", "-aq", name]);
+      if (id) providers.push(id);
+    } catch {
+      cleanupFailed = true;
+    }
   }
   // Independent attempts: a preparation/inspection failure cannot skip provider shutdown.
-  for (const name of ["saveit-compute-prepare", provider]) {
+  for (const name of ["saveit-compute-prepare", ...providers]) {
     if (!name) continue;
     try {
       let raw;

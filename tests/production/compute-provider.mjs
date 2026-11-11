@@ -24,7 +24,6 @@ const counts = {
   ecr: 0,
   authorization: 0,
   registry: 0,
-  foreign: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -74,11 +73,6 @@ const service = httpsServer(options, (request, response) => {
   });
   request.on("end", () => {
     try {
-      if (request.headers.host === "foreign-control.invalid") {
-        counts.foreign++;
-        response.end("active");
-        return;
-      }
       const selected =
         imageFixture.variants[mode] ?? imageFixture.variants["images-valid"];
       if (request.headers.host === registryHost) {
