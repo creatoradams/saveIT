@@ -1,6 +1,6 @@
 # ADR056: trusted image configuration acquisition
 
-Status: implemented; local combined tests pass. Source52b3cc8 passed native packaged execution, but source security rejected a fake-provider authentication bypass; the separate forbidden-destination fixture remedy awaits full verification. No AWS calls or launch evidence.
+Status: implemented; local combined/native/full CI pass at95167dd. Source52b3cc8's fake-provider authentication bypass was fixed with a separate forbidden-destination fixture and the original source gate passed. Exact evidence is in progress. No AWS calls or launch evidence.
 
 Before provider writes, acquire and hash the exact platform-image manifest and configuration for each of the four signed image references. Extend the existing deployment executable with the official pinned ECR SDK. Reuse the explicit private temporary session, exact STS/controller identity and fixed native SDK/TLS transport. Add no service, state store, provider write or Terraform activation input. Keep task/service checks and the immutable signed source/image bindings.
 

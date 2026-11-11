@@ -28,6 +28,24 @@ internal sealed class ComputeSdkRead
         ["imageIds"]=new JsonArray(new JsonObject{["imageDigest"]=release.Data.Tasks[process].Image.Split('@')[1]}),
         ["acceptedMediaTypes"]=new JsonArray(ComputeImageManifest.DockerMediaType,ComputeImageManifest.OciMediaType)},"images","failures",262144);
     internal static ComputeSdkRead RegistryAuthorization()=>new("api.ecr","GetAuthorizationToken",new JsonObject(),"authorizationData",null,32768);
+    internal static ComputeSdkRead Configuration(ComputeRelease release,string process)
+    {
+        if(process is not("api" or "worker" or "relay"))throw new InvalidOperationException();
+        var reference=release.Data.Tasks[process];
+        return new("secretsmanager","GetSecretValue",new JsonObject{["SecretId"]=reference.ConfigurationArn,["VersionId"]=reference.ConfigurationVersionId},"SecretString",null,524288);
+    }
+    internal string TargetPrefix=>Endpoint switch {"ecs"=>"AmazonEC2ContainerServiceV20141113.","api.ecr"=>"AmazonEC2ContainerRegistry_V20150921.","secretsmanager"=>"secretsmanager.",_=>throw new InvalidOperationException()};
+    internal void ValidateResponse(JsonElement root)
+    {
+        RejectResponse(root);
+        if(Endpoint=="secretsmanager") {
+            var names=new[]{"ARN","Name","VersionId","SecretString","CreatedDate","VersionStages"};
+            if(root.EnumerateObject().Any(x=>!names.Contains(x.Name,StringComparer.Ordinal)))throw new InvalidOperationException();
+        }
+        else if(root.EnumerateObject().Any(x=>x.Name!=Root&&x.Name!=OptionalRoot))throw new InvalidOperationException();
+    }
+    private void RejectResponse(JsonElement root)
+    {TaskMetadata.RejectDuplicates(root);if(root.ValueKind!=JsonValueKind.Object||!root.TryGetProperty(Root,out _))throw new InvalidOperationException();}
     internal static string Repository(ComputeScope s,string process)=>$"{s.Path}/{(process=="relay"?"deployment":process)}";
     internal void ValidateRequest(string body)
     {

@@ -21,7 +21,7 @@ jobs:
         run: |
           for target in api worker deployment identity-fixture; do
             if [ "$target" = identity-fixture ]; then name=identity-fixture; else name=$target; fi
-            docker build -f infra/containers/dotnet.Dockerfile --build-context saveit-trust=.local/public-trust --build-context saveit-client-trust=.local/client-trust --build-context saveit-workload-trust=.local/workload-trust --build-arg "SAVEIT_REVISION=$GITHUB_SHA" --target "$target" -t "saveit-$name:test" .
+            docker build -f infra/containers/dotnet.Dockerfile --build-context saveit-trust=.local/public-trust --build-context saveit-relay-trust=.local/public-trust --build-context saveit-client-trust=.local/client-trust --build-context saveit-workload-trust=.local/workload-trust --build-arg "SAVEIT_REVISION=$GITHUB_SHA" --target "$target" -t "saveit-$name:test" .
           done
           docker build -f infra/containers/web.Dockerfile --build-context saveit-trust=.local/public-trust --build-arg "SAVEIT_REVISION=$GITHUB_SHA" -t saveit-web:test .
       - run: npx playwright install --with-deps chromium

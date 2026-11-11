@@ -4,6 +4,8 @@ COPY infra/trust/unconfigured/database-ca.crt /database-ca.crt
 COPY infra/trust/unconfigured/api-ca.crt /api-ca.crt
 FROM scratch AS saveit-client-trust
 COPY infra/trust/unconfigured/client-ca.crt /client-ca.crt
+FROM scratch AS saveit-relay-trust
+COPY infra/trust/unconfigured/api-ca.crt /api-ca.crt
 FROM scratch AS saveit-workload-trust
 COPY infra/trust/unconfigured/workload-jwks.json /workload-jwks.json
 
@@ -47,6 +49,8 @@ ENTRYPOINT ["dotnet", "SaveIT.Workers.dll"]
 
 FROM runtime AS deployment
 COPY --from=saveit-trust --chmod=0444 /api-ca.crt /opt/saveit/trust/api-ca.crt
+COPY --from=saveit-relay-trust --chmod=0444 /api-ca.crt /opt/saveit/trust/relay-ca.crt
+COPY --from=saveit-client-trust --chmod=0444 /client-ca.crt /opt/saveit/trust/client-ca.crt
 COPY --from=saveit-workload-trust --chmod=0444 /workload-jwks.json /opt/saveit/trust/workload-jwks.json
 COPY --from=build /out/deployment .
 ENTRYPOINT ["dotnet", "SaveIT.Deployment.dll"]

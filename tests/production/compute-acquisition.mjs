@@ -13,6 +13,7 @@ import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { runProtectedCommand } from "./protected-command.mjs";
 import { computeImageFixture } from "./compute-image-fixture.mjs";
+import { computeConfigurationFixture } from "./compute-configuration-fixture.mjs";
 const compose = [
   "compose",
   "-p",
@@ -147,12 +148,17 @@ function token(mode) {
         iat: now - 1,
         exp: now + 299,
         jti: randomUUID(),
-        contract: mode?.startsWith("images-")
-          ? (
-              imageFixture.variants[mode] ??
-              imageFixture.variants["images-valid"]
-            ).contract
-          : contract,
+        contract:
+          mode?.startsWith("images-") || mode?.startsWith("configuration-")
+            ? (
+                imageFixture.variants[mode] ??
+                imageFixture.variants[
+                  mode.startsWith("configuration-")
+                    ? "configuration-valid"
+                    : "images-valid"
+                ]
+              ).contract
+            : contract,
       }),
     ).toString("base64url");
   return (
@@ -202,7 +208,7 @@ async function check(
 ) {
   assert.equal(typeof expected, "boolean");
   assert.equal(typeof hold, "boolean");
-  assert.ok(["tasks", "cell", "images"].includes(kind));
+  assert.ok(["tasks", "cell", "images", "configuration"].includes(kind));
   stage = label;
   await control("/mode", mode);
   const before = await counts();
@@ -218,25 +224,31 @@ async function check(
   ];
   await runProtectedCommand(
     [
-      kind === "images"
-        ? "check-compute-images"
-        : kind === "cell"
-          ? "check-compute-parked-services"
-          : "check-compute-tasks",
+      kind === "configuration"
+        ? "check-compute-configuration"
+        : kind === "images"
+          ? "check-compute-images"
+          : kind === "cell"
+            ? "check-compute-parked-services"
+            : "check-compute-tasks",
     ],
     JSON.stringify({ signedRelease: token(mode) }),
     expected,
     "compute acquisition " + label,
-    kind === "images"
-      ? "SaveIT acquired image configurations passed (no layer verification, promotion, launch or fencing)."
-      : kind === "cell"
-        ? "SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing)."
-        : success,
-    kind === "images"
-      ? "SaveIT compute image acquisition failed."
-      : kind === "cell"
-        ? "SaveIT compute cell acquisition failed."
-        : failure,
+    kind === "configuration"
+      ? "SaveIT acquired configuration cohort passed (no live database, identity, launch or fencing verification)."
+      : kind === "images"
+        ? "SaveIT acquired image configurations passed (no layer verification, promotion, launch or fencing)."
+        : kind === "cell"
+          ? "SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing)."
+          : success,
+    kind === "configuration"
+      ? "SaveIT compute configuration acquisition failed."
+      : kind === "images"
+        ? "SaveIT compute image acquisition failed."
+        : kind === "cell"
+          ? "SaveIT compute cell acquisition failed."
+          : failure,
     hold,
     "saveit-release_compute",
     options,
@@ -246,7 +258,8 @@ async function check(
   if (
     mode === "stall" ||
     mode === "stall-body" ||
-    mode === "images-registry-stall"
+    mode === "images-registry-stall" ||
+    mode === "configuration-stall"
   ) {
     assert.ok(
       elapsed < 9000,
@@ -273,6 +286,10 @@ async function check(
     expectedCounts[5] ?? 0,
   );
   assert.equal(after.registry - before.registry, expectedCounts[6] ?? 0);
+  assert.equal(
+    after.configuration - before.configuration,
+    expectedCounts[7] ?? 0,
+  );
   assert.equal(after.foreign, before.foreign);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
@@ -323,6 +340,17 @@ try {
   );
   if (process.env.GITHUB_SHA)
     assert.equal(imageFixture.revision, process.env.GITHUB_SHA);
+  const configurations = await computeConfigurationFixture(
+    fixture,
+    imageFixture,
+  );
+  // Only synthetic copies are readable by the isolated UID1654 fixture; no real
+  // secret is populated or mounted into any ordinary application service.
+  await writeFile(
+    fixture + "/compute-private.json",
+    JSON.stringify(configurations),
+    { mode: 0o644 },
+  );
   await writeFile(
     fixture + "/compute-images.json",
     JSON.stringify(imageFixture),
@@ -544,6 +572,41 @@ try {
     [],
     false,
     "images",
+  );
+  for (const [mode, passed, reads] of [
+    ["configuration-valid", true, 3],
+    ["configuration-version", false, 1],
+    ["configuration-binary", false, 1],
+    ["configuration-unknown", false, 1],
+    ["configuration-duplicate", false, 1],
+    ["configuration-extra", false, 3],
+    ["configuration-api-name", false, 3],
+    ["configuration-db", false, 3],
+    ["configuration-key-reuse", false, 3],
+    ["configuration-redirect", false, 1],
+    ["configuration-wrong-name", false, 0],
+    ["configuration-stall", false, 1],
+    ["configuration-valid", true, 3],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 4, 1, 4, reads],
+      "valid",
+      [],
+      false,
+      "configuration",
+    );
+  await check(
+    "configuration-valid",
+    false,
+    "configuration stdin EOF deadline",
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    "valid",
+    [],
+    true,
+    "configuration",
   );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity, original task/service/image configuration contracts; no AWS or provider writes.`,

@@ -130,6 +130,7 @@ services:
       - ../../infra/terraform/ecs-tasks/tests/compute-release-observations.json:/run/compute/observations.json:ro
       - ../../infra/terraform/private-services/tests/compute-parked-observations.json:/run/compute/parked.json:ro
       - ../../.local/container-fixture/compute-images.json:/run/compute/images.json:ro
+      - ../../.local/container-fixture/compute-private.json:/run/compute/private.json:ro
       - ../../.local/container-fixture/ca.crt:/run/compute/ca.crt:ro
       - ../../.local/container-fixture/compute.key:/run/compute/compute.key:ro
       - ../../.local/container-fixture/compute.crt:/run/compute/compute.crt:ro
@@ -141,6 +142,7 @@ services:
             "sts.us-east-1.amazonaws.com",
             "ecs.us-east-1.amazonaws.com",
             "api.ecr.us-east-1.amazonaws.com",
+            "secretsmanager.us-east-1.amazonaws.com",
             "111122223333.dkr.ecr.us-east-1.amazonaws.com",
           ]
   compute-foreign-provider:

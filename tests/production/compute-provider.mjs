@@ -9,6 +9,7 @@ const root = "/run/compute/";
 const fixtures = JSON.parse(readFileSync(root + "observations.json", "utf8"));
 const parked = JSON.parse(readFileSync(root + "parked.json", "utf8"));
 const imageFixture = JSON.parse(readFileSync(root + "images.json", "utf8"));
+const configurations = JSON.parse(readFileSync(root + "private.json", "utf8"));
 const registryHost = "111122223333.dkr.ecr.us-east-1.amazonaws.com";
 const registryToken = Buffer.from(
   "AWS:synthetic-private-registry-password",
@@ -24,6 +25,7 @@ const counts = {
   ecr: 0,
   authorization: 0,
   registry: 0,
+  configuration: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -45,7 +47,9 @@ options.SNICallback = (name, callback) =>
   callback(
     null,
     mode === "wrong-name" ||
-      (mode === "images-registry-wrong-name" && name === registryHost)
+      (mode === "images-registry-wrong-name" && name === registryHost) ||
+      (mode === "configuration-wrong-name" &&
+        name === "secretsmanager.us-east-1.amazonaws.com")
       ? wrongContext
       : goodContext,
   );
@@ -74,7 +78,12 @@ const service = httpsServer(options, (request, response) => {
   request.on("end", () => {
     try {
       const selected =
-        imageFixture.variants[mode] ?? imageFixture.variants["images-valid"];
+        imageFixture.variants[mode] ??
+        imageFixture.variants[
+          mode.startsWith("configuration-")
+            ? "configuration-valid"
+            : "images-valid"
+        ];
       if (request.headers.host === registryHost) {
         if (
           request.method !== "GET" ||
@@ -110,7 +119,8 @@ const service = httpsServer(options, (request, response) => {
         return;
       }
       const kind = request.headers.host?.split(".")[0];
-      if (!["sts", "ecs", "api"].includes(kind)) throw new Error();
+      if (!["sts", "ecs", "api", "secretsmanager"].includes(kind))
+        throw new Error();
       verifySyntheticSigV4(request, body, {
         access,
         secret,
@@ -133,7 +143,23 @@ const service = httpsServer(options, (request, response) => {
           "DescribeServices",
           "BatchGetImage",
           "GetAuthorizationToken",
+          "GetSecretValue",
         ].includes(action)
+      )
+        throw new Error();
+      if (kind === "secretsmanager" && action !== "GetSecretValue")
+        throw new Error();
+      if (
+        !{
+          sts: ["identity"],
+          ecs: [
+            "DescribeTaskDefinition",
+            "DescribeClusters",
+            "DescribeServices",
+          ],
+          api: ["BatchGetImage", "GetAuthorizationToken"],
+          secretsmanager: ["GetSecretValue"],
+        }[kind].includes(action)
       )
         throw new Error();
       if (
@@ -154,8 +180,76 @@ const service = httpsServer(options, (request, response) => {
                 ? "services"
                 : action === "BatchGetImage"
                   ? "ecr"
-                  : "authorization"
+                  : action === "GetSecretValue"
+                    ? "configuration"
+                    : "authorization"
       ]++;
+      if (kind === "secretsmanager") {
+        if (request.headers["x-amz-target"] !== "secretsmanager.GetSecretValue")
+          throw new Error();
+        const query = JSON.parse(body);
+        const process = ["api", "worker", "relay"].find(
+          (p) => selected.contract.tasks[p].configurationArn === query.SecretId,
+        );
+        if (
+          !process ||
+          Object.keys(query).sort().join(",") !== "SecretId,VersionId" ||
+          query.VersionId !==
+            selected.contract.tasks[process].configurationVersionId
+        )
+          throw new Error();
+        if (mode === "configuration-redirect") {
+          response.writeHead(302, {
+            Location: "https://foreign-control.invalid/forbidden",
+          });
+          response.end();
+          return;
+        }
+        if (mode === "configuration-stall") {
+          stall(response, true);
+          return;
+        }
+        const payload = structuredClone(configurations[process]);
+        if (mode === "configuration-extra" && process === "api")
+          payload.Identity__KeyCertificatePath =
+            "synthetic-private-cohort-marker";
+        if (mode === "configuration-api-name" && process === "api")
+          payload.Deployment__ApiTls__CertificateBase64 =
+            configurations.relay.ServerCertificateBase64;
+        if (mode === "configuration-db" && process === "worker")
+          payload.ConnectionStrings__SearchWorker =
+            payload.ConnectionStrings__SearchWorker.replace(
+              "db.synthetic.invalid",
+              "foreign.synthetic.invalid",
+            );
+        if (mode === "configuration-key-reuse" && process === "api") {
+          payload.Identity__KeyCertificateBase64 =
+            configurations.relay.CertificateBase64;
+          payload.Identity__KeyCertificatePassword =
+            configurations.relay.CertificatePassword;
+        }
+        const result = {
+          ARN: query.SecretId,
+          Name: `saveit/pilot/staging/${process}/config`,
+          VersionId: query.VersionId,
+          SecretString: JSON.stringify(payload),
+          VersionStages: ["AWSPREVIOUS"],
+        };
+        if (mode === "configuration-version")
+          result.VersionId = "90000000-0000-0000-0000-000000000001";
+        if (mode === "configuration-binary") result.SecretBinary = null;
+        if (mode === "configuration-unknown")
+          result.privateAuthority = "synthetic-private-cohort-marker";
+        let serialized = JSON.stringify(result);
+        if (mode === "configuration-duplicate")
+          serialized = serialized.replace(
+            '"VersionId":',
+            '"VersionId":"foreign","VersionI\\u0064":',
+          );
+        response.setHeader("Content-Type", "application/x-amz-json-1.1");
+        response.end(serialized);
+        return;
+      }
       if (mode === "redirect") {
         response.writeHead(302, {
           Location: "https://foreign-control.invalid/forbidden",
@@ -288,7 +382,9 @@ const service = httpsServer(options, (request, response) => {
       )
         throw new Error();
       const match = Object.values(
-        mode.startsWith("images-") ? selected.tasks : fixtures,
+        mode.startsWith("images-") || mode.startsWith("configuration-")
+          ? selected.tasks
+          : fixtures,
       ).find(
         (x) => x.taskDefinition.taskDefinitionArn === query.taskDefinition,
       );
@@ -345,6 +441,18 @@ httpServer((request, response) => {
           "images-registry-redirect",
           "images-registry-wrong-name",
           "images-registry-stall",
+          "configuration-valid",
+          "configuration-version",
+          "configuration-binary",
+          "configuration-unknown",
+          "configuration-duplicate",
+          "configuration-extra",
+          "configuration-api-name",
+          "configuration-db",
+          "configuration-key-reuse",
+          "configuration-redirect",
+          "configuration-wrong-name",
+          "configuration-stall",
         ].includes(body)
       ) {
         response.writeHead(400);

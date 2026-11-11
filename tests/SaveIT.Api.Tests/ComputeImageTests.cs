@@ -13,8 +13,8 @@ public sealed class ComputeImageTests(ComputeReleaseFixture signing):IClassFixtu
     private static JsonObject Configurations()=>JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-image-configurations.json")))!.AsObject();
     private static string Digest(byte[] bytes)=>"sha256:"+Convert.ToHexStringLower(SHA256.HashData(bytes));
     private static JsonElement Element(JsonNode value)=>JsonSerializer.SerializeToElement(value);
-    private sealed record Bundle(ComputeRelease Release,Dictionary<string,byte[]> Configurations,Dictionary<string,JsonObject> Envelopes);
-    private async Task<Bundle> Images(Action<JsonObject>? changeConfigurations=null,Action<JsonObject>? changeManifest=null,long? expires=null,Func<string,string>? encodeConfiguration=null,Func<string,string>? encodeManifest=null)
+    internal sealed record Bundle(ComputeRelease Release,Dictionary<string,byte[]> Configurations,Dictionary<string,JsonObject> Envelopes);
+    internal async Task<Bundle> Images(Action<JsonObject>? changeConfigurations=null,Action<JsonObject>? changeManifest=null,long? expires=null,Func<string,string>? encodeConfiguration=null,Func<string,string>? encodeManifest=null,Action<JsonNode>? approve=null)
     {
         var configs=Configurations();changeConfigurations?.Invoke(configs);var bytes=new Dictionary<string,byte[]>();var envelopes=new Dictionary<string,JsonObject>();
         foreach(var process in ComputeRelease.Processes) {
@@ -29,6 +29,7 @@ public sealed class ComputeImageTests(ComputeReleaseFixture signing):IClassFixtu
         }
         var release=await signing.CreateAsync(generation:Guid.Parse("70000000-0000-0000-0000-000000000001"),expires:expires,mutate:data=>{
             foreach(var process in ComputeRelease.Processes)data["tasks"]![process]!["image"]="111122223333.dkr.ecr.us-east-1.amazonaws.com/saveit/pilot/staging/"+(process=="relay"?"deployment":process)+"@"+envelopes[process]["images"]![0]!["imageId"]!["imageDigest"]!.GetValue<string>();
+            approve?.Invoke(data);
         });return new(release,bytes,envelopes);
     }
     private static ComputeImageManifest Manifest(Bundle b,string p)=>ComputeImageManifest.Parse(b.Release,p,Element(b.Envelopes[p]));
@@ -140,10 +141,11 @@ public sealed class ComputeImageTests(ComputeReleaseFixture signing):IClassFixtu
     private static HttpResponseMessage Response(string body)=>new(HttpStatusCode.OK){Content=new StringContent(body,Encoding.UTF8,"application/x-amz-json-1.1")};
     private static Task<ComputeAwsSession> Session()=>ComputeAwsSession.ReadAsync(new MemoryStream(Encoding.UTF8.GetBytes(new JsonObject{
         ["accessKeyId"]="ASIA0000000000000000",["secretAccessKey"]=new string('a',40),["sessionToken"]="synthetic-temporary-session-token",["expiration"]=DateTimeOffset.UtcNow.AddMinutes(30).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")}.ToJsonString())),CancellationToken.None);
-    private static Func<string,HttpMessageHandler> Provider(Bundle b,List<string> calls,Func<string,string,HttpResponseMessage?>? change=null,Func<string,CancellationToken,Task>? wait=null)
+    internal static Func<string,HttpMessageHandler> Provider(Bundle b,List<string> calls,Func<string,string,HttpResponseMessage?>? change=null,Func<string,CancellationToken,Task>? wait=null,Action<JsonNode>? observations=null)
     {
         var tasks=JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-release-observations.json")))!;
         foreach(var p in ComputeRelease.Processes)tasks[p]!["taskDefinition"]!["containerDefinitions"]![0]!["image"]=b.Release.Data.Tasks[p].Image;
+        observations?.Invoke(tasks);
         var cell=JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-parked-observations.json")))!;
         return service=>new Handler(async(request,ct)=>{
             if(service=="registry") {

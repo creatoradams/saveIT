@@ -8,6 +8,15 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
+if(args.FirstOrDefault()=="check-compute-configuration")
+{
+    try {
+        if(args is not ["check-compute-configuration"] || !Console.IsInputRedirected)throw new InvalidOperationException();
+        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(120));using var input=Console.OpenStandardInput();
+        await ComputeConfigurationAcquisition.ValidateAsync(input,timeout.Token);Console.WriteLine(ComputeConfigurationAcquisition.Success);return 0;
+    }
+    catch(Exception){Console.Error.WriteLine(ComputeConfigurationAcquisition.Failure);return 1;}
+}
 if(args.FirstOrDefault()=="check-compute-images")
 {
     try {

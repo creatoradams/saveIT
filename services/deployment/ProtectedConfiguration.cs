@@ -17,6 +17,9 @@ public static class ProtectedConfiguration
     public const string Success = "SaveIT protected configuration preflight passed (local validation only).";
 
     public static async Task ValidateAsync(Stream input, string workload, int retiredCount, CancellationToken cancellationToken = default)
+        => _ = await ReadValidatedAsync(input, workload, retiredCount, cancellationToken);
+
+    internal static async Task<Dictionary<string,string>> ReadValidatedAsync(Stream input, string workload, int retiredCount, CancellationToken cancellationToken)
     {
         try
         {
@@ -27,7 +30,7 @@ public static class ProtectedConfiguration
                 "migration" => "SAVEIT_DEPLOYMENT_CONNECTION", _ => "SAVEIT_ACCESS_CONNECTION"
             };
             ValidateConnection(values[connectionField], workload);
-            if (workload != "api") return;
+            if (workload != "api") return values;
 
             cancellationToken.ThrowIfCancellationRequested();
             using var transport = ApiTls.Load(null, values["Deployment__ApiTls__CertificateBase64"], values["Deployment__ApiTls__CertificatePassword"]);
@@ -43,6 +46,7 @@ public static class ProtectedConfiguration
                 if (transportPublicKey.AsSpan().SequenceEqual(protectorKey.ExportSubjectPublicKeyInfo())) throw new InvalidOperationException();
             }
             cancellationToken.ThrowIfCancellationRequested();
+            return values;
         }
         catch (Exception)
         {

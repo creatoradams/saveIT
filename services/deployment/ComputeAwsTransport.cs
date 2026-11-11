@@ -26,7 +26,7 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
             var text=new UTF8Encoding(false,true).GetString(requestBytes);
             read.ValidateRequest(text);
             if(identity) {if(request.Headers.Contains("X-Amz-Target"))throw new InvalidOperationException();}
-            else if(!request.Headers.TryGetValues("X-Amz-Target",out var targets)||targets.Single()!=(service=="ecs"?"AmazonEC2ContainerServiceV20141113.":"AmazonEC2ContainerRegistry_V20150921.")+read.Action)throw new InvalidOperationException();
+            else if(!request.Headers.TryGetValues("X-Amz-Target",out var targets)||targets.Single()!=read.TargetPrefix+read.Action)throw new InvalidOperationException();
             var replacement=new ByteArrayContent(requestBytes);foreach(var header in request.Content.Headers)replacement.Headers.TryAddWithoutValidation(header.Key,header.Value);
             request.Content.Dispose();request.Content=replacement;
             request.Version=HttpVersion.Version11;request.VersionPolicy=HttpVersionPolicy.RequestVersionExact;request.Headers.ConnectionClose=true;
@@ -41,9 +41,7 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
                     _=new UTF8Encoding(false,true).GetCharCount(bytes);
                     if(identity)ValidateIdentityXml(bytes);
                     else {
-                        using var document=JsonDocument.Parse(bytes,new JsonDocumentOptions{MaxDepth=24});var root=document.RootElement;RejectDuplicates(root);
-                        var expectedRoot=read.Root;var optionalRoot=read.OptionalRoot;
-                        if(root.ValueKind!=JsonValueKind.Object||!root.TryGetProperty(expectedRoot,out _)||root.EnumerateObject().Any(x=>x.Name!=expectedRoot&&x.Name!=optionalRoot))throw new InvalidOperationException();
+                        using var document=JsonDocument.Parse(bytes,new JsonDocumentOptions{MaxDepth=24});var root=document.RootElement;read.ValidateResponse(root);
                         ResponseJson=root.Clone();
                     }
                     if(response.TrailingHeaders.Any())throw new InvalidOperationException();
@@ -83,5 +81,5 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
         if(root.Elements().Count()!=2 || result is null || metadata is null || result.Elements().Count()!=3 || new[]{"Arn","UserId","Account"}.Any(x=>result.Elements(ns+x).Count()!=1) || result.Elements().Any(x=>x.HasElements) || metadata.Elements().Count()!=1 || metadata.Element(ns+"RequestId") is not {HasElements:false})throw new InvalidOperationException();
     }
     protected override void Dispose(bool disposing)
-    {base.Dispose(disposing);if(disposing&&retained is not null)CryptographicOperations.ZeroMemory(retained);}
+    {base.Dispose(disposing);if(disposing){ResponseJson=default;if(retained is not null)CryptographicOperations.ZeroMemory(retained);}}
 }

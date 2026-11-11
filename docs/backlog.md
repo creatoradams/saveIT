@@ -4,6 +4,8 @@ Updated 2026-11-03. Preserve all scope in the [original brief](project-brief.md)
 
 ## Production critical path — reassessed 2026-10-31
 
+- [ ] Complete protected configuration-and-compute operations ([section register](configuration-compute.md)): ADR051–057 implement core coordination, signed intent and bounded task/service/image/private-configuration reads. Network acquisition, exclusive handoff/privileged-writer exclusion, durable provider effects/reconciliation, launch/drain/fencing and restricted ingress/Okta egress remain unfinished. No partial prerequisite closes this section or verifies managed behavior; full enterprise scope remains.
+
 - [x] Account-free downstream parked private service/network/registry composition (ADR048; exact verification/review limits in [progress](progress.md)). Four services remain hardcoded desired0; there are no running tasks, registered instances or health updates. Protected activation/change, actual task/CA/config binding, ingress/egress, operated health/drain/fencing and managed IAM/association/DNS proof remain unfinished. All enterprise inventory scope remains.
 
 - [x] Account-free optional isolated relay task and keyless web target, exact-version startup arguments and bounded local liveness command (ADR047; current verification/review limits in [progress](progress.md)). No actual service/ENI attachment, managed certificate/image/receiver-pin association or launch is proven; registration/health/drain, protected population/promotion, caller admission and managed verification remain unfinished.
