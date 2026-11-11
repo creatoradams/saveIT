@@ -8,6 +8,15 @@
         "resolved": "4.0.102.20",
         "contentHash": "SFmeUUVuXRpaUjaZ4jm7LsKK0dit5qm5K682MUCAR0OPhnqqvoeEfj271KnB5YQVMJ6nSpuUnOQrweihkG83/g=="
       },
+      "AWSSDK.ECR": {
+        "type": "Direct",
+        "requested": "[4.0.102.3, )",
+        "resolved": "4.0.102.3",
+        "contentHash": "ku1hKwNF9WXuy7v0YCSAcvyYSZaVIGiEheqqg7OJtC67soG5Uz+ebSkV2UMbQLtgWW+fPxPxaRBl5kxRIVsPAA==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
+        }
+      },
       "AWSSDK.ECS": {
         "type": "Direct",
         "requested": "[4.0.111, )",

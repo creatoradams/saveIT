@@ -14,10 +14,10 @@ public sealed class ComputeReleaseFixture : IDisposable
     internal readonly RSA Key=RSA.Create(3072);
     internal byte[] PublicKey=>Key.ExportSubjectPublicKeyInfo();
     internal string Pin=>Convert.ToHexStringLower(SHA256.HashData(PublicKey));
-    internal async Task<ComputeRelease> CreateAsync(long expected=1,Guid? operation=null,Guid? generation=null,long? expires=null)
+    internal async Task<ComputeRelease> CreateAsync(long expected=1,Guid? operation=null,Guid? generation=null,long? expires=null,Action<JsonNode>? mutate=null)
     {
         var data=JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-release-contract.json")))!;
-        data["expectedVersion"]=expected;data["generation"]=(generation??Guid.NewGuid()).ToString("D");var now=DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        data["expectedVersion"]=expected;data["generation"]=(generation??Guid.NewGuid()).ToString("D");mutate?.Invoke(data);var now=DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var payload=new JsonObject{["iss"]="saveit-release",["aud"]="saveit-compute:111122223333:us-east-1:pilot:staging",["iat"]=now-1,["exp"]=expires??now+299,["jti"]=(operation??Guid.NewGuid()).ToString("D"),["contract"]=data};
         var header=new JsonObject{["alg"]="PS256",["typ"]=ComputeRelease.Type,["kid"]="sha256-"+Pin};
         var body=Base64UrlEncoder.Encode(header.ToJsonString())+"."+Base64UrlEncoder.Encode(payload.ToJsonString());

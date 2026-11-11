@@ -147,6 +147,7 @@ public sealed class ComputeAcquisitionTests(ComputeReleaseFixture signing):IClas
     [InlineData("AWS_CONTAINER_CREDENTIALS_FULL_URI")] [InlineData("AWS_WEB_IDENTITY_TOKEN_FILE")]
     [InlineData("AWS_ENDPOINT_URL")] [InlineData("AWS_ENDPOINT_URL_ECS")] [InlineData("AWS_CA_BUNDLE")]
     [InlineData("AWS_ENDPOINT_URL_STS")] [InlineData("AWS_EC2_METADATA_SERVICE_ENDPOINT")]
+    [InlineData("AWS_ENDPOINT_URL_ECR")]
     [InlineData("AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE")]
     public async Task Alternate_credential_endpoint_and_CA_sources_fail_before_the_protected_file_is_opened(string name)
     {
@@ -189,7 +190,7 @@ public sealed class ComputeAcquisitionTests(ComputeReleaseFixture signing):IClas
     public void SDK_configuration_pins_signing_endpoint_mode_no_retries_compression_and_no_ambient_monitoring()
     {
         using var http=new HttpClient();
-        var configs=new Amazon.Runtime.ClientConfig[]{ComputeSdkConfiguration.Ecs("us-east-1",http),ComputeSdkConfiguration.Sts("us-east-1",http)};
+        var configs=new Amazon.Runtime.ClientConfig[]{ComputeSdkConfiguration.Ecs("us-east-1",http),ComputeSdkConfiguration.Sts("us-east-1",http),ComputeSdkConfiguration.Ecr("us-east-1",http)};
         foreach(var c in configs)
         {
             Assert.Equal(Amazon.Runtime.DefaultConfigurationMode.Standard,c.DefaultConfigurationMode);

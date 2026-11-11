@@ -1,6 +1,6 @@
 # ADR055: trusted parked service acquisition
 
-Status: implemented; local117 focused tests and64 private-service mock plans pass; native verification pending. No AWS calls or launch evidence.
+Status: implemented; local117 focused tests,64 private-service mock plans and native21-case task/parked-service acquisition verification pass. Exact source/full-CI evidence is in [progress](../progress.md). No AWS calls or launch evidence.
 
 Extend the existing protected read-only deployment executable and ADR054 transport with exact DescribeClusters and DescribeServices reads after STS identity and all four task contracts. Add no package, service, schema, activation input or provider write. Scope derives one cluster and four full service ARNs; request TAGS and required cluster settings/configuration/attachments explicitly. Preserve original raw responses, bounded complete EOF/depth/duplicates and fixed regional native TLS/signing/attempts. Unknown semantics fail closed pending review.
 

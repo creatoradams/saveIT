@@ -1,6 +1,6 @@
 # ADR054: trusted compute task acquisition
 
-Status: implemented; local synthetic SDK tests and native packaged acquisition checks pass. General CI exposed a cancellation-test startup race, corrected in the subsequent source; full verification remains tracked in progress. No AWS calls or launch evidence.
+Status: implemented; local synthetic SDK tests, native packaged acquisition and full CI pass. General CI's earlier cancellation-test startup race was corrected before verified source fd75fcb; exact evidence is tracked in progress. No AWS calls or launch evidence.
 
 Replace caller-supplied task observations in the protected controller path with direct bounded SDK reads. Keep the offline ADR052 command explicitly offline, and ADR053 intent recording distinct from provider evidence. Use pinned official ECS and STS SDK clients in the existing deployment executable; the SDK owns SigV4. New clients require the current pinned Core patch. No new service or state store is introduced.
 

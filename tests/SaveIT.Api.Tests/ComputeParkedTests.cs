@@ -145,7 +145,7 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
             var action=request.Headers.GetValues("X-Amz-Target").Single().Split('.')[1];calls.Add(action);using var json=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
             if(action=="DescribeTaskDefinition"){var p=release.Data.Tasks.Single(x=>x.Value.TaskDefinitionArn==json.RootElement.GetProperty("taskDefinition").GetString()).Key;return Response(tasks[p]!.ToJsonString());}
             if(action=="DescribeClusters")return Response(f["cluster"]!.ToJsonString());
-            Assert.Equal(ComputeEcsRead.ClusterArn(release.Scope),json.RootElement.GetProperty("cluster").GetString());Assert.Equal(4,json.RootElement.GetProperty("services").GetArrayLength());
+            Assert.Equal(ComputeSdkRead.ClusterArn(release.Scope),json.RootElement.GetProperty("cluster").GetString());Assert.Equal(4,json.RootElement.GetProperty("services").GetArrayLength());
             var value=f["services"]!;
             if(mode=="raw-unknown")value["services"]![0]!["unknownAuthority"]=false;
             if(mode=="root-unknown")value["approved"]=true;

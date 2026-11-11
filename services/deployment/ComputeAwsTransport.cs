@@ -9,35 +9,24 @@ using static SaveIT.Deployment.TaskMetadata;
 namespace SaveIT.Deployment;
 
 // Exactly one SDK-signed read. Original response semantics survive SDK model deserialization.
-internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope scope,string? taskArn,CancellationToken operation,ComputeEcsRead? read=null):DelegatingHandler(inner)
+internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope scope,ComputeSdkRead read,CancellationToken operation):DelegatingHandler(inner)
 {
     private int attempts;
     private byte[]? retained;
     internal JsonElement ResponseJson { get; private set; }
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
     {
-        var identity=taskArn is null&&read is null;
-        var service=identity?"sts":"ecs";
+        var identity=read.Identity;
+        var service=read.Endpoint;
         if(Interlocked.Increment(ref attempts)!=1 || request.Method!=HttpMethod.Post || request.RequestUri?.AbsoluteUri!=$"https://{service}.{scope.Region}.amazonaws.com/" || request.Content is null || request.Content.Headers.ContentEncoding.Count!=0)throw new InvalidOperationException();
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(operation,ct);deadline.CancelAfter(TimeSpan.FromSeconds(5));
         var requestBytes=await Bounded(request.Content,1024,deadline.Token);
         try
         {
             var text=new UTF8Encoding(false,true).GetString(requestBytes);
-            if(identity)
-            {
-                if(text is not ("Action=GetCallerIdentity&Version=2011-06-15" or "Version=2011-06-15&Action=GetCallerIdentity")||request.Headers.Contains("X-Amz-Target"))throw new InvalidOperationException();
-            }
-            else
-            {
-                if(!request.Headers.TryGetValues("X-Amz-Target",out var targets)||targets.Single()!="AmazonEC2ContainerServiceV20141113."+(read?.Action??"DescribeTaskDefinition"))throw new InvalidOperationException();
-                using var json=JsonDocument.Parse(requestBytes,new JsonDocumentOptions{MaxDepth=4});RejectDuplicates(json.RootElement);
-                if(read is not null)read.ValidateRequest(json.RootElement);
-                else {
-                    var body=Object(json.RootElement,"taskDefinition","include");
-                    if(body["taskDefinition"].GetString()!=taskArn || body["include"].ValueKind!=JsonValueKind.Array || body["include"].GetArrayLength()!=1 || body["include"][0].GetString()!="TAGS")throw new InvalidOperationException();
-                }
-            }
+            read.ValidateRequest(text);
+            if(identity) {if(request.Headers.Contains("X-Amz-Target"))throw new InvalidOperationException();}
+            else if(!request.Headers.TryGetValues("X-Amz-Target",out var targets)||targets.Single()!=(service=="ecs"?"AmazonEC2ContainerServiceV20141113.":"AmazonEC2ContainerRegistry_V20150921.")+read.Action)throw new InvalidOperationException();
             var replacement=new ByteArrayContent(requestBytes);foreach(var header in request.Content.Headers)replacement.Headers.TryAddWithoutValidation(header.Key,header.Value);
             request.Content.Dispose();request.Content=replacement;
             request.Version=HttpVersion.Version11;request.VersionPolicy=HttpVersionPolicy.RequestVersionExact;request.Headers.ConnectionClose=true;
@@ -46,14 +35,14 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
             {
                 response=await base.SendAsync(request,deadline.Token);
                 if(response.StatusCode!=HttpStatusCode.OK || response.Content.Headers.ContentEncoding.Count!=0 || response.Headers.Contains("Trailer"))throw new InvalidOperationException();
-                var bytes=await Bounded(response.Content,identity?16384:read?.MaximumBytes??65536,deadline.Token);
+                var bytes=await Bounded(response.Content,read.MaximumBytes,deadline.Token);
                 try
                 {
                     _=new UTF8Encoding(false,true).GetCharCount(bytes);
                     if(identity)ValidateIdentityXml(bytes);
                     else {
                         using var document=JsonDocument.Parse(bytes,new JsonDocumentOptions{MaxDepth=24});var root=document.RootElement;RejectDuplicates(root);
-                        var expectedRoot=read?.Root??"taskDefinition";var optionalRoot=read is null?"tags":"failures";
+                        var expectedRoot=read.Root;var optionalRoot=read.OptionalRoot;
                         if(root.ValueKind!=JsonValueKind.Object||!root.TryGetProperty(expectedRoot,out _)||root.EnumerateObject().Any(x=>x.Name!=expectedRoot&&x.Name!=optionalRoot))throw new InvalidOperationException();
                         ResponseJson=root.Clone();
                     }
@@ -68,7 +57,7 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
         }
         finally{CryptographicOperations.ZeroMemory(requestBytes);}
     }
-    private static async Task<byte[]> Bounded(HttpContent content,int limit,CancellationToken ct)
+    internal static async Task<byte[]> Bounded(HttpContent content,int limit,CancellationToken ct)
     {
         if(content.Headers.ContentLength>limit)throw new InvalidOperationException();
         var buffer=new byte[limit+1];

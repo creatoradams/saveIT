@@ -12,6 +12,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { runProtectedCommand } from "./protected-command.mjs";
+import { computeImageFixture } from "./compute-image-fixture.mjs";
 const compose = [
   "compose",
   "-p",
@@ -127,7 +128,8 @@ async function docker(args, timeout = 15000) {
     throw new Error("Packaged compute fixture command failed.");
   }
 }
-function token() {
+let imageFixture;
+function token(mode) {
   const now = Math.floor(Date.now() / 1000);
   const body =
     Buffer.from(
@@ -145,7 +147,12 @@ function token() {
         iat: now - 1,
         exp: now + 299,
         jti: randomUUID(),
-        contract,
+        contract: mode?.startsWith("images-")
+          ? (
+              imageFixture.variants[mode] ??
+              imageFixture.variants["images-valid"]
+            ).contract
+          : contract,
       }),
     ).toString("base64url");
   return (
@@ -185,8 +192,11 @@ async function check(
   carrier = "valid",
   extras = [],
   hold = false,
-  parked = false,
+  kind = "tasks",
 ) {
+  assert.equal(typeof expected, "boolean");
+  assert.equal(typeof hold, "boolean");
+  assert.ok(["tasks", "cell", "images"].includes(kind));
   stage = label;
   await control("/mode", mode);
   const before = await counts();
@@ -201,21 +211,37 @@ async function check(
     ...extras,
   ];
   await runProtectedCommand(
-    [parked ? "check-compute-parked-services" : "check-compute-tasks"],
-    JSON.stringify({ signedRelease: token() }),
+    [
+      kind === "images"
+        ? "check-compute-images"
+        : kind === "cell"
+          ? "check-compute-parked-services"
+          : "check-compute-tasks",
+    ],
+    JSON.stringify({ signedRelease: token(mode) }),
     expected,
     "compute acquisition " + label,
-    parked
-      ? "SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing)."
-      : success,
-    parked ? "SaveIT compute cell acquisition failed." : failure,
+    kind === "images"
+      ? "SaveIT acquired image configurations passed (no layer verification, promotion, launch or fencing)."
+      : kind === "cell"
+        ? "SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing)."
+        : success,
+    kind === "images"
+      ? "SaveIT compute image acquisition failed."
+      : kind === "cell"
+        ? "SaveIT compute cell acquisition failed."
+        : failure,
     hold,
     "saveit-release_compute",
     options,
   );
   const elapsed = performance.now() - started;
   let after = await counts();
-  if (mode === "stall" || mode === "stall-body") {
+  if (
+    mode === "stall" ||
+    mode === "stall-body" ||
+    mode === "images-registry-stall"
+  ) {
     assert.ok(
       elapsed < 9000,
       "client deadline exceeded native assertion window",
@@ -235,6 +261,13 @@ async function check(
   assert.equal(after.ecs - before.ecs, expectedCounts[1]);
   assert.equal(after.cluster - before.cluster, expectedCounts[2] ?? 0);
   assert.equal(after.services - before.services, expectedCounts[3] ?? 0);
+  assert.equal(after.ecr - before.ecr, expectedCounts[4] ?? 0);
+  assert.equal(
+    after.authorization - before.authorization,
+    expectedCounts[5] ?? 0,
+  );
+  assert.equal(after.registry - before.registry, expectedCounts[6] ?? 0);
+  assert.equal(after.foreign, before.foreign);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -261,6 +294,33 @@ try {
       "chown 1654:1654 /fixture/compute-session-valid.json /fixture/compute-session-expired.json /fixture/compute-session-public.json; chmod 600 /fixture/compute-session-valid.json /fixture/compute-session-expired.json; chmod 644 /fixture/compute-session-public.json",
     ],
     20000,
+  );
+  stage = "actual packaged image inspection";
+  const inspected = {};
+  for (const p of ["api", "web", "worker", "relay"])
+    inspected[p] = JSON.parse(
+      await docker([
+        "image",
+        "inspect",
+        `saveit-${p === "relay" ? "deployment" : p}:test`,
+      ]),
+    )[0];
+  imageFixture = computeImageFixture(
+    contract,
+    JSON.parse(
+      await readFile(
+        "infra/terraform/ecs-tasks/tests/compute-release-observations.json",
+        "utf8",
+      ),
+    ),
+    inspected,
+  );
+  if (process.env.GITHUB_SHA)
+    assert.equal(imageFixture.revision, process.env.GITHUB_SHA);
+  await writeFile(
+    fixture + "/compute-images.json",
+    JSON.stringify(imageFixture),
+    { mode: 0o644 },
   );
   stage = "internal network setup";
   await docker([...compose, "up", "-d", "compute-provider"]);
@@ -306,6 +366,17 @@ try {
     if (i === 20) throw new Error();
     await delay(50);
   }
+  // A TLS-valid forbidden destination is reachable. Redirect refusal must prevent contact.
+  await docker([
+    ...compose,
+    "exec",
+    "-T",
+    "compute-provider",
+    "node",
+    "-e",
+    "const h=require('node:https'),f=require('node:fs');const r=h.get({hostname:'foreign-control.invalid',path:'/positive-control',ca:f.readFileSync('/run/compute/ca.crt'),timeout:2000},s=>{if(s.statusCode!==200)process.exitCode=1;s.resume()});r.on('timeout',()=>r.destroy());r.on('error',()=>process.exitCode=1)",
+  ]);
+  assert.equal((await counts()).foreign, 1);
   await check(
     "valid",
     true,
@@ -351,7 +422,7 @@ try {
     ["extra-group", false, "extra service network authority", [1, 4, 1, 1]],
     ["service-load-balancer", false, "unexpected load balancer", [1, 4, 1, 1]],
   ])
-    await check(mode, passed, label, expected, "valid", [], false, true);
+    await check(mode, passed, label, expected, "valid", [], false, "cell");
   await check(
     "valid",
     false,
@@ -360,7 +431,7 @@ try {
     "valid",
     [],
     true,
-    true,
+    "cell",
   );
   await check(
     "valid",
@@ -370,10 +441,94 @@ try {
     "valid",
     [],
     false,
+    "cell",
+  );
+  for (const [mode, passed, label, expected] of [
+    [
+      "images-valid",
+      true,
+      "actual packaged image startup configurations",
+      [1, 4, 1, 1, 4, 1, 4],
+    ],
+    [
+      "images-manifest-hash",
+      false,
+      "original image manifest digest",
+      [1, 4, 1, 1, 1, 0, 0],
+    ],
+    [
+      "images-index",
+      false,
+      "signed unsupported platform index",
+      [1, 4, 1, 1, 1, 0, 0],
+    ],
+    ["images-root", false, "signed root image user", [1, 4, 1, 1, 4, 1, 1]],
+    [
+      "images-entrypoint",
+      false,
+      "signed inherited image command",
+      [1, 4, 1, 1, 4, 1, 1],
+    ],
+    [
+      "images-env",
+      false,
+      "signed inherited private environment",
+      [1, 4, 1, 1, 4, 1, 1],
+    ],
+    [
+      "images-auth-foreign",
+      false,
+      "registry credential destination refusal",
+      [1, 4, 1, 1, 4, 1, 0],
+    ],
+    [
+      "images-config-hash",
+      false,
+      "original configuration digest",
+      [1, 4, 1, 1, 4, 1, 1],
+    ],
+    [
+      "images-registry-redirect",
+      false,
+      "registry redirect and bearer confinement",
+      [1, 4, 1, 1, 4, 1, 1],
+    ],
+    [
+      "images-registry-wrong-name",
+      false,
+      "verified registry server hostname",
+      [1, 4, 1, 1, 4, 1, 0],
+    ],
+    [
+      "images-registry-stall",
+      false,
+      "registry complete-body deadline",
+      [1, 4, 1, 1, 4, 1, 1],
+    ],
+  ])
+    await check(mode, passed, label, expected, "valid", [], false, "images");
+  await check(
+    "images-valid",
+    false,
+    "image stdin EOF deadline",
+    [0, 0, 0, 0, 0, 0, 0],
+    "valid",
+    [],
     true,
+    "images",
+  );
+  await check(
+    "images-valid",
+    true,
+    "image positive control after refusals",
+    [1, 4, 1, 1, 4, 1, 4],
+    "valid",
+    [],
+    false,
+    "images",
   );
   console.log(
-    `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity, original task and parked service contracts; no AWS or provider writes.`,
+    `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity, original task/service/image configuration contracts; no AWS or provider writes.`,
   );
 } catch {
   console.error("Packaged compute acquisition failed during " + stage + ".");

@@ -19,7 +19,7 @@ internal static class ComputeParkedContract
             RemoveDefault(actual,"configuration",new JsonObject());
         }
         if(!JsonNode.DeepEquals(actual,new JsonObject{
-            ["clusterArn"]=ComputeEcsRead.ClusterArn(release.Scope),["clusterName"]=release.Scope.Name,["status"]="ACTIVE",
+            ["clusterArn"]=ComputeSdkRead.ClusterArn(release.Scope),["clusterName"]=release.Scope.Name,["status"]="ACTIVE",
             ["registeredContainerInstancesCount"]=0,["runningTasksCount"]=0,["pendingTasksCount"]=0,["activeServicesCount"]=4,
             ["settings"]=new JsonArray(new JsonObject{["name"]="containerInsights",["value"]="disabled"}),
             ["capacityProviders"]=new JsonArray(),["defaultCapacityProviderStrategy"]=new JsonArray(),["attachments"]=new JsonArray(),["tags"]=ExpectedTags(release.Scope,null)
@@ -85,7 +85,7 @@ internal static class ComputeParkedContract
         var s=release.Scope;var task=release.Data.Tasks[process].TaskDefinitionArn;
         var registries=new JsonArray();if(process is "api" or "relay")registries.Add(new JsonObject{["registryArn"]=process=="api"?release.Data.Network.ApiDiscoveryServiceArn:release.Data.Network.RelayDiscoveryServiceArn});
         return new(){
-            ["serviceArn"]=ComputeEcsRead.ServiceArn(s,process),["serviceName"]=s.Name+"-"+process,["clusterArn"]=ComputeEcsRead.ClusterArn(s),
+            ["serviceArn"]=ComputeSdkRead.ServiceArn(s,process),["serviceName"]=s.Name+"-"+process,["clusterArn"]=ComputeSdkRead.ClusterArn(s),
             ["taskDefinition"]=task,["status"]="ACTIVE",["desiredCount"]=0,["pendingCount"]=0,["runningCount"]=0,
             ["launchType"]="FARGATE",["platformVersion"]="1.4.0",["platformFamily"]="Linux",["schedulingStrategy"]="REPLICA",
             ["enableExecuteCommand"]=false,["enableECSManagedTags"]=true,["propagateTags"]="SERVICE",["availabilityZoneRebalancing"]="ENABLED",

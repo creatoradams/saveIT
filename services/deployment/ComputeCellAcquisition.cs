@@ -14,17 +14,17 @@ internal sealed class AcquiredParkedComputeCell
         {
             using var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct);deadline.CancelAfter(TimeSpan.FromSeconds(40));
             var tasks=await AcquiredComputeTasks.ReadAsync(release,session,transport,deadline.Token);
-            foreach(var read in new[]{ComputeEcsRead.Cluster(release.Scope),ComputeEcsRead.Services(release.Scope)})
+            foreach(var read in new[]{ComputeSdkRead.Cluster(release.Scope),ComputeSdkRead.Services(release.Scope)})
             {
                 session.RequireFresh();
-                using var wire=new ComputeAwsTransport(transport("ecs"),release.Scope,null,deadline.Token,read);
+                using var wire=new ComputeAwsTransport(transport("ecs"),release.Scope,read,deadline.Token);
                 using var http=new HttpClient(wire,false){Timeout=Timeout.InfiniteTimeSpan};
                 using var sdk=new AmazonECSClient(session.Credentials,ComputeSdkConfiguration.Ecs(release.Scope.Region,http));
                 if(read.Action=="DescribeClusters") {
-                    _=await sdk.DescribeClustersAsync(new DescribeClustersRequest{Clusters=[ComputeEcsRead.ClusterArn(release.Scope)],Include=["ATTACHMENTS","CONFIGURATIONS","SETTINGS","TAGS"]},deadline.Token);
+                    _=await sdk.DescribeClustersAsync(new DescribeClustersRequest{Clusters=[ComputeSdkRead.ClusterArn(release.Scope)],Include=["ATTACHMENTS","CONFIGURATIONS","SETTINGS","TAGS"]},deadline.Token);
                     ComputeParkedContract.Cluster(release,wire.ResponseJson);
                 } else {
-                    _=await sdk.DescribeServicesAsync(new DescribeServicesRequest{Cluster=ComputeEcsRead.ClusterArn(release.Scope),Services=ComputeRelease.Processes.Select(p=>ComputeEcsRead.ServiceArn(release.Scope,p)).ToList(),Include=["TAGS"]},deadline.Token);
+                    _=await sdk.DescribeServicesAsync(new DescribeServicesRequest{Cluster=ComputeSdkRead.ClusterArn(release.Scope),Services=ComputeRelease.Processes.Select(p=>ComputeSdkRead.ServiceArn(release.Scope,p)).ToList(),Include=["TAGS"]},deadline.Token);
                     ComputeParkedContract.Services(release,wire.ResponseJson);
                 }
                 deadline.Token.ThrowIfCancellationRequested();session.RequireFresh();if(release.ExpiresAt<=DateTimeOffset.UtcNow.ToUnixTimeSeconds())throw new InvalidOperationException();
@@ -40,5 +40,5 @@ public static class ComputeCellAcquisition
     public const string Success="SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing).";
     public const string Failure="SaveIT compute cell acquisition failed.";
     public static async Task ValidateAsync(Stream input,CancellationToken ct=default)
-    {try{await ComputeTaskAcquisition.AcquireAsync(input,true,ct);}catch(Exception){throw new InvalidOperationException(Failure);}}
+    {try{await ComputeTaskAcquisition.AcquireAsync(input,ComputeAcquisitionKind.ParkedCell,ct);}catch(Exception){throw new InvalidOperationException(Failure);}}
 }

@@ -1,0 +1,189 @@
+{
+  "api": {
+    "architecture": "amd64",
+    "os": "linux",
+    "created": "2026-11-10T00:00:00Z",
+    "config": {
+      "User": "1654",
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "APP_UID=1654",
+        "ASPNETCORE_HTTP_PORTS=8080",
+        "DOTNET_RUNNING_IN_CONTAINER=true",
+        "DOTNET_VERSION=10.0.14",
+        "ASPNET_VERSION=10.0.14",
+        "DOTNET_ENVIRONMENT=Production",
+        "ASPNETCORE_ENVIRONMENT=Production",
+        "DOTNET_EnableDiagnostics=0",
+        "TMPDIR=/var/saveit/runtime"
+      ],
+      "Entrypoint": ["dotnet", "SaveIT.Api.dll"],
+      "WorkingDir": "/app",
+      "Labels": {
+        "org.opencontainers.image.revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "org.opencontainers.image.source": "https://github.com/creatoradams/saveIT"
+      },
+      "Volumes": {
+        "/var/saveit/runtime": {}
+      },
+      "OnBuild": null,
+      "Healthcheck": {
+        "Test": ["CMD", "dotnet", "SaveIT.Api.dll", "--livecheck"],
+        "Interval": 10000000000,
+        "Timeout": 5000000000,
+        "StartPeriod": 20000000000
+      }
+    },
+    "rootfs": {
+      "type": "layers",
+      "diff_ids": [
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "history": [
+      {
+        "created_by": "Synthetic fixture; no build provenance."
+      }
+    ]
+  },
+  "web": {
+    "architecture": "amd64",
+    "os": "linux",
+    "created": "2026-11-10T00:00:00Z",
+    "config": {
+      "User": "1654",
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "APP_UID=1654",
+        "ASPNETCORE_HTTP_PORTS=8080",
+        "DOTNET_RUNNING_IN_CONTAINER=true",
+        "NODE_ENV=production",
+        "NEXT_TELEMETRY_DISABLED=1",
+        "HOSTNAME=0.0.0.0",
+        "PORT=3000",
+        "TMPDIR=/var/saveit/runtime"
+      ],
+      "Entrypoint": ["/usr/local/bin/node"],
+      "WorkingDir": "/app",
+      "Labels": {
+        "org.opencontainers.image.revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "org.opencontainers.image.source": "https://github.com/creatoradams/saveIT"
+      },
+      "Volumes": {
+        "/var/saveit/runtime": {}
+      },
+      "OnBuild": null,
+      "Cmd": ["runtime.cjs"],
+      "Healthcheck": {
+        "Test": [
+          "CMD",
+          "/usr/local/bin/node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health/live',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"
+        ],
+        "Interval": 10000000000,
+        "Timeout": 5000000000,
+        "StartPeriod": 20000000000
+      }
+    },
+    "rootfs": {
+      "type": "layers",
+      "diff_ids": [
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "history": [
+      {
+        "created_by": "Synthetic fixture; no build provenance."
+      }
+    ]
+  },
+  "worker": {
+    "architecture": "amd64",
+    "os": "linux",
+    "created": "2026-11-10T00:00:00Z",
+    "config": {
+      "User": "1654",
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "APP_UID=1654",
+        "ASPNETCORE_HTTP_PORTS=8080",
+        "DOTNET_RUNNING_IN_CONTAINER=true",
+        "DOTNET_VERSION=10.0.14",
+        "ASPNET_VERSION=10.0.14",
+        "DOTNET_ENVIRONMENT=Production",
+        "ASPNETCORE_ENVIRONMENT=Production",
+        "DOTNET_EnableDiagnostics=0",
+        "TMPDIR=/var/saveit/runtime"
+      ],
+      "Entrypoint": ["dotnet", "SaveIT.Workers.dll"],
+      "WorkingDir": "/app",
+      "Labels": {
+        "org.opencontainers.image.revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "org.opencontainers.image.source": "https://github.com/creatoradams/saveIT"
+      },
+      "Volumes": {
+        "/var/saveit/runtime": {}
+      },
+      "OnBuild": null,
+      "Healthcheck": {
+        "Test": ["CMD", "dotnet", "SaveIT.Workers.dll", "--livecheck"],
+        "Interval": 10000000000,
+        "Timeout": 5000000000,
+        "StartPeriod": 20000000000
+      }
+    },
+    "rootfs": {
+      "type": "layers",
+      "diff_ids": [
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "history": [
+      {
+        "created_by": "Synthetic fixture; no build provenance."
+      }
+    ]
+  },
+  "relay": {
+    "architecture": "amd64",
+    "os": "linux",
+    "created": "2026-11-10T00:00:00Z",
+    "config": {
+      "User": "1654",
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "APP_UID=1654",
+        "ASPNETCORE_HTTP_PORTS=8080",
+        "DOTNET_RUNNING_IN_CONTAINER=true",
+        "DOTNET_VERSION=10.0.14",
+        "ASPNET_VERSION=10.0.14",
+        "DOTNET_ENVIRONMENT=Production",
+        "ASPNETCORE_ENVIRONMENT=Production",
+        "DOTNET_EnableDiagnostics=0",
+        "TMPDIR=/var/saveit/runtime"
+      ],
+      "Entrypoint": ["dotnet", "SaveIT.Deployment.dll"],
+      "WorkingDir": "/app",
+      "Labels": {
+        "org.opencontainers.image.revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "org.opencontainers.image.source": "https://github.com/creatoradams/saveIT"
+      },
+      "Volumes": {
+        "/var/saveit/runtime": {}
+      },
+      "OnBuild": null
+    },
+    "rootfs": {
+      "type": "layers",
+      "diff_ids": [
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "history": [
+      {
+        "created_by": "Synthetic fixture; no build provenance."
+      }
+    ]
+  }
+}

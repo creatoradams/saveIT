@@ -5,7 +5,13 @@ const hmac = (key, value) => createHmac("sha256", key).update(value).digest();
 export function verifySyntheticSigV4(
   request,
   body,
-  { access, secret, token, service },
+  {
+    access,
+    secret,
+    token,
+    service,
+    host = service + ".us-east-1.amazonaws.com",
+  },
 ) {
   const auth =
     /^AWS4-HMAC-SHA256 Credential=([^/]+)\/(\d{8}\/us-east-1\/([a-z-]+)\/aws4_request), SignedHeaders=([a-z0-9;-]+), Signature=([a-f0-9]{64})$/.exec(
@@ -18,7 +24,7 @@ export function verifySyntheticSigV4(
     request.headers["x-amz-security-token"] !== token ||
     request.method !== "POST" ||
     request.url !== "/" ||
-    request.headers.host !== service + ".us-east-1.amazonaws.com"
+    request.headers.host !== host
   )
     throw new Error();
   const names = auth[4].split(";");

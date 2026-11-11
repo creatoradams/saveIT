@@ -129,12 +129,21 @@ services:
       - ./synthetic-sigv4.mjs:/run/compute/synthetic-sigv4.mjs:ro
       - ../../infra/terraform/ecs-tasks/tests/compute-release-observations.json:/run/compute/observations.json:ro
       - ../../infra/terraform/private-services/tests/compute-parked-observations.json:/run/compute/parked.json:ro
+      - ../../.local/container-fixture/compute-images.json:/run/compute/images.json:ro
+      - ../../.local/container-fixture/ca.crt:/run/compute/ca.crt:ro
       - ../../.local/container-fixture/compute.key:/run/compute/compute.key:ro
       - ../../.local/container-fixture/compute.crt:/run/compute/compute.crt:ro
       - ../../.local/container-fixture/compute-wrong.crt:/run/compute/compute-wrong.crt:ro
     networks:
       compute:
-        aliases: ["sts.us-east-1.amazonaws.com", "ecs.us-east-1.amazonaws.com"]
+        aliases:
+          [
+            "sts.us-east-1.amazonaws.com",
+            "ecs.us-east-1.amazonaws.com",
+            "api.ecr.us-east-1.amazonaws.com",
+            "111122223333.dkr.ecr.us-east-1.amazonaws.com",
+            "foreign-control.invalid",
+          ]
   workload-provider:
     image: saveit-web:test
     profiles: ["tools"]

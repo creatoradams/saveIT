@@ -3,10 +3,16 @@ import { createServer as httpServer } from "node:http";
 import { createServer as httpsServer } from "node:https";
 import { createSocket } from "node:dgram";
 import { readFileSync } from "node:fs";
+import { createSecureContext } from "node:tls";
 import { verifySyntheticSigV4 } from "./synthetic-sigv4.mjs";
 const root = "/run/compute/";
 const fixtures = JSON.parse(readFileSync(root + "observations.json", "utf8"));
 const parked = JSON.parse(readFileSync(root + "parked.json", "utf8"));
+const imageFixture = JSON.parse(readFileSync(root + "images.json", "utf8"));
+const registryHost = "111122223333.dkr.ecr.us-east-1.amazonaws.com";
+const registryToken = Buffer.from(
+  "AWS:synthetic-private-registry-password",
+).toString("base64");
 const access = "ASIA" + "0".repeat(16),
   secret = "a".repeat(40),
   token = "synthetic-temporary-session-token";
@@ -15,6 +21,10 @@ const counts = {
   ecs: 0,
   cluster: 0,
   services: 0,
+  ecr: 0,
+  authorization: 0,
+  registry: 0,
+  foreign: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -27,6 +37,34 @@ const options = {
   cert: readFileSync(root + "compute.crt"),
   minVersion: "TLSv1.2",
 };
+const goodContext = createSecureContext(options),
+  wrongContext = createSecureContext({
+    ...options,
+    cert: readFileSync(root + "compute-wrong.crt"),
+  });
+options.SNICallback = (name, callback) =>
+  callback(
+    null,
+    mode === "wrong-name" ||
+      (mode === "images-registry-wrong-name" && name === registryHost)
+      ? wrongContext
+      : goodContext,
+  );
+function stall(response, body = false) {
+  if (body) {
+    response.writeHead(200, { "Content-Type": "application/octet-stream" });
+    response.write("<");
+  }
+  const started = performance.now();
+  const timer = setTimeout(() => {
+    counts.stallFallbacks++;
+    response.destroy();
+  }, 30000);
+  response.once("close", () => {
+    clearTimeout(timer);
+    if (performance.now() - started < 9000) counts.deadlineAborts++;
+  });
+}
 const service = httpsServer(options, (request, response) => {
   let body = "";
   request.setTimeout(30000, () => request.destroy());
@@ -36,13 +74,58 @@ const service = httpsServer(options, (request, response) => {
   });
   request.on("end", () => {
     try {
+      if (request.headers.host === "foreign-control.invalid") {
+        counts.foreign++;
+        response.end("active");
+        return;
+      }
+      const selected =
+        imageFixture.variants[mode] ?? imageFixture.variants["images-valid"];
+      if (request.headers.host === registryHost) {
+        if (
+          request.method !== "GET" ||
+          body !== "" ||
+          request.headers.authorization !== "Basic " + registryToken ||
+          request.headers["x-amz-security-token"]
+        )
+          throw new Error();
+        const image = Object.values(selected.images).find(
+          (x) =>
+            request.url ===
+            "/v2/" +
+              x.envelope.images[0].repositoryName +
+              "/blobs/" +
+              x.configDigest,
+        );
+        if (!image) throw new Error();
+        counts.registry++;
+        if (mode === "images-registry-redirect") {
+          response.writeHead(302, {
+            Location: "https://foreign-control.invalid/forbidden",
+          });
+          response.end();
+          return;
+        }
+        if (mode === "images-registry-stall") {
+          stall(response, true);
+          return;
+        }
+        response.setHeader("Content-Type", "application/octet-stream");
+        response.setHeader("Docker-Content-Digest", image.configDigest);
+        response.end(image.body + (mode === "images-config-hash" ? " " : ""));
+        return;
+      }
       const kind = request.headers.host?.split(".")[0];
-      if (!["sts", "ecs"].includes(kind)) throw new Error();
+      if (!["sts", "ecs", "api"].includes(kind)) throw new Error();
       verifySyntheticSigV4(request, body, {
         access,
         secret,
         token,
-        service: kind,
+        service: kind === "api" ? "ecr" : kind,
+        host:
+          kind === "api"
+            ? "api.ecr.us-east-1.amazonaws.com"
+            : kind + ".us-east-1.amazonaws.com",
       });
       const action =
         kind === "sts"
@@ -54,7 +137,16 @@ const service = httpsServer(options, (request, response) => {
           "DescribeTaskDefinition",
           "DescribeClusters",
           "DescribeServices",
+          "BatchGetImage",
+          "GetAuthorizationToken",
         ].includes(action)
+      )
+        throw new Error();
+      if (
+        kind === "api" &&
+        !request.headers["x-amz-target"]?.startsWith(
+          "AmazonEC2ContainerRegistry_V20150921.",
+        )
       )
         throw new Error();
       counts[
@@ -64,37 +156,25 @@ const service = httpsServer(options, (request, response) => {
             ? "ecs"
             : action === "DescribeClusters"
               ? "cluster"
-              : "services"
+              : action === "DescribeServices"
+                ? "services"
+                : action === "BatchGetImage"
+                  ? "ecr"
+                  : "authorization"
       ]++;
       if (mode === "redirect") {
-        response.writeHead(302, { Location: "https://foreign.invalid/" });
+        response.writeHead(302, {
+          Location: "https://foreign-control.invalid/forbidden",
+        });
         response.end();
         return;
       }
       if (mode === "stall") {
-        const started = performance.now();
-        const timer = setTimeout(() => {
-          counts.stallFallbacks++;
-          response.destroy();
-        }, 30000);
-        response.once("close", () => {
-          clearTimeout(timer);
-          if (performance.now() - started < 9000) counts.deadlineAborts++;
-        });
+        stall(response);
         return;
       }
       if (mode === "stall-body") {
-        response.writeHead(200, { "Content-Type": "text/xml" });
-        response.write("<");
-        const started = performance.now();
-        const timer = setTimeout(() => {
-          counts.stallFallbacks++;
-          response.destroy();
-        }, 30000);
-        response.once("close", () => {
-          clearTimeout(timer);
-          if (performance.now() - started < 9000) counts.deadlineAborts++;
-        });
+        stall(response, true);
         return;
       }
       if (kind === "sts") {
@@ -112,6 +192,50 @@ const service = httpsServer(options, (request, response) => {
         response.end(
           `<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><GetCallerIdentityResult><Arn>arn:aws:sts::111122223333:assumed-role/saveit-pilot-staging-${role}/synthetic</Arn><UserId>AROA00000000000000000:synthetic</UserId><Account>111122223333</Account></GetCallerIdentityResult><ResponseMetadata><RequestId>synthetic-request</RequestId></ResponseMetadata></GetCallerIdentityResponse>`,
         );
+        return;
+      }
+      if (action === "BatchGetImage" || action === "GetAuthorizationToken") {
+        const query = JSON.parse(body);
+        response.setHeader("Content-Type", "application/x-amz-json-1.1");
+        if (action === "GetAuthorizationToken") {
+          if (Object.keys(query).length !== 0) throw new Error();
+          response.end(
+            JSON.stringify({
+              authorizationData: [
+                {
+                  authorizationToken: registryToken,
+                  expiresAt: Math.floor(Date.now() / 1000) + 43000,
+                  proxyEndpoint:
+                    mode === "images-auth-foreign"
+                      ? "https://foreign-control.invalid"
+                      : "https://" + registryHost,
+                },
+              ],
+            }),
+          );
+          return;
+        }
+        const image = Object.values(selected.images).find(
+          (x) => x.envelope.images[0].repositoryName === query.repositoryName,
+        );
+        if (
+          !image ||
+          Object.keys(query).sort().join(",") !==
+            "acceptedMediaTypes,imageIds,registryId,repositoryName" ||
+          query.registryId !== "111122223333" ||
+          JSON.stringify(query.imageIds) !==
+            JSON.stringify([image.envelope.images[0].imageId]) ||
+          JSON.stringify(query.acceptedMediaTypes) !==
+            JSON.stringify([
+              "application/vnd.docker.distribution.manifest.v2+json",
+              "application/vnd.oci.image.manifest.v1+json",
+            ])
+        )
+          throw new Error();
+        const result = structuredClone(image.envelope);
+        if (mode === "images-manifest-hash")
+          result.images[0].imageManifest += " ";
+        response.end(JSON.stringify(result));
         return;
       }
       if (action === "DescribeClusters" || action === "DescribeServices") {
@@ -169,7 +293,9 @@ const service = httpsServer(options, (request, response) => {
         JSON.stringify(query.include) !== '["TAGS"]'
       )
         throw new Error();
-      const match = Object.values(fixtures).find(
+      const match = Object.values(
+        mode.startsWith("images-") ? selected.tasks : fixtures,
+      ).find(
         (x) => x.taskDefinition.taskDefinitionArn === query.taskDefinition,
       );
       if (!match) throw new Error();
@@ -214,6 +340,17 @@ httpServer((request, response) => {
           "unknown-service",
           "extra-group",
           "service-load-balancer",
+          "images-valid",
+          "images-root",
+          "images-entrypoint",
+          "images-env",
+          "images-index",
+          "images-manifest-hash",
+          "images-auth-foreign",
+          "images-config-hash",
+          "images-registry-redirect",
+          "images-registry-wrong-name",
+          "images-registry-stall",
         ].includes(body)
       ) {
         response.writeHead(400);
@@ -221,12 +358,6 @@ httpServer((request, response) => {
         return;
       }
       mode = body;
-      service.setSecureContext({
-        ...options,
-        cert: readFileSync(
-          root + (body === "wrong-name" ? "compute-wrong.crt" : "compute.crt"),
-        ),
-      });
       response.end("ok");
     });
     return;
