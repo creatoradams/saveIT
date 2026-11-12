@@ -8,7 +8,7 @@ fixture="$root/.local/container-fixture"
 [[ -f "$fixture/ca.crt" && -f "$fixture/protection.pfx" && -f "$fixture/previous.pfx" ]]
 compose=(docker compose -p saveit-release -f tests/production/compose.yml)
 recovered=("${compose[@]}" -f tests/production/recovery.compose.yml)
-sdk='mcr.microsoft.com/dotnet/sdk:10.0.401-noble@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317'
+sdk='mcr.microsoft.com/dotnet/sdk:10.0.404-noble@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb'
 backup="$fixture/recovery-backup"
 mkdir -p "$backup"
 started="$(date +%s)"

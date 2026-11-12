@@ -13,6 +13,11 @@ relay_pid=''
 # The custom minimal web runtime must execute the actual patched binary under its
 # declared nonroot identity, before any application/network fixture is started.
 test "$(docker run --rm saveit-web:test --version)" = 'v24.22.2'
+for name in api worker deployment; do
+  runtimes="$(timeout --kill-after=5s 30s docker run --rm --network none --read-only --entrypoint dotnet "saveit-$name:test" --list-runtimes)"
+  test "$(awk '{ print $1 " " $2 }' <<< "$runtimes" | LC_ALL=C sort)" = $'Microsoft.AspNetCore.App 10.0.15\nMicrosoft.NETCore.App 10.0.15'
+done
+echo 'Packaged API, worker and deployment runtimes verified at .NET 10.0.15.'
 # Exact image VOLUME path must be private, writable and nonroot even with a read-only root.
 docker run --rm --read-only saveit-web:test -e "const fs=require('node:fs'),a=require('node:assert/strict');const p='/var/saveit/runtime',s=fs.statSync(p);a.equal(process.getuid(),1654);a.equal(s.uid,1654);a.equal(s.gid,1654);a.equal(s.mode&0o777,0o700);fs.writeFileSync(p+'/probe','synthetic');fs.unlinkSync(p+'/probe');"
 cleanup() {
@@ -137,7 +142,7 @@ SQL
 "${compose[@]}" run --rm deployment provision /run/foreign-provision.json
 # Initialize only the isolated test keyring volume; production storage ownership is deployment configuration.
 "${compose[@]}" create api
-docker run --rm --user 0 --entrypoint /bin/chown -v saveit-release_keyring:/keys mcr.microsoft.com/dotnet/sdk:10.0.401-noble@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317 1654:1654 /keys
+docker run --rm --user 0 --entrypoint /bin/chown -v saveit-release_keyring:/keys mcr.microsoft.com/dotnet/sdk:10.0.404-noble@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb 1654:1654 /keys
 # A timeout is not startup rejection: fail if a misconfigured process remains alive.
 refuses_startup() {
   expected="$1"; shift

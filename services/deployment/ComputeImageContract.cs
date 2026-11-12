@@ -61,7 +61,7 @@ internal static class ComputeImageContract
             entry=new JsonArray("/usr/local/bin/node");result["Cmd"]=new JsonArray("runtime.cjs");
             probe=new JsonArray("CMD","/usr/local/bin/node","-e","fetch('http://127.0.0.1:3000/health/live',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))");
         } else {
-            env["DOTNET_VERSION"]="10.0.14";env["ASPNET_VERSION"]="10.0.14";env["DOTNET_ENVIRONMENT"]="Production";env["ASPNETCORE_ENVIRONMENT"]="Production";env["DOTNET_EnableDiagnostics"]="0";
+            env["DOTNET_VERSION"]="10.0.15";env["ASPNET_VERSION"]="10.0.15";env["DOTNET_ENVIRONMENT"]="Production";env["ASPNETCORE_ENVIRONMENT"]="Production";env["DOTNET_EnableDiagnostics"]="0";
             var assembly=process switch{"api"=>"SaveIT.Api.dll","worker"=>"SaveIT.Workers.dll","relay"=>"SaveIT.Deployment.dll",_=>throw new InvalidOperationException()};
             entry=new JsonArray("dotnet",assembly);if(process!="relay")probe=new JsonArray("CMD","dotnet",assembly,"--livecheck");
         }

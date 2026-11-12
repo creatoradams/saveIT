@@ -6,7 +6,7 @@ Working flow: choose a synthetic development identity → select an authorized o
 
 ## Run locally
 
-Install .NET SDK **10.0.401** (or a later 10.0.4xx patch allowed by `global.json`), **Node 24.x**, npm and Git. Use current servicing patches before release. No Docker, cloud account, API key or paid service is required. Initial dependency restore needs network access. From the repository root:
+Install .NET SDK **10.0.404** (or a later 10.0.4xx patch allowed by `global.json`), **Node 24.x**, npm and Git. Use current servicing patches before release. No Docker, cloud account, API key or paid service is required. Initial dependency restore needs network access. From the repository root:
 
 ```sh
 npm ci

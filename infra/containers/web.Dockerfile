@@ -13,7 +13,7 @@ RUN mkdir -p apps/web/public /out/volumes/runtime && chown 1654:1654 /out/volume
 
 # Only the official Node executable and standalone application enter this minimal
 # glibc-compatible Ubuntu runtime: no npm, shell, compiler or Debian package set.
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.14-noble-chiseled-extra@sha256:8a40d2041c4ccc2237fc4921d1c669662cb194d93375e37fbd9807d92bb55d63 AS web
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.15-noble-chiseled-extra@sha256:bf8715422b59a65719605d4fe2b8f3f0eb96209b84cb2ed6bf3b5af7d879f148 AS web
 ARG SAVEIT_REVISION
 LABEL org.opencontainers.image.revision=$SAVEIT_REVISION org.opencontainers.image.source="https://github.com/creatoradams/saveIT"
 WORKDIR /app
