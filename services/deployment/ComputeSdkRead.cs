@@ -48,12 +48,20 @@ internal sealed class ComputeSdkRead
     private void RejectResponse(JsonElement root)
     {TaskMetadata.RejectDuplicates(root);if(root.ValueKind!=JsonValueKind.Object||!root.TryGetProperty(Root,out _))throw new InvalidOperationException();}
     internal static string Repository(ComputeScope s,string process)=>$"{s.Path}/{(process=="relay"?"deployment":process)}";
-    internal static ComputeSdkRead SecurityGroups(ComputeRelease release)
+    internal static ComputeSdkRead SecurityGroups(ComputeRelease release)=>VpcInventory(release,"DescribeSecurityGroups","1000",524288);
+    internal static ComputeSdkRead Subnets(ComputeRelease release)=>VpcInventory(release,"DescribeSubnets","1000",65536);
+    internal static ComputeSdkRead RouteTables(ComputeRelease release)=>VpcInventory(release,"DescribeRouteTables","100",131072);
+    internal static ComputeSdkRead Vpc(ComputeRelease release)=>Ec2("DescribeVpcs",new JsonObject{["VpcId.1"]=release.Data.Network.VpcId},65536);
+    internal static string DnsAttributeName(bool hostnames)=>hostnames?"enableDnsHostnames":"enableDnsSupport";
+    internal static ComputeSdkRead VpcDns(ComputeRelease release,bool hostnames)=>Ec2("DescribeVpcAttribute",new JsonObject{
+        ["VpcId"]=release.Data.Network.VpcId,["Attribute"]=DnsAttributeName(hostnames)},16384);
+    private static ComputeSdkRead VpcInventory(ComputeRelease release,string action,string count,int maximumBytes)
     {
         _=ComputeNetworkBindings.Require(release);
-        return new("ec2","DescribeSecurityGroups",new JsonObject{
-            ["Action"]="DescribeSecurityGroups",["Version"]="2016-11-15",["Filter.1.Name"]="vpc-id",["Filter.1.Value.1"]=release.Data.Network.VpcId,["MaxResults"]="1000"},"",null,524288);
+        return Ec2(action,new JsonObject{["Filter.1.Name"]="vpc-id",["Filter.1.Value.1"]=release.Data.Network.VpcId,["MaxResults"]=count},maximumBytes);
     }
+    private static ComputeSdkRead Ec2(string action,JsonObject fields,int maximumBytes)
+    {fields.Add("Action",action);fields.Add("Version","2016-11-15");return new("ec2",action,fields,"",null,maximumBytes);}
     internal void ValidateRequest(string body)
     {
         if(Identity) {

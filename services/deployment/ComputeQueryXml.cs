@@ -32,6 +32,25 @@ internal static class ComputeQueryXml
     internal static XElement[] Items(XElement element,int maximum=1000)
     {
         if(element.Nodes().OfType<XText>().Any(x=>!string.IsNullOrWhiteSpace(x.Value)))throw new InvalidOperationException();
-        var items=element.Elements().ToArray();if(items.Length>maximum||items.Any(x=>x.Name!=Namespace+"item"))throw new InvalidOperationException();return items;
+        var items=element.Elements().Take(maximum+1).ToArray();if(items.Length>maximum||items.Any(x=>x.Name!=Namespace+"item"))throw new InvalidOperationException();return items;
+    }
+    internal static XElement[] Inventory(XElement response,string set,int count)
+    {
+        var root=Fields(response,["requestId",set],"nextToken");_=Text(root["requestId"],1,128);
+        if(root.TryGetValue("nextToken",out var next)&&Text(next)!="")throw new InvalidOperationException();
+        var items=Items(root[set],count);if(items.Length!=count)throw new InvalidOperationException();return items;
+    }
+    internal static Dictionary<string,string> ReadTags(XElement? element)
+    {
+        var tags=new Dictionary<string,string>(StringComparer.Ordinal);
+        if(element is not null)foreach(var item in Items(element,50)) {
+            var fields=Fields(item,["key","value"]);
+            if(!tags.TryAdd(Text(fields["key"],1,128),Text(fields["value"],0,256)))throw new InvalidOperationException();
+        }
+        return tags;
+    }
+    internal static void RequireScopeTags(Dictionary<string,string> tags,ComputeScope scope)
+    {
+        if(tags.GetValueOrDefault("Project")!="SaveIT"||tags.GetValueOrDefault("Cell")!=scope.Cell||tags.GetValueOrDefault("Environment")!=scope.Environment)throw new InvalidOperationException();
     }
 }

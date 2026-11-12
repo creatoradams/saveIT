@@ -10,9 +10,7 @@ internal static class ComputeSecurityGroups
     internal static void Validate(ComputeRelease release,XElement response)
     {
         var binding=ComputeNetworkBindings.Require(release);var s=release.Scope;var network=release.Data.Network;
-        var root=Fields(response,["requestId","securityGroupInfo"],"nextToken");_=Text(root["requestId"],1,128);
-        if(root.TryGetValue("nextToken",out var next)&&Text(next)!="")throw new InvalidOperationException();
-        var groups=Items(root["securityGroupInfo"],13);if(groups.Length!=13)throw new InvalidOperationException();
+        var groups=Inventory(response,"securityGroupInfo",13);
         var ids=network.SecurityGroups.Concat(binding.SecurityGroups).ToDictionary(x=>x.Key,x=>x.Value,StringComparer.Ordinal);
         var expected=Edges(ids,binding.S3PrefixListId);var seen=new HashSet<string>(StringComparer.Ordinal);var defaults=0;
         foreach(var group in groups) {
@@ -46,10 +44,9 @@ internal static class ComputeSecurityGroups
     }
     private static void Tags(XElement? element,ComputeScope scope,string role)
     {
-        var tags=new Dictionary<string,string>(StringComparer.Ordinal);
-        if(element is not null)foreach(var item in Items(element,50)){var f=Fields(item,["key","value"]);if(!tags.TryAdd(Text(f["key"],1,128),Text(f["value"],0,256)))throw new InvalidOperationException();}
+        var tags=ReadTags(element);
         if(role=="default"&&tags.Count==0)return;
-        if(tags.GetValueOrDefault("Project")!="SaveIT"||tags.GetValueOrDefault("Cell")!=scope.Cell||tags.GetValueOrDefault("Environment")!=scope.Environment)throw new InvalidOperationException();
+        RequireScopeTags(tags,scope);
         if(role is "api" or "web" or "worker" or "deployment" or "relay" or "web-token")if(tags.GetValueOrDefault("Process")!=role)throw new InvalidOperationException();
     }
     private static void Permissions(XElement element,string direction,ComputeScope scope,ComputeNetwork network,HashSet<string> edges)

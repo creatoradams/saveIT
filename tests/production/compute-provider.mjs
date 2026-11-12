@@ -11,6 +11,11 @@ const parked = JSON.parse(readFileSync(root + "parked.json", "utf8"));
 const imageFixture = JSON.parse(readFileSync(root + "images.json", "utf8"));
 const configurations = JSON.parse(readFileSync(root + "private.json", "utf8"));
 const groupXml = readFileSync(root + "groups.xml", "utf8");
+const routeObservations = Object.fromEntries(
+  Object.entries(JSON.parse(readFileSync(root + "routes.json", "utf8"))).map(
+    ([name, lines]) => [name, lines.join("\n")],
+  ),
+);
 const registryHost = "111122223333.dkr.ecr.us-east-1.amazonaws.com";
 const registryToken = Buffer.from(
   "AWS:synthetic-private-registry-password",
@@ -28,6 +33,7 @@ const counts = {
   registry: 0,
   configuration: 0,
   groups: 0,
+  routes: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -84,7 +90,7 @@ const service = httpsServer(options, (request, response) => {
       const selected =
         imageFixture.variants[mode] ??
         imageFixture.variants[
-          mode.startsWith("groups-")
+          mode.startsWith("groups-") || mode.startsWith("routes-")
             ? "groups-valid"
             : mode.startsWith("configuration-")
               ? "configuration-valid"
@@ -144,24 +150,15 @@ const service = httpsServer(options, (request, response) => {
             ? new URLSearchParams(body).get("Action")
             : request.headers["x-amz-target"]?.split(".")[1];
       if (
-        ![
-          "identity",
-          "DescribeTaskDefinition",
-          "DescribeClusters",
-          "DescribeServices",
-          "BatchGetImage",
-          "GetAuthorizationToken",
-          "GetSecretValue",
-          "DescribeSecurityGroups",
-        ].includes(action)
-      )
-        throw new Error();
-      if (kind === "secretsmanager" && action !== "GetSecretValue")
-        throw new Error();
-      if (
         !{
           sts: ["identity"],
-          ec2: ["DescribeSecurityGroups"],
+          ec2: [
+            "DescribeSecurityGroups",
+            "DescribeVpcs",
+            "DescribeVpcAttribute",
+            "DescribeSubnets",
+            "DescribeRouteTables",
+          ],
           ecs: [
             "DescribeTaskDefinition",
             "DescribeClusters",
@@ -179,40 +176,91 @@ const service = httpsServer(options, (request, response) => {
         )
       )
         throw new Error();
-      counts[
-        kind === "sts"
-          ? "sts"
-          : action === "DescribeTaskDefinition"
-            ? "ecs"
-            : action === "DescribeClusters"
-              ? "cluster"
-              : action === "DescribeServices"
-                ? "services"
-                : action === "BatchGetImage"
-                  ? "ecr"
-                  : action === "DescribeSecurityGroups"
-                    ? "groups"
-                    : action === "GetSecretValue"
-                      ? "configuration"
-                      : "authorization"
-      ]++;
+      const counter = {
+        identity: "sts",
+        DescribeTaskDefinition: "ecs",
+        DescribeClusters: "cluster",
+        DescribeServices: "services",
+        BatchGetImage: "ecr",
+        GetAuthorizationToken: "authorization",
+        GetSecretValue: "configuration",
+        DescribeSecurityGroups: "groups",
+        DescribeVpcs: "routes",
+        DescribeVpcAttribute: "routes",
+        DescribeSubnets: "routes",
+        DescribeRouteTables: "routes",
+      }[action];
+      counts[counter]++;
       if (kind === "ec2") {
         const query = new URLSearchParams(body);
-        const expected = {
-          Action: "DescribeSecurityGroups",
-          Version: "2016-11-15",
-          "Filter.1.Name": "vpc-id",
-          "Filter.1.Value.1": "vpc-00000000000000001",
-          MaxResults: "1000",
-        };
+        const vpc = "vpc-00000000000000001";
+        const expected = { Action: action, Version: "2016-11-15" };
+        const attribute = query.get("Attribute");
+        if (action === "DescribeVpcs") expected["VpcId.1"] = vpc;
+        else if (action === "DescribeVpcAttribute") {
+          if (!["enableDnsSupport", "enableDnsHostnames"].includes(attribute))
+            throw new Error();
+          Object.assign(expected, { VpcId: vpc, Attribute: attribute });
+        } else
+          Object.assign(expected, {
+            "Filter.1.Name": "vpc-id",
+            "Filter.1.Value.1": vpc,
+            MaxResults: action === "DescribeRouteTables" ? "100" : "1000",
+          });
         if (
           request.headers["x-amz-target"] ||
-          [...query].length !== 5 ||
+          [...query].length !== Object.keys(expected).length ||
           Object.entries(expected).some(
             ([key, value]) => query.get(key) !== value,
           )
         )
           throw new Error();
+        if (action !== "DescribeSecurityGroups") {
+          if (!mode.startsWith("routes-")) throw new Error();
+          const stage = {
+            DescribeVpcs: "vpc",
+            DescribeVpcAttribute: attribute,
+            DescribeSubnets: "subnets",
+            DescribeRouteTables: "routes",
+          }[action];
+          if (mode === "routes-stall" && stage === "routes") {
+            stall(response, true);
+            return;
+          }
+          let xml = routeObservations[stage];
+          if (mode === "routes-vpc-ipv6" && stage === "vpc")
+            xml = xml.replace(
+              "</ipv6CidrBlockAssociationSet>",
+              "<item><ipv6CidrBlock>2001:db8::/56</ipv6CidrBlock></item></ipv6CidrBlockAssociationSet>",
+            );
+          if (mode === "routes-disabled-dns" && stage === "enableDnsSupport")
+            xml = xml.replace("<value>true</value>", "<value>false</value>");
+          if (mode === "routes-subnet-public" && stage === "subnets")
+            xml = xml.replace(
+              "<mapPublicIpOnLaunch>false",
+              "<mapPublicIpOnLaunch>true",
+            );
+          if (mode === "routes-main-public" && stage === "routes") {
+            const closing = xml.lastIndexOf("</routeSet>");
+            xml =
+              xml.slice(0, closing) +
+              "<item><gatewayId>igw-00000000000000001</gatewayId><destinationCidrBlock>0.0.0.0/0</destinationCidrBlock><state>active</state><origin>CreateRoute</origin></item>" +
+              xml.slice(closing);
+          }
+          if (mode === "routes-next-page" && stage === "routes")
+            xml = xml.replace(
+              "</DescribeRouteTablesResponse>",
+              "<nextToken>synthetic-next-page</nextToken></DescribeRouteTablesResponse>",
+            );
+          if (mode === "routes-association" && stage === "routes")
+            xml = xml.replace(
+              "<subnetId>subnet-00000000000000001</subnetId>",
+              "",
+            );
+          response.setHeader("Content-Type", "text/xml");
+          response.end(xml);
+          return;
+        }
         if (mode === "groups-redirect") {
           response.writeHead(302, {
             Location: "https://foreign-control.invalid/forbidden",
@@ -449,7 +497,8 @@ const service = httpsServer(options, (request, response) => {
       const match = Object.values(
         mode.startsWith("images-") ||
           mode.startsWith("configuration-") ||
-          mode.startsWith("groups-")
+          mode.startsWith("groups-") ||
+          mode.startsWith("routes-")
           ? selected.tasks
           : fixtures,
       ).find(
@@ -528,6 +577,14 @@ httpServer((request, response) => {
           "groups-redirect",
           "groups-wrong-name",
           "groups-stall",
+          "routes-valid",
+          "routes-vpc-ipv6",
+          "routes-disabled-dns",
+          "routes-subnet-public",
+          "routes-main-public",
+          "routes-next-page",
+          "routes-association",
+          "routes-stall",
         ].includes(body)
       ) {
         response.writeHead(400);

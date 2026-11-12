@@ -271,4 +271,18 @@ run "compute_database_graph_contract" {
     length(aws_default_security_group.cell.ingress) == 0 && length(aws_default_security_group.cell.egress) == 0)
     error_message = "The frozen consumer graph requires exactly reciprocal API/worker/deployment PostgreSQL paths and an empty default group. Mocks are declared contracts, not rule/attachment proof."
   }
+  assert {
+    condition = (aws_vpc.cell.enable_dns_support && aws_vpc.cell.enable_dns_hostnames &&
+      strcontains(join("", jsondecode(file("tests/compute-route-observations.json")).vpc), "<cidrBlock>${aws_vpc.cell.cidr_block}</cidrBlock>") &&
+      toset([for s in concat(values(aws_subnet.application), values(aws_subnet.database)) : "${s.id}:${s.cidr_block}:${s.availability_zone}:${s.map_public_ip_on_launch}"]) ==
+      toset([for row in jsondecode(file("tests/compute-route-observations.json")).subnets :
+      "${regex("<subnetId>([^<]+)</subnetId>", row)[0]}:${regex("<cidrBlock>([^<]+)</cidrBlock>", row)[0]}:${regex("<availabilityZone>([^<]+)</availabilityZone>", row)[0]}:${regex("<mapPublicIpOnLaunch>([^<]+)</mapPublicIpOnLaunch>", row)[0]}" if startswith(row, "<item>")]) &&
+      aws_route_table.application.id == jsondecode(file("../runtime-endpoints/tests/compute-network-graph.json")).bindings.routeTables.application &&
+      aws_route_table.isolated.id == jsondecode(file("../runtime-endpoints/tests/compute-network-graph.json")).bindings.routeTables.database &&
+      toset([for a in aws_route_table_association.application : a.subnet_id]) == toset(output.network.application_subnet_ids) &&
+      toset([for a in aws_route_table_association.database : a.subnet_id]) == toset(output.network.database_subnet_ids) &&
+      alltrue([for a in aws_route_table_association.application : a.route_table_id == aws_route_table.application.id]) &&
+    alltrue([for a in aws_route_table_association.database : a.route_table_id == aws_route_table.isolated.id]))
+    error_message = "The frozen consumer observation and signed table IDs agree with declared private IPv4 placement and explicit route-table associations. AWS-added routes are not mocked managed evidence."
+  }
 }

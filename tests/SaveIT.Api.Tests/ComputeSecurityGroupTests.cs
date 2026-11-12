@@ -90,8 +90,8 @@ public sealed class ComputeSecurityGroupTests(ComputeReleaseFixture signing,Comp
     }
     private sealed class Handler(Func<HttpRequestMessage,CancellationToken,Task<HttpResponseMessage>> run):HttpMessageHandler
     {protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)=>run(request,ct);}
-    private static Task<ComputeAwsSession> Session()=>ComputeAwsSession.ReadAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new{accessKeyId="ASIA0000000000000000",secretAccessKey=new string('a',40),sessionToken="synthetic-temporary-session-token",expiration=DateTimeOffset.UtcNow.AddMinutes(30).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")})),CancellationToken.None);
-    private async Task<(ComputeImageTests.Bundle Bundle,Func<string,HttpMessageHandler> Provider,List<string> Calls)> Acquisition(Func<XElement,string>? change=null,Func<CancellationToken,Task>? wait=null,long? expires=null,Action<HttpResponseMessage>? response=null)
+    internal static Task<ComputeAwsSession> Session()=>ComputeAwsSession.ReadAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new{accessKeyId="ASIA0000000000000000",secretAccessKey=new string('a',40),sessionToken="synthetic-temporary-session-token",expiration=DateTimeOffset.UtcNow.AddMinutes(30).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")})),CancellationToken.None);
+    internal async Task<(ComputeImageTests.Bundle Bundle,Func<string,HttpMessageHandler> Provider,List<string> Calls)> Acquisition(Func<XElement,string>? change=null,Func<CancellationToken,Task>? wait=null,long? expires=null,Action<HttpResponseMessage>? response=null)
     {
         var configuration=new ComputeConfigurationTests(signing,configurationFixture);var bundle=await new ComputeImageTests(signing).Images(expires:expires,approve:d=>{configuration.Approve(d);Bind(d);});var calls=new List<string>();
         var prior=configuration.Provider(bundle,calls);

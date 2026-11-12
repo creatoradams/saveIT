@@ -27,7 +27,13 @@ All four source-bound final image reports retain **zero critical/high/unknown; t
 
 The independent security agent closed the [workload review](reviews/2026-11-09-web-workload-review.md) and [coordination review](reviews/2026-11-09-compute-coordination-review.md), including the subsequent clock/recovery fixture remedies, without executing tests. The requested independent efficiency review remains outstanding after its agent's account usage limit. These reviews are not penetration tests. Earlier exact workload evidence remains at the [previous checkpoint](https://github.com/creatoradams/saveIT/blob/b813a78/docs/progress.md); historical evidence is not rewritten. Direct regional Logs customer CallerAccount compatibility remains a pre-apply gate.
 
-## Current engineering: bound security-group acquisition
+## Current engineering: bound private route acquisition
+
+[ADR059](adr/059-bound-private-route-acquisition.md) adds five fixed EC2 reads for the exact VPC, its DNS flags, all signed private subnets and the complete route inventory. It checks four explicit associations, the local-only main table, original local routes and the signed application-only S3 route. No SDK/dependency, Terraform resource, schema/API change, provider write or tenant authority is added.
+
+Local411 affected tests and101 producer mock plans across foundation/endpoints pass. Both agents reviewed the route source/fixture; the efficiency fixes bound child allocations, preserve the original fixture bytes and make the final-response expiry case deterministic. Native69-case execution/full CI are pending. Endpoint policies, S3 prefix ownership, DNS/Resolver and attachments are next; ownership transfer, durable provider effects, launch/drain/fencing and restricted ingress/Okta egress remain open.
+
+## Prior delivery: bound security-group acquisition
 
 [ADR058](adr/058-bound-security-group-acquisition.md) adds optional signed network bindings and requires them before one fixed VPC-scoped raw EC2 inventory. Exact13-group ownership/default/reciprocal-rule checks reject unknown/extra/foreign/CIDR/IPv6/peering/pagination authority. It reuses the existing acquisition/TLS/deadline stack with deployment-only EC24.0.132.2; Core remains4.0.102.20. Fixed acquisition CLI handling and native command expectations are consolidated. This stage does not verify routes, endpoint policies, S3 ownership, DNS, attachments or fencing.
 

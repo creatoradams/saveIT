@@ -152,11 +152,12 @@ function token(mode) {
         contract:
           mode?.startsWith("images-") ||
           mode?.startsWith("configuration-") ||
-          mode?.startsWith("groups-")
+          mode?.startsWith("groups-") ||
+          mode?.startsWith("routes-")
             ? (
                 imageFixture.variants[mode] ??
                 imageFixture.variants[
-                  mode.startsWith("groups-")
+                  mode.startsWith("groups-") || mode.startsWith("routes-")
                     ? "groups-valid"
                     : mode.startsWith("configuration-")
                       ? "configuration-valid"
@@ -225,6 +226,12 @@ const acquisitionKinds = {
       "SaveIT acquired security-group graph passed (no route, DNS, attachment, launch or fencing verification).",
     failure: "SaveIT compute security-group acquisition failed.",
   },
+  routes: {
+    command: "check-compute-routes",
+    success:
+      "SaveIT acquired private route topology passed (no endpoint policy, attachment, launch or fencing verification).",
+    failure: "SaveIT compute route acquisition failed.",
+  },
 };
 let stage = "private session fixture setup",
   checks = 0;
@@ -271,7 +278,8 @@ async function check(
     mode === "stall-body" ||
     mode === "images-registry-stall" ||
     mode === "configuration-stall" ||
-    mode === "groups-stall"
+    mode === "groups-stall" ||
+    mode === "routes-stall"
   ) {
     // The provider times the stalled response itself. The bounded child
     // watchdog already covers Docker startup and preceding successful reads.
@@ -302,6 +310,7 @@ async function check(
   );
   assert.equal(after.foreign, before.foreign);
   assert.equal(after.groups - before.groups, expectedCounts[8] ?? 0);
+  assert.equal(after.routes - before.routes, expectedCounts[9] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -670,8 +679,39 @@ try {
     false,
     "groups",
   );
+  for (const [mode, passed, reads] of [
+    ["routes-valid", true, 5],
+    ["routes-vpc-ipv6", false, 1],
+    ["routes-disabled-dns", false, 2],
+    ["routes-subnet-public", false, 4],
+    ["routes-main-public", false, 5],
+    ["routes-next-page", false, 5],
+    ["routes-association", false, 5],
+    ["routes-stall", false, 5],
+    ["routes-valid", true, 5],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 4, 1, 4, 3, 1, reads],
+      "valid",
+      [],
+      false,
+      "routes",
+    );
+  await check(
+    "routes-valid",
+    false,
+    "route stdin EOF deadline",
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "valid",
+    [],
+    true,
+    "routes",
+  );
   console.log(
-    `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity, original task/service/image configuration contracts; no AWS or provider writes.`,
+    `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity and original compute/network metadata; no AWS or provider writes.`,
   );
 } catch {
   console.error("Packaged compute acquisition failed during " + stage + ".");

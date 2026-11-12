@@ -13,4 +13,5 @@
   <ItemGroup><Content Include="../../infra/terraform/private-services/tests/compute-parked-observations.json" Link="Fixtures/compute-parked-observations.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><None Update="Fixtures/compute-image-configurations.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="../../infra/terraform/runtime-endpoints/tests/compute-network-graph.json" Link="Fixtures/compute-network-graph.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="../../infra/terraform/cell-foundation/tests/compute-route-observations.json" Link="Fixtures/compute-route-observations.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

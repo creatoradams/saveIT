@@ -921,6 +921,16 @@ run "compute_common_and_token_graph_contract" {
   }
   override_resource {
     override_during = plan
+    target          = aws_vpc_endpoint.layers
+    values          = { id = "vpce-00000000000000006" }
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_prefix_list.s3
+    values          = { id = "pl-00000001" }
+  }
+  override_resource {
+    override_during = plan
     target          = aws_security_group.relay[0]
     values          = { id = "sg-00000000000000006" }
   }
@@ -967,5 +977,14 @@ run "compute_common_and_token_graph_contract" {
       aws_vpc_security_group_egress_rule.web_token[0].ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.web_token[0].ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.web_token[0].from_port == 443 && aws_vpc_security_group_ingress_rule.web_token[0].to_port == 443 && aws_vpc_security_group_egress_rule.web_token[0].to_port == 443 &&
     aws_vpc_security_group_ingress_rule.web_token[0].cidr_ipv4 == null && aws_vpc_security_group_ingress_rule.web_token[0].cidr_ipv6 == null && aws_vpc_security_group_egress_rule.web_token[0].cidr_ipv4 == null && aws_vpc_security_group_egress_rule.web_token[0].cidr_ipv6 == null)
     error_message = "The frozen graph must match every declared common/token/layer direction, including no web configuration path. Declared roles are compared independently of synthetic ID choices; no attachment or packet proof."
+  }
+  assert {
+    condition = (aws_vpc_endpoint.layers.vpc_endpoint_type == "Gateway" && aws_vpc_endpoint.layers.service_name == "com.amazonaws.${var.region}.s3" &&
+      toset(aws_vpc_endpoint.layers.route_table_ids) == toset([var.network.application_route_table_id]) &&
+      anytrue([for row in jsondecode(file("../cell-foundation/tests/compute-route-observations.json")).routes :
+        strcontains(row, "<routeTableId>${var.network.application_route_table_id}</routeTableId>") &&
+        strcontains(row, "<destinationPrefixListId>${data.aws_prefix_list.s3.id}</destinationPrefixListId>") &&
+    strcontains(row, "<gatewayId>${aws_vpc_endpoint.layers.id}</gatewayId>")]))
+    error_message = "The frozen route observation matches the declared application-only regional S3 gateway and prefix. AWS's automatic route installation is not tested by this mock."
   }
 }
