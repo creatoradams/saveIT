@@ -38,12 +38,24 @@ public sealed class ComputeAdmissionTests(DatabaseFixture database,ComputeReleas
         return (long)(await command.ExecuteScalarAsync())!;
     }
 
-    [Fact]
-    public async Task Verified_intent_and_exact_signed_binding_commit_atomically_with_body_free_operation_inspection()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Verified_intent_and_exact_signed_binding_commit_atomically_with_body_free_operation_inspection(bool bindNetwork)
     {
-        var r=await Release();Assert.Equal(2,await Admit(r));using var status=await Status(r.OperationId);var s=status.RootElement;
+        var r=await signing.CreateAsync(mutate:bindNetwork?ComputeSecurityGroupTests.Bind:null);Assert.Equal(2,await Admit(r));using var status=await Status(r.OperationId);var s=status.RootElement;
         Assert.True(s.GetProperty("admitted").GetBoolean());Assert.Equal(2,s.GetProperty("admittedVersion").GetInt64());Assert.Equal(r.PlanSha256,s.GetProperty("planSha256").GetString());Assert.Equal(r.KeySha256,s.GetProperty("keySha256").GetString());Assert.Equal("Starting",s.GetProperty("currentPhase").GetString());Assert.True(s.GetProperty("currentGenerationMatches").GetBoolean());
         Assert.DoesNotContain(r.SignedToken,s.GetRawText());Assert.DoesNotContain("okta",s.GetRawText());Assert.DoesNotContain("contract",s.GetRawText());
+        Assert.DoesNotContain("network",s.GetRawText());
+        await using(var connection=new NpgsqlConnection(Connection)) {
+            await connection.OpenAsync();
+            await using(var role=new NpgsqlCommand("SET ROLE saveit_compute_operator",connection))await role.ExecuteNonQueryAsync();
+            await using var receipt=new NpgsqlCommand("SELECT public.compute_release_v1(@operation)",connection);receipt.Parameters.AddWithValue("operation",r.OperationId);
+            var token=Assert.IsType<string>(await receipt.ExecuteScalarAsync());Assert.Equal(r.SignedToken,token);
+            var verified=await ComputeRelease.VerifyAsync(token,r.Scope,signing.PublicKey,signing.Pin);
+            Assert.Equal(bindNetwork,verified.Data.Network.Bindings is not null);
+            if(bindNetwork)Assert.Equal("sg-0000000000000000c",ComputeNetworkBindings.Require(verified).SecurityGroups["web-token"]);
+        }
         Assert.Equal(r.SignedToken,await database.Scalar<string>($"SELECT \"ReleaseJws\" FROM public.\"ComputeOperations\" WHERE \"OperationId\"='{r.OperationId}'"));
         Assert.Equal(1L,await database.Scalar<long>("SELECT count(*) FROM public.\"ComputeOperations\" WHERE \"ReleaseJws\" IS NOT NULL"));
         await Change(2,"activate");using var after=await Status(r.OperationId);Assert.Equal("Running",after.RootElement.GetProperty("currentPhase").GetString());Assert.Equal(2,after.RootElement.GetProperty("admittedVersion").GetInt64());

@@ -14,6 +14,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runProtectedCommand } from "./protected-command.mjs";
 import { computeImageFixture } from "./compute-image-fixture.mjs";
 import { computeConfigurationFixture } from "./compute-configuration-fixture.mjs";
+import { computeNetworkFixture } from "./compute-network-fixture.mjs";
 const compose = [
   "compose",
   "-p",
@@ -149,13 +150,17 @@ function token(mode) {
         exp: now + 299,
         jti: randomUUID(),
         contract:
-          mode?.startsWith("images-") || mode?.startsWith("configuration-")
+          mode?.startsWith("images-") ||
+          mode?.startsWith("configuration-") ||
+          mode?.startsWith("groups-")
             ? (
                 imageFixture.variants[mode] ??
                 imageFixture.variants[
-                  mode.startsWith("configuration-")
-                    ? "configuration-valid"
-                    : "images-valid"
+                  mode.startsWith("groups-")
+                    ? "groups-valid"
+                    : mode.startsWith("configuration-")
+                      ? "configuration-valid"
+                      : "images-valid"
                 ]
               ).contract
             : contract,
@@ -194,6 +199,33 @@ const counts = async () => {
 const success =
   "SaveIT acquired task metadata passed (no launch, image/configuration verification or fencing).";
 const failure = "SaveIT compute task acquisition failed.";
+const acquisitionKinds = {
+  tasks: { command: "check-compute-tasks", success, failure },
+  cell: {
+    command: "check-compute-parked-services",
+    success:
+      "SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing).",
+    failure: "SaveIT compute cell acquisition failed.",
+  },
+  images: {
+    command: "check-compute-images",
+    success:
+      "SaveIT acquired image configurations passed (no layer verification, promotion, launch or fencing).",
+    failure: "SaveIT compute image acquisition failed.",
+  },
+  configuration: {
+    command: "check-compute-configuration",
+    success:
+      "SaveIT acquired configuration cohort passed (no live database, identity, launch or fencing verification).",
+    failure: "SaveIT compute configuration acquisition failed.",
+  },
+  groups: {
+    command: "check-compute-security-groups",
+    success:
+      "SaveIT acquired security-group graph passed (no route, DNS, attachment, launch or fencing verification).",
+    failure: "SaveIT compute security-group acquisition failed.",
+  },
+};
 let stage = "private session fixture setup",
   checks = 0;
 async function check(
@@ -208,11 +240,11 @@ async function check(
 ) {
   assert.equal(typeof expected, "boolean");
   assert.equal(typeof hold, "boolean");
-  assert.ok(["tasks", "cell", "images", "configuration"].includes(kind));
+  assert.ok(Object.hasOwn(acquisitionKinds, kind));
+  const selected = acquisitionKinds[kind];
   stage = label;
   await control("/mode", mode);
   const before = await counts();
-  const started = performance.now();
   const options = [
     "--env-file",
     fixture + "/compute-acquire.env",
@@ -223,48 +255,26 @@ async function check(
     ...extras,
   ];
   await runProtectedCommand(
-    [
-      kind === "configuration"
-        ? "check-compute-configuration"
-        : kind === "images"
-          ? "check-compute-images"
-          : kind === "cell"
-            ? "check-compute-parked-services"
-            : "check-compute-tasks",
-    ],
+    [selected.command],
     JSON.stringify({ signedRelease: token(mode) }),
     expected,
     "compute acquisition " + label,
-    kind === "configuration"
-      ? "SaveIT acquired configuration cohort passed (no live database, identity, launch or fencing verification)."
-      : kind === "images"
-        ? "SaveIT acquired image configurations passed (no layer verification, promotion, launch or fencing)."
-        : kind === "cell"
-          ? "SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing)."
-          : success,
-    kind === "configuration"
-      ? "SaveIT compute configuration acquisition failed."
-      : kind === "images"
-        ? "SaveIT compute image acquisition failed."
-        : kind === "cell"
-          ? "SaveIT compute cell acquisition failed."
-          : failure,
+    selected.success,
+    selected.failure,
     hold,
     "saveit-release_compute",
     options,
   );
-  const elapsed = performance.now() - started;
   let after = await counts();
   if (
     mode === "stall" ||
     mode === "stall-body" ||
     mode === "images-registry-stall" ||
-    mode === "configuration-stall"
+    mode === "configuration-stall" ||
+    mode === "groups-stall"
   ) {
-    assert.ok(
-      elapsed < 9000,
-      "client deadline exceeded native assertion window",
-    );
+    // The provider times the stalled response itself. The bounded child
+    // watchdog already covers Docker startup and preceding successful reads.
     for (
       let i = 0;
       after.deadlineAborts === before.deadlineAborts && i < 20;
@@ -291,6 +301,7 @@ async function check(
     expectedCounts[7] ?? 0,
   );
   assert.equal(after.foreign, before.foreign);
+  assert.equal(after.groups - before.groups, expectedCounts[8] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -344,6 +355,16 @@ try {
     fixture,
     imageFixture,
   );
+  const groupXml = computeNetworkFixture(
+    imageFixture,
+    JSON.parse(
+      await readFile(
+        "infra/terraform/runtime-endpoints/tests/compute-network-graph.json",
+        "utf8",
+      ),
+    ),
+  );
+  await writeFile(fixture + "/compute-groups.xml", groupXml, { mode: 0o644 });
   // Only synthetic copies are readable by the isolated UID1654 fixture; no real
   // secret is populated or mounted into any ordinary application service.
   await writeFile(
@@ -607,6 +628,47 @@ try {
     [],
     true,
     "configuration",
+  );
+  for (const [mode, passed, reads] of [
+    ["groups-valid", true, 1],
+    ["groups-unknown", false, 1],
+    ["groups-duplicate", false, 1],
+    ["groups-next-page", false, 1],
+    ["groups-foreign-owner", false, 1],
+    ["groups-redirect", false, 1],
+    ["groups-wrong-name", false, 0],
+    ["groups-stall", false, 1],
+    ["groups-valid", true, 1],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 4, 1, 4, 3, reads],
+      "valid",
+      [],
+      false,
+      "groups",
+    );
+  await check(
+    "groups-valid",
+    false,
+    "group stdin EOF deadline",
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "valid",
+    [],
+    true,
+    "groups",
+  );
+  await check(
+    "configuration-valid",
+    false,
+    "legacy approval has no signed network binding",
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "valid",
+    [],
+    false,
+    "groups",
   );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity, original task/service/image configuration contracts; no AWS or provider writes.`,

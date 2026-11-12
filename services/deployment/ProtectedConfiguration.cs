@@ -17,10 +17,25 @@ public static class ProtectedConfiguration
     public const string Success = "SaveIT protected configuration preflight passed (local validation only).";
 
     public static async Task ValidateAsync(Stream input, string workload, int retiredCount, CancellationToken cancellationToken = default)
-        => _ = await ReadValidatedAsync(input, workload, retiredCount, cancellationToken);
-
-    internal static async Task<Dictionary<string,string>> ReadValidatedAsync(Stream input, string workload, int retiredCount, CancellationToken cancellationToken)
     {
+        using var validated = await ReadValidatedAsync(input, workload, retiredCount, cancellationToken);
+    }
+
+    internal sealed record DatabaseTarget(string Host, int Port, string Database);
+
+    // Retain the checked certificate and public key hashes for cohort checks, not
+    // the original password, connection string or encoded PFX fields.
+    internal sealed class Validated(DatabaseTarget target, X509Certificate2? server, IReadOnlyList<string> protectorKeys) : IDisposable
+    {
+        internal DatabaseTarget Target { get; } = target;
+        internal X509Certificate2? Server { get; } = server;
+        internal IReadOnlyList<string> ProtectorKeys { get; } = protectorKeys;
+        public void Dispose() => Server?.Dispose();
+    }
+
+    internal static async Task<Validated> ReadValidatedAsync(Stream input, string workload, int retiredCount, CancellationToken cancellationToken)
+    {
+        X509Certificate2? transport = null;
         try
         {
             var values = await ProtectedJsonInput.ReadAsync(input, Fields(workload, retiredCount), cancellationToken);
@@ -29,30 +44,43 @@ public static class ProtectedConfiguration
                 "api" => "ConnectionStrings__App", "worker" => "ConnectionStrings__SearchWorker",
                 "migration" => "SAVEIT_DEPLOYMENT_CONNECTION", _ => "SAVEIT_ACCESS_CONNECTION"
             };
-            ValidateConnection(values[connectionField], workload);
-            if (workload != "api") return values;
-
+            var target = ValidateConnection(values[connectionField], workload);
             cancellationToken.ThrowIfCancellationRequested();
-            using var transport = ApiTls.Load(null, values["Deployment__ApiTls__CertificateBase64"], values["Deployment__ApiTls__CertificatePassword"]);
-            using var transportKey = transport.GetRSAPublicKey() ?? throw new InvalidOperationException();
-            var transportPublicKey = transportKey.ExportSubjectPublicKeyInfo();
+            if (workload != "api") return new(target, null, []);
+
+            transport = ApiTls.Load(null, values["Deployment__ApiTls__CertificateBase64"], values["Deployment__ApiTls__CertificatePassword"]);
+            var transportKey = PublicKeyHash(transport);
+            var protectorKeys = new string[retiredCount + 1];
             for (var i = -1; i < retiredCount; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var prefix = i < 0 ? "Identity__KeyCertificate" : $"Identity__PreviousKeyCertificates__{i}__";
                 using var protector = KeyProtectionCertificate.Load(null, values[prefix + "Base64"], values[prefix + "Password"], allowExpired: i >= 0);
-                using var protectorKey = protector.GetRSAPublicKey() ?? throw new InvalidOperationException();
                 // Reissuing a certificate around the same key must not hide reuse.
-                if (transportPublicKey.AsSpan().SequenceEqual(protectorKey.ExportSubjectPublicKeyInfo())) throw new InvalidOperationException();
+                var key = PublicKeyHash(protector);
+                if (key == transportKey) throw new InvalidOperationException();
+                protectorKeys[i + 1] = key;
             }
             cancellationToken.ThrowIfCancellationRequested();
-            return values;
+            var result = new Validated(target, transport, protectorKeys);
+            transport = null;
+            return result;
         }
         catch (Exception)
         {
             // JSON/provider/import errors can carry credentials or input fragments.
             throw new InvalidOperationException(Failure);
         }
+        finally { transport?.Dispose(); }
+    }
+
+    internal static string PublicKeyHash(X509Certificate2 certificate)
+    {
+        // Normalize RSA public parameters across certificate reissuance. Public
+        // trust files also permit approved EC anchors.
+        using var rsa = certificate.GetRSAPublicKey();
+        var spki = rsa?.ExportSubjectPublicKeyInfo() ?? certificate.PublicKey.ExportSubjectPublicKeyInfo();
+        return Convert.ToHexStringLower(SHA256.HashData(spki));
     }
 
     private static HashSet<string> Fields(string workload, int retiredCount)
@@ -74,7 +102,7 @@ public static class ProtectedConfiguration
         return fields;
     }
 
-    private static void ValidateConnection(string value, string workload)
+    private static DatabaseTarget ValidateConnection(string value, string workload)
     {
         ConnectionPolicy.Validate(value);
         var connection = new NpgsqlConnectionStringBuilder(ConnectionPolicy.RuntimeConnection(value));
@@ -87,5 +115,6 @@ public static class ProtectedConfiguration
         if ((workload == "api" && connection.Username != "saveit_app") || (workload == "worker" && connection.Username != "saveit_search_worker") ||
             (workload is "migration" or "access" && connection.Username is "postgres" or "saveit_app" or "saveit_search_worker" or "saveit_migration_owner" or "saveit_access_operator"))
             throw new InvalidOperationException();
+        return new(host, connection.Port, connection.Database!);
     }
 }

@@ -822,6 +822,11 @@ run "relay_private_registry_and_exact_transport_paths" {
     error_message = "Replace direct web/API with exactly web/relay and relay/API8443; no reverse/general/DB/NFS/plaintext directions."
   }
   assert {
+    condition = (toset([for e in jsondecode(file("../runtime-endpoints/tests/compute-network-graph.json")).edges : "${e.from}:${e.to}:${e.port}" if contains(["api", "relay"], e.to)]) ==
+    toset(["web:relay:${aws_vpc_security_group_egress_rule.relay_https[0].from_port}", "relay:api:${aws_vpc_security_group_egress_rule.api_https.from_port}"]))
+    error_message = "The frozen consumer graph agrees with both separately owned discovery directions. Other assertions bind reciprocal exact SGs/protocols; no managed reachability proof."
+  }
+  assert {
     condition = (jsonencode(output.relay_discovery) == jsonencode({ namespace_id = "ns-0000000000000001", namespace_arn = "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001", service_arn = "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002", hostname = "relay.pilot.staging.saveit.internal", origin = "https://relay.pilot.staging.saveit.internal:8443", port = 8443, api_origin = var.api_transport.origin, vpc_id = var.network.vpc_id, application_subnet_ids = var.network.application_subnet_ids, security_group_id = var.relay_network.security_group_id }) &&
     output.api_discovery.hostname == "api.pilot.staging.saveit.internal" && output.api_discovery.origin == var.api_transport.origin && output.api_discovery.client_security_groups == var.network.client_security_groups)
     error_message = "Distinct fixed API/relay origins and legacy API output retain public scoped metadata only, not TLS/workload/launch readiness."

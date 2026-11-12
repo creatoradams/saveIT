@@ -28,7 +28,7 @@ internal sealed record ComputeRuntime(string PublicOrigin, string OktaIssuer, st
     string ClientCaSha256, ImmutableArray<string> ClientLeafSha256, string FileSystemId, string AccessPointId,
     string PoolId, string WorkloadIssuer, string WorkloadJwksSha256);
 internal sealed record ComputeNetwork(string VpcId, ImmutableArray<string> SubnetIds, ImmutableDictionary<string,string> SecurityGroups,
-    string ApiDiscoveryServiceArn, string RelayDiscoveryServiceArn);
+    string ApiDiscoveryServiceArn, string RelayDiscoveryServiceArn, ComputeNetworkBindings? Bindings=null);
 internal sealed record ComputeReleaseData(long ExpectedVersion, string Generation, string SourceRevision,
     ImmutableDictionary<string,ComputeTaskReference> Tasks, ComputeRuntime Runtime, ComputeNetwork Network);
 
@@ -120,6 +120,7 @@ internal sealed class ComputeRelease
         foreach(var sg in n.SecurityGroups.Values) Match(sg,"sg-[a-f0-9]{17}");
         foreach(var arn in new[]{n.ApiDiscoveryServiceArn,n.RelayDiscoveryServiceArn}) Match(arn,Regex.Escape($"arn:aws:servicediscovery:{s.Region}:{s.AccountId}:service/srv-")+"[a-z0-9]{16}");
         if(n.ApiDiscoveryServiceArn==n.RelayDiscoveryServiceArn) throw new InvalidOperationException();
+        n.Bindings?.Validate(n);
     }
     private static byte[] Decode(string value,int limit)
     {

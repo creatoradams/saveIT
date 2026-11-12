@@ -13,7 +13,9 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
 {
     private int attempts;
     private byte[]? retained;
-    internal JsonElement ResponseJson { get; private set; }
+    private JsonDocument? responseDocument;
+    internal JsonElement ResponseJson => responseDocument?.RootElement ?? default;
+    internal XElement? ResponseXml {get;private set;}
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
     {
         var identity=read.Identity;
@@ -25,7 +27,7 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
         {
             var text=new UTF8Encoding(false,true).GetString(requestBytes);
             read.ValidateRequest(text);
-            if(identity) {if(request.Headers.Contains("X-Amz-Target"))throw new InvalidOperationException();}
+            if(identity||read.Query) {if(request.Headers.Contains("X-Amz-Target"))throw new InvalidOperationException();}
             else if(!request.Headers.TryGetValues("X-Amz-Target",out var targets)||targets.Single()!=read.TargetPrefix+read.Action)throw new InvalidOperationException();
             var replacement=new ByteArrayContent(requestBytes);foreach(var header in request.Content.Headers)replacement.Headers.TryAddWithoutValidation(header.Key,header.Value);
             request.Content.Dispose();request.Content=replacement;
@@ -36,20 +38,27 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
                 response=await base.SendAsync(request,deadline.Token);
                 if(response.StatusCode!=HttpStatusCode.OK || response.Content.Headers.ContentEncoding.Count!=0 || response.Headers.Contains("Trailer"))throw new InvalidOperationException();
                 var bytes=await Bounded(response.Content,read.MaximumBytes,deadline.Token);
+                JsonDocument? document=null;
                 try
                 {
-                    _=new UTF8Encoding(false,true).GetCharCount(bytes);
-                    if(identity)ValidateIdentityXml(bytes);
+                    if(read.Query)ResponseXml=ComputeQueryXml.Read(bytes,read.Action);
                     else {
-                        using var document=JsonDocument.Parse(bytes,new JsonDocumentOptions{MaxDepth=24});var root=document.RootElement;read.ValidateResponse(root);
-                        ResponseJson=root.Clone();
+                        _=new UTF8Encoding(false,true).GetCharCount(bytes);
+                        if(identity)ValidateIdentityXml(bytes);
+                        else {
+                            document=JsonDocument.Parse(bytes,new JsonDocumentOptions{MaxDepth=24});
+                            read.ValidateResponse(document.RootElement);
+                        }
                     }
                     if(response.TrailingHeaders.Any())throw new InvalidOperationException();
                     var content=new ByteArrayContent(bytes);foreach(var header in response.Content.Headers)content.Headers.TryAddWithoutValidation(header.Key,header.Value);
                     response.Content.Dispose();response.Content=content;retained=bytes;bytes=[];
+                    // The raw JSON view borrows the same response bytes until this
+                    // one-read transport is disposed; do not clone private envelopes.
+                    responseDocument=document;document=null;
                     deadline.Token.ThrowIfCancellationRequested();var result=response;response=null;return result;
                 }
-                finally{CryptographicOperations.ZeroMemory(bytes);}
+                finally{document?.Dispose();CryptographicOperations.ZeroMemory(bytes);}
             }
             finally{response?.Dispose();}
         }
@@ -57,13 +66,15 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
     }
     internal static async Task<byte[]> Bounded(HttpContent content,int limit,CancellationToken ct)
     {
-        if(content.Headers.ContentLength>limit)throw new InvalidOperationException();
-        var buffer=new byte[limit+1];
+        var length=content.Headers.ContentLength;
+        if(length is <1 || length>limit)throw new InvalidOperationException();
+        var capacity=(int)(length??limit);
+        var buffer=new byte[capacity+1];
         try
         {
             using var stream=await content.ReadAsStreamAsync(ct);var count=0;
             while(count<buffer.Length){var read=await stream.ReadAsync(buffer.AsMemory(count),ct);if(read==0)break;count+=read;}
-            if(count is <1||count>limit||content.Headers.ContentLength is long length&&length!=count)throw new InvalidOperationException();ct.ThrowIfCancellationRequested();return buffer.AsSpan(0,count).ToArray();
+            if(count is <1||count>capacity||length is long declared&&declared!=count)throw new InvalidOperationException();ct.ThrowIfCancellationRequested();return buffer.AsSpan(0,count).ToArray();
         }
         finally{CryptographicOperations.ZeroMemory(buffer);}
     }
@@ -81,5 +92,8 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
         if(root.Elements().Count()!=2 || result is null || metadata is null || result.Elements().Count()!=3 || new[]{"Arn","UserId","Account"}.Any(x=>result.Elements(ns+x).Count()!=1) || result.Elements().Any(x=>x.HasElements) || metadata.Elements().Count()!=1 || metadata.Element(ns+"RequestId") is not {HasElements:false})throw new InvalidOperationException();
     }
     protected override void Dispose(bool disposing)
-    {base.Dispose(disposing);if(disposing){ResponseJson=default;if(retained is not null)CryptographicOperations.ZeroMemory(retained);}}
+    {
+        try{base.Dispose(disposing);}
+        finally{if(disposing){responseDocument?.Dispose();responseDocument=null;ResponseXml=null;if(retained is not null)CryptographicOperations.ZeroMemory(retained);retained=null;}}
+    }
 }

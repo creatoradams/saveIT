@@ -8,41 +8,23 @@ internal static class DeploymentProgram
 {
 public static async Task<int> Main(string[] args)
 {
-if(args.FirstOrDefault()=="check-compute-configuration")
+// One argument/EOF/deadline/output boundary for all fixed acquisition commands.
+(Func<Stream,CancellationToken,Task>? Run,string Success,string Failure) acquisition=args.FirstOrDefault() switch {
+    "check-compute-tasks"=>(ComputeTaskAcquisition.ValidateAsync,ComputeTaskAcquisition.Success,ComputeTaskAcquisition.Failure),
+    "check-compute-parked-services"=>(ComputeCellAcquisition.ValidateAsync,ComputeCellAcquisition.Success,ComputeCellAcquisition.Failure),
+    "check-compute-images"=>(ComputeImageAcquisition.ValidateAsync,ComputeImageAcquisition.Success,ComputeImageAcquisition.Failure),
+    "check-compute-configuration"=>(ComputeConfigurationAcquisition.ValidateAsync,ComputeConfigurationAcquisition.Success,ComputeConfigurationAcquisition.Failure),
+    "check-compute-security-groups"=>(ComputeSecurityGroupAcquisition.ValidateAsync,ComputeSecurityGroupAcquisition.Success,ComputeSecurityGroupAcquisition.Failure),
+    _=>default
+};
+if(acquisition.Run is not null)
 {
     try {
-        if(args is not ["check-compute-configuration"] || !Console.IsInputRedirected)throw new InvalidOperationException();
-        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(120));using var input=Console.OpenStandardInput();
-        await ComputeConfigurationAcquisition.ValidateAsync(input,timeout.Token);Console.WriteLine(ComputeConfigurationAcquisition.Success);return 0;
+        if(args.Length!=1 || !Console.IsInputRedirected)throw new InvalidOperationException();
+        using var input=Console.OpenStandardInput();
+        await acquisition.Run(input,CancellationToken.None);Console.WriteLine(acquisition.Success);return 0;
     }
-    catch(Exception){Console.Error.WriteLine(ComputeConfigurationAcquisition.Failure);return 1;}
-}
-if(args.FirstOrDefault()=="check-compute-images")
-{
-    try {
-        if(args is not ["check-compute-images"] || !Console.IsInputRedirected)throw new InvalidOperationException();
-        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(100));using var input=Console.OpenStandardInput();
-        await ComputeImageAcquisition.ValidateAsync(input,timeout.Token);Console.WriteLine(ComputeImageAcquisition.Success);return 0;
-    }
-    catch(Exception){Console.Error.WriteLine(ComputeImageAcquisition.Failure);return 1;}
-}
-if(args.FirstOrDefault()=="check-compute-parked-services")
-{
-    try {
-        if(args is not ["check-compute-parked-services"] || !Console.IsInputRedirected)throw new InvalidOperationException();
-        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(40));using var input=Console.OpenStandardInput();
-        await ComputeCellAcquisition.ValidateAsync(input,timeout.Token);Console.WriteLine(ComputeCellAcquisition.Success);return 0;
-    }
-    catch(Exception){Console.Error.WriteLine(ComputeCellAcquisition.Failure);return 1;}
-}
-if(args.FirstOrDefault()=="check-compute-tasks")
-{
-    try {
-        if(args is not ["check-compute-tasks"] || !Console.IsInputRedirected)throw new InvalidOperationException();
-        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(40));using var input=Console.OpenStandardInput();
-        await ComputeTaskAcquisition.ValidateAsync(input,timeout.Token);Console.WriteLine(ComputeTaskAcquisition.Success);return 0;
-    }
-    catch(Exception){Console.Error.WriteLine(ComputeTaskAcquisition.Failure);return 1;}
+    catch(Exception){Console.Error.WriteLine(acquisition.Failure);return 1;}
 }
 if (args.FirstOrDefault() == "check-compute-release")
 {

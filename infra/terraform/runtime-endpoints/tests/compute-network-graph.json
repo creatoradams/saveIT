@@ -1,0 +1,73 @@
+{
+  "bindings": {
+    "databaseSubnetIds": [
+      "subnet-00000000000000003",
+      "subnet-00000000000000004"
+    ],
+    "routeTables": {
+      "application": "rtb-00000000000000001",
+      "database": "rtb-00000000000000002"
+    },
+    "securityGroups": {
+      "deployment": "sg-00000000000000004",
+      "database": "sg-00000000000000005",
+      "session-keys": "sg-00000000000000007",
+      "ecr-api": "sg-00000000000000008",
+      "ecr-dkr": "sg-00000000000000009",
+      "logs": "sg-0000000000000000a",
+      "configuration": "sg-0000000000000000b",
+      "web-token": "sg-0000000000000000c"
+    },
+    "endpoints": {
+      "ecr-api": "vpce-00000000000000001",
+      "ecr-dkr": "vpce-00000000000000002",
+      "logs": "vpce-00000000000000003",
+      "configuration": "vpce-00000000000000004",
+      "web-token": "vpce-00000000000000005",
+      "layers": "vpce-00000000000000006"
+    },
+    "endpointPolicySha256": {
+      "ecr-api": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "ecr-dkr": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "logs": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "configuration": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "web-token": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "layers": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "s3PrefixListId": "pl-00000001"
+  },
+  "defaultGroupId": "sg-0000000000000000d",
+  "edges": [
+    { "from": "api", "to": "database", "port": 5432 },
+    { "from": "worker", "to": "database", "port": 5432 },
+    { "from": "deployment", "to": "database", "port": 5432 },
+    { "from": "api", "to": "session-keys", "port": 2049 },
+    { "from": "web", "to": "relay", "port": 8443 },
+    { "from": "relay", "to": "api", "port": 8443 },
+    { "from": "web", "to": "web-token", "port": 443 },
+    { "from": "api", "to": "ecr-api", "port": 443 },
+    { "from": "api", "to": "ecr-dkr", "port": 443 },
+    { "from": "api", "to": "logs", "port": 443 },
+    { "from": "api", "to": "configuration", "port": 443 },
+    { "from": "worker", "to": "ecr-api", "port": 443 },
+    { "from": "worker", "to": "ecr-dkr", "port": 443 },
+    { "from": "worker", "to": "logs", "port": 443 },
+    { "from": "worker", "to": "configuration", "port": 443 },
+    { "from": "deployment", "to": "ecr-api", "port": 443 },
+    { "from": "deployment", "to": "ecr-dkr", "port": 443 },
+    { "from": "deployment", "to": "logs", "port": 443 },
+    { "from": "deployment", "to": "configuration", "port": 443 },
+    { "from": "relay", "to": "ecr-api", "port": 443 },
+    { "from": "relay", "to": "ecr-dkr", "port": 443 },
+    { "from": "relay", "to": "logs", "port": 443 },
+    { "from": "relay", "to": "configuration", "port": 443 },
+    { "from": "web", "to": "ecr-api", "port": 443 },
+    { "from": "web", "to": "ecr-dkr", "port": 443 },
+    { "from": "web", "to": "logs", "port": 443 },
+    { "from": "api", "to": "layers", "port": 443 },
+    { "from": "worker", "to": "layers", "port": 443 },
+    { "from": "deployment", "to": "layers", "port": 443 },
+    { "from": "relay", "to": "layers", "port": 443 },
+    { "from": "web", "to": "layers", "port": 443 }
+  ]
+}

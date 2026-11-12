@@ -912,3 +912,60 @@ run "identity_rebinds_actual_token_endpoint" {
     error_message = "Rebind only the actual staged pool/endpoint output while preserving the complete policy; mock plans are not IAM enforcement."
   }
 }
+run "compute_common_and_token_graph_contract" {
+  command = plan
+  variables {
+    relay                 = { roles = run.actual_bound_relay_output_for_endpoint_filters.roles, configuration = run.actual_bound_relay_output_for_endpoint_filters.configuration, operational_log = run.actual_bound_relay_output_for_endpoint_filters.operational_log, image_repository = run.actual_bound_relay_output_for_endpoint_filters.image_repository, binding_ready = run.actual_bound_relay_output_for_endpoint_filters.binding_ready }
+    relay_network_enabled = true
+    web_workload_pool     = run.actual_identity_reference_contract.web_workload_pool
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.relay[0]
+    values          = { id = "sg-00000000000000006" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.endpoint["ecr-api"]
+    values          = { id = "sg-00000000000000008" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.endpoint["ecr-dkr"]
+    values          = { id = "sg-00000000000000009" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.endpoint["logs"]
+    values          = { id = "sg-0000000000000000a" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.endpoint["configuration"]
+    values          = { id = "sg-0000000000000000b" }
+  }
+  override_resource {
+    override_during = plan
+    target          = aws_security_group.web_token[0]
+    values          = { id = "sg-0000000000000000c" }
+  }
+  override_data {
+    override_during = plan
+    target          = data.aws_cognito_identity_pool.web[0]
+    values          = { id = "us-east-1:10000000-0000-0000-0000-000000000001", arn = "arn:aws:cognito-identity:us-east-1:111122223333:identitypool/us-east-1:10000000-0000-0000-0000-000000000001", identity_pool_name = "saveit-pilot-staging-web-workload", developer_provider_name = "saveit.pilot.staging.web", allow_unauthenticated_identities = false, allow_classic_flow = false, cognito_identity_providers = [], openid_connect_provider_arns = [], saml_provider_arns = [], supported_login_providers = {}, tags = { Project = "SaveIT", Cell = "pilot", Environment = "staging", Process = "web" } }
+  }
+  assert {
+    condition = (toset([for key, path in local.interface_paths : "${path.client}:${path.endpoint}:${aws_vpc_security_group_egress_rule.interface[key].from_port}"]) ==
+      toset([for e in jsondecode(file("tests/compute-network-graph.json")).edges : "${e.from}:${e.to}:${e.port}" if contains(["ecr-api", "ecr-dkr", "logs", "configuration"], e.to)]) &&
+      length(aws_vpc_security_group_ingress_rule.interface) == 19 && length(aws_vpc_security_group_egress_rule.interface) == 19 &&
+      alltrue([for key, path in local.interface_paths : aws_vpc_security_group_ingress_rule.interface[key].security_group_id == aws_security_group.endpoint[path.endpoint].id && aws_vpc_security_group_ingress_rule.interface[key].referenced_security_group_id == local.endpoint_clients[path.client] && aws_vpc_security_group_ingress_rule.interface[key].ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.interface[key].from_port == 443 && aws_vpc_security_group_ingress_rule.interface[key].to_port == 443 && aws_vpc_security_group_ingress_rule.interface[key].cidr_ipv4 == null && aws_vpc_security_group_ingress_rule.interface[key].cidr_ipv6 == null &&
+      aws_vpc_security_group_egress_rule.interface[key].security_group_id == local.endpoint_clients[path.client] && aws_vpc_security_group_egress_rule.interface[key].referenced_security_group_id == aws_security_group.endpoint[path.endpoint].id && aws_vpc_security_group_egress_rule.interface[key].ip_protocol == "tcp" && aws_vpc_security_group_egress_rule.interface[key].to_port == 443 && aws_vpc_security_group_egress_rule.interface[key].cidr_ipv4 == null && aws_vpc_security_group_egress_rule.interface[key].cidr_ipv6 == null]) &&
+      toset([for name, r in aws_vpc_security_group_egress_rule.layers : "${name}:layers:${r.from_port}"]) == toset([for e in jsondecode(file("tests/compute-network-graph.json")).edges : "${e.from}:${e.to}:${e.port}" if e.to == "layers"]) &&
+      alltrue([for name, r in aws_vpc_security_group_egress_rule.layers : r.security_group_id == local.endpoint_clients[name] && r.prefix_list_id == data.aws_prefix_list.s3.id && r.ip_protocol == "tcp" && r.to_port == 443 && r.cidr_ipv4 == null && r.cidr_ipv6 == null]) &&
+      toset([for e in jsondecode(file("tests/compute-network-graph.json")).edges : "${e.from}:${e.to}:${e.port}" if e.to == "web-token"]) == toset(["web:web-token:${aws_vpc_security_group_egress_rule.web_token[0].from_port}"]) &&
+      aws_vpc_security_group_egress_rule.web_token[0].security_group_id == aws_security_group.web.id && aws_vpc_security_group_egress_rule.web_token[0].referenced_security_group_id == aws_security_group.web_token[0].id && aws_vpc_security_group_ingress_rule.web_token[0].security_group_id == aws_security_group.web_token[0].id && aws_vpc_security_group_ingress_rule.web_token[0].referenced_security_group_id == aws_security_group.web.id &&
+      aws_vpc_security_group_egress_rule.web_token[0].ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.web_token[0].ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.web_token[0].from_port == 443 && aws_vpc_security_group_ingress_rule.web_token[0].to_port == 443 && aws_vpc_security_group_egress_rule.web_token[0].to_port == 443 &&
+    aws_vpc_security_group_ingress_rule.web_token[0].cidr_ipv4 == null && aws_vpc_security_group_ingress_rule.web_token[0].cidr_ipv6 == null && aws_vpc_security_group_egress_rule.web_token[0].cidr_ipv4 == null && aws_vpc_security_group_egress_rule.web_token[0].cidr_ipv6 == null)
+    error_message = "The frozen graph must match every declared common/token/layer direction, including no web configuration path. Declared roles are compared independently of synthetic ID choices; no attachment or packet proof."
+  }
+}

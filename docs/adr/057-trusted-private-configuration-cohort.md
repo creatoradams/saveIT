@@ -1,6 +1,6 @@
 # ADR057: trusted private configuration cohort
 
-Status: implemented; local tests pass; native/full-CI verification pending. No AWS calls, provider writes or launch evidence.
+Status: implemented; local tests and all48 native acquisition/full-CI checks pass at050ef1b. Exact evidence is in progress. No AWS calls, provider writes or launch evidence.
 
 Extend the existing STS/task/parked-service/image sequence with exactly three Secrets Manager reads: API, worker and relay, each by independently approved full ARN and immutable version UUID. Reuse the existing pinned SDK, explicit temporary session and fixed native regional SDK/TLS transport. Web has no secret; migration/access/provisioning inputs are excluded. No stage selector, arbitrary endpoint/request, provider write or new dependency is exposed.
 
@@ -8,7 +8,7 @@ Validate the original response before SDK normalization. Exact ARN, friendly Nam
 
 Reuse the strict flat carrier, connection, PFX, current/retired protector and relay validators. Then check the cohort: matching configured database DNS host/port/database with exact runtime users; pinned database CA; canonical API/relay SAN names without CN/wildcard fallback; API server chain to the API roots bound by the approved relay payload; relay server chain to signed relay roots; relay client chain/pin to the signed API receiver policy. Chains use explicit purposes, CustomRootTrust, no downloads/AIA/revocation network. Only approved public CA bundles supply anchors; PFX extras never do. Unprovided intermediates fail closed.
 
-Reject public-key reuse across the three private transport roles and every current/retired session protector, including reissued certificates, and against all loaded API/relay/client/database trust-authority keys. Preserve expired retired decryption support and the four-entry bound. Matching settings do not prove live database identity/roles/TLS, network possession, Okta/MFA or managed PKI.
+Reject key reuse between the three private transport roles, between any protector and a transport role, and between any transport/protector key and a loaded API/relay/client/database trust-authority key. Canonical RSA SPKI hashes catch reissued certificates. Protector slots are not required to differ from one another; expired retired decryption support and the four-entry bound are preserved. Matching settings do not prove live database identity/roles/TLS, network possession, Okta/MFA or managed PKI.
 
 The signed release format is unchanged. Its approved immutable relay UUID binds the payload's API CA hash under the existing provider/custodian trust model; this is not another independently signed root approval. CLI public trust paths are fixed. Deployment additionally receives root-owned0444 public client and relay roots through separate public-only named image contexts; no private key/configuration belongs there. API/worker/web private authority is unchanged. Placeholders/drift fail hash checks.
 

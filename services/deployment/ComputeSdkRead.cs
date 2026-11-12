@@ -12,6 +12,7 @@ internal sealed class ComputeSdkRead
     internal string? OptionalRoot {get;}
     internal int MaximumBytes {get;}
     internal bool Identity=>Endpoint=="sts";
+    internal bool Query=>Endpoint=="ec2";
     private readonly string request;
     private ComputeSdkRead(string endpoint,string action,JsonObject body,string root,string? optional,int maximumBytes)
     {Endpoint=endpoint;Action=action;request=body.ToJsonString();Root=root;OptionalRoot=optional;MaximumBytes=maximumBytes;}
@@ -47,10 +48,24 @@ internal sealed class ComputeSdkRead
     private void RejectResponse(JsonElement root)
     {TaskMetadata.RejectDuplicates(root);if(root.ValueKind!=JsonValueKind.Object||!root.TryGetProperty(Root,out _))throw new InvalidOperationException();}
     internal static string Repository(ComputeScope s,string process)=>$"{s.Path}/{(process=="relay"?"deployment":process)}";
+    internal static ComputeSdkRead SecurityGroups(ComputeRelease release)
+    {
+        _=ComputeNetworkBindings.Require(release);
+        return new("ec2","DescribeSecurityGroups",new JsonObject{
+            ["Action"]="DescribeSecurityGroups",["Version"]="2016-11-15",["Filter.1.Name"]="vpc-id",["Filter.1.Value.1"]=release.Data.Network.VpcId,["MaxResults"]="1000"},"",null,524288);
+    }
     internal void ValidateRequest(string body)
     {
         if(Identity) {
             if(body is not("Action=GetCallerIdentity&Version=2011-06-15" or "Version=2011-06-15&Action=GetCallerIdentity"))throw new InvalidOperationException();
+        } else if(Query) {
+            var fields=new JsonObject();
+            foreach(var pair in body.Split('&')) {
+                var parts=pair.Split('=');if(parts.Length!=2||parts.Any(x=>System.Text.RegularExpressions.Regex.IsMatch(x,"%(?![0-9a-fA-F]{2})")))throw new InvalidOperationException();
+                var key=Uri.UnescapeDataString(parts[0].Replace('+',' '));var value=Uri.UnescapeDataString(parts[1].Replace('+',' '));
+                if(fields.ContainsKey(key))throw new InvalidOperationException();fields.Add(key,value);
+            }
+            if(!JsonNode.DeepEquals(fields,JsonNode.Parse(request)))throw new InvalidOperationException();
         } else {
             using var json=JsonDocument.Parse(body,new JsonDocumentOptions{MaxDepth=4});TaskMetadata.RejectDuplicates(json.RootElement);
             if(!JsonNode.DeepEquals(JsonNode.Parse(json.RootElement.GetRawText()),JsonNode.Parse(request)))throw new InvalidOperationException();

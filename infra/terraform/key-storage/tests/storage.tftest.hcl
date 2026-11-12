@@ -196,3 +196,15 @@ run "reject_foreign_api_group" {
   }
   expect_failures = [data.aws_security_group.api]
 }
+run "compute_key_graph_contract" {
+  command = plan
+  assert {
+    condition = (toset([for e in jsondecode(file("../runtime-endpoints/tests/compute-network-graph.json")).edges : "${e.from}:${e.to}:${e.port}" if e.to == "session-keys"]) == toset(["api:session-keys:${aws_vpc_security_group_egress_rule.api.from_port}"]) &&
+      aws_vpc_security_group_egress_rule.api.security_group_id == data.aws_security_group.api.id && aws_vpc_security_group_egress_rule.api.referenced_security_group_id == aws_security_group.ring.id &&
+      aws_vpc_security_group_ingress_rule.ring.security_group_id == aws_security_group.ring.id && aws_vpc_security_group_ingress_rule.ring.referenced_security_group_id == data.aws_security_group.api.id &&
+      aws_vpc_security_group_egress_rule.api.ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.ring.ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.ring.from_port == 2049 &&
+      aws_vpc_security_group_egress_rule.api.to_port == 2049 && aws_vpc_security_group_ingress_rule.ring.to_port == 2049 &&
+    aws_vpc_security_group_egress_rule.api.cidr_ipv4 == null && aws_vpc_security_group_egress_rule.api.cidr_ipv6 == null && aws_vpc_security_group_ingress_rule.ring.cidr_ipv4 == null && aws_vpc_security_group_ingress_rule.ring.cidr_ipv6 == null)
+    error_message = "The consumer graph pins only the reciprocal API/NFS direction; no worker/web or CIDR path is declared. Mocks do not verify mounts or exclusivity."
+  }
+}

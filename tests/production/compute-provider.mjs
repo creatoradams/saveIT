@@ -10,6 +10,7 @@ const fixtures = JSON.parse(readFileSync(root + "observations.json", "utf8"));
 const parked = JSON.parse(readFileSync(root + "parked.json", "utf8"));
 const imageFixture = JSON.parse(readFileSync(root + "images.json", "utf8"));
 const configurations = JSON.parse(readFileSync(root + "private.json", "utf8"));
+const groupXml = readFileSync(root + "groups.xml", "utf8");
 const registryHost = "111122223333.dkr.ecr.us-east-1.amazonaws.com";
 const registryToken = Buffer.from(
   "AWS:synthetic-private-registry-password",
@@ -26,6 +27,7 @@ const counts = {
   authorization: 0,
   registry: 0,
   configuration: 0,
+  groups: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -48,6 +50,8 @@ options.SNICallback = (name, callback) =>
     null,
     mode === "wrong-name" ||
       (mode === "images-registry-wrong-name" && name === registryHost) ||
+      (mode === "groups-wrong-name" &&
+        name === "ec2.us-east-1.amazonaws.com") ||
       (mode === "configuration-wrong-name" &&
         name === "secretsmanager.us-east-1.amazonaws.com")
       ? wrongContext
@@ -80,9 +84,11 @@ const service = httpsServer(options, (request, response) => {
       const selected =
         imageFixture.variants[mode] ??
         imageFixture.variants[
-          mode.startsWith("configuration-")
-            ? "configuration-valid"
-            : "images-valid"
+          mode.startsWith("groups-")
+            ? "groups-valid"
+            : mode.startsWith("configuration-")
+              ? "configuration-valid"
+              : "images-valid"
         ];
       if (request.headers.host === registryHost) {
         if (
@@ -119,7 +125,7 @@ const service = httpsServer(options, (request, response) => {
         return;
       }
       const kind = request.headers.host?.split(".")[0];
-      if (!["sts", "ecs", "api", "secretsmanager"].includes(kind))
+      if (!["sts", "ecs", "ec2", "api", "secretsmanager"].includes(kind))
         throw new Error();
       verifySyntheticSigV4(request, body, {
         access,
@@ -134,7 +140,9 @@ const service = httpsServer(options, (request, response) => {
       const action =
         kind === "sts"
           ? "identity"
-          : request.headers["x-amz-target"]?.split(".")[1];
+          : kind === "ec2"
+            ? new URLSearchParams(body).get("Action")
+            : request.headers["x-amz-target"]?.split(".")[1];
       if (
         ![
           "identity",
@@ -144,6 +152,7 @@ const service = httpsServer(options, (request, response) => {
           "BatchGetImage",
           "GetAuthorizationToken",
           "GetSecretValue",
+          "DescribeSecurityGroups",
         ].includes(action)
       )
         throw new Error();
@@ -152,6 +161,7 @@ const service = httpsServer(options, (request, response) => {
       if (
         !{
           sts: ["identity"],
+          ec2: ["DescribeSecurityGroups"],
           ecs: [
             "DescribeTaskDefinition",
             "DescribeClusters",
@@ -180,10 +190,65 @@ const service = httpsServer(options, (request, response) => {
                 ? "services"
                 : action === "BatchGetImage"
                   ? "ecr"
-                  : action === "GetSecretValue"
-                    ? "configuration"
-                    : "authorization"
+                  : action === "DescribeSecurityGroups"
+                    ? "groups"
+                    : action === "GetSecretValue"
+                      ? "configuration"
+                      : "authorization"
       ]++;
+      if (kind === "ec2") {
+        const query = new URLSearchParams(body);
+        const expected = {
+          Action: "DescribeSecurityGroups",
+          Version: "2016-11-15",
+          "Filter.1.Name": "vpc-id",
+          "Filter.1.Value.1": "vpc-00000000000000001",
+          MaxResults: "1000",
+        };
+        if (
+          request.headers["x-amz-target"] ||
+          [...query].length !== 5 ||
+          Object.entries(expected).some(
+            ([key, value]) => query.get(key) !== value,
+          )
+        )
+          throw new Error();
+        if (mode === "groups-redirect") {
+          response.writeHead(302, {
+            Location: "https://foreign-control.invalid/forbidden",
+          });
+          response.end();
+          return;
+        }
+        if (mode === "groups-stall") {
+          stall(response, true);
+          return;
+        }
+        let xml = groupXml;
+        if (mode === "groups-unknown")
+          xml = xml.replace(
+            "</DescribeSecurityGroupsResponse>",
+            "<extraAuthority>private-marker</extraAuthority></DescribeSecurityGroupsResponse>",
+          );
+        if (mode === "groups-duplicate")
+          xml = xml.replace(
+            "</requestId>",
+            "</requestId><requestId>duplicate</requestId>",
+          );
+        if (mode === "groups-next-page")
+          xml = xml.replace(
+            "</DescribeSecurityGroupsResponse>",
+            "<nextToken>private-next-page</nextToken></DescribeSecurityGroupsResponse>",
+          );
+        if (mode === "groups-foreign-owner")
+          xml = xml.replace(
+            "<ownerId>111122223333</ownerId>",
+            "<ownerId>444455556666</ownerId>",
+          );
+        response.setHeader("Content-Type", "text/xml");
+        response.end(xml);
+        return;
+      }
       if (kind === "secretsmanager") {
         if (request.headers["x-amz-target"] !== "secretsmanager.GetSecretValue")
           throw new Error();
@@ -382,7 +447,9 @@ const service = httpsServer(options, (request, response) => {
       )
         throw new Error();
       const match = Object.values(
-        mode.startsWith("images-") || mode.startsWith("configuration-")
+        mode.startsWith("images-") ||
+          mode.startsWith("configuration-") ||
+          mode.startsWith("groups-")
           ? selected.tasks
           : fixtures,
       ).find(
@@ -453,6 +520,14 @@ httpServer((request, response) => {
           "configuration-redirect",
           "configuration-wrong-name",
           "configuration-stall",
+          "groups-valid",
+          "groups-unknown",
+          "groups-duplicate",
+          "groups-next-page",
+          "groups-foreign-owner",
+          "groups-redirect",
+          "groups-wrong-name",
+          "groups-stall",
         ].includes(body)
       ) {
         response.writeHead(400);

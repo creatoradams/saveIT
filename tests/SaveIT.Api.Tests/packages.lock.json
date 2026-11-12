@@ -45,6 +45,14 @@
         "resolved": "4.0.102.20",
         "contentHash": "SFmeUUVuXRpaUjaZ4jm7LsKK0dit5qm5K682MUCAR0OPhnqqvoeEfj271KnB5YQVMJ6nSpuUnOQrweihkG83/g=="
       },
+      "AWSSDK.EC2": {
+        "type": "Transitive",
+        "resolved": "4.0.132.2",
+        "contentHash": "xJem2nO+y9ivWZVlgzzl7iG0ZCdON8eC5AwEj2ou5U/QuuKDndCJRJ/oTEHNqSWztoFXQmgwV7nMIsCgEKpZOg==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
+        }
+      },
       "AWSSDK.ECR": {
         "type": "Transitive",
         "resolved": "4.0.102.3",
@@ -603,6 +611,7 @@
         "type": "Project",
         "dependencies": {
           "AWSSDK.Core": "[4.0.102.20, )",
+          "AWSSDK.EC2": "[4.0.132.2, )",
           "AWSSDK.ECR": "[4.0.102.3, )",
           "AWSSDK.ECS": "[4.0.111, )",
           "AWSSDK.SecretsManager": "[4.0.100.25, )",

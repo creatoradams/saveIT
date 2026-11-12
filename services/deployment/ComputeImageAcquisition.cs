@@ -58,7 +58,7 @@ internal sealed class AcquiredComputeImages
         using var response=await http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,deadline.Token);
         if(response.StatusCode!=HttpStatusCode.OK||response.Content.Headers.ContentEncoding.Count!=0||response.Headers.Contains("Trailer"))throw new InvalidOperationException();
         if(response.Headers.TryGetValues("Docker-Content-Digest",out var hashes)&&hashes.Single()!=manifest.ConfigurationDigest)throw new InvalidOperationException();
-        var bytes=await ComputeAwsTransport.Bounded(response.Content,65536,deadline.Token);
+        var bytes=await ComputeAwsTransport.Bounded(response.Content,manifest.ConfigurationSize,deadline.Token);
         try {
             if(response.TrailingHeaders.Any())throw new InvalidOperationException();
             ComputeImageContract.Validate(release,process,manifest,bytes);deadline.Token.ThrowIfCancellationRequested();

@@ -59,7 +59,7 @@ public sealed class ComputeConfigurationTests(ComputeReleaseFixture signing,Comp
         return result;
     }
     private static string Pin(X509Certificate2 certificate)=>certificate.GetCertHashString(HashAlgorithmName.SHA256).ToLowerInvariant();
-    private void Approve(JsonNode data,int retired=0)
+    internal void Approve(JsonNode data,int retired=0)
     {
         var r=data["runtime"]!;foreach(var field in new[]{"databaseCaSha256","relayCaSha256","clientCaSha256"})r[field]=fixture.Pki.Hash;
         r["clientLeafSha256"]=new JsonArray(Pin(fixture.Pki.Clients["valid"]));r["retiredKeyCount"]=retired;
@@ -164,7 +164,7 @@ public sealed class ComputeConfigurationTests(ComputeReleaseFixture signing,Comp
     private static Task<ComputeAwsSession> Session(DateTimeOffset? expires=null)=>ComputeAwsSession.ReadAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new{
         accessKeyId="ASIA0000000000000000",secretAccessKey=new string('a',40),sessionToken="synthetic-temporary-session-token",expiration=(expires??DateTimeOffset.UtcNow.AddMinutes(30)).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")})),CancellationToken.None);
     private static HttpResponseMessage Response(string body)=>new(HttpStatusCode.OK){Content=new StringContent(body,Encoding.UTF8,"application/x-amz-json-1.1")};
-    private Func<string,HttpMessageHandler> Provider(ComputeImageTests.Bundle bundle,List<string> calls,Func<string,JsonObject,HttpResponseMessage?>? change=null,Func<string,CancellationToken,Task>? wait=null)
+    internal Func<string,HttpMessageHandler> Provider(ComputeImageTests.Bundle bundle,List<string> calls,Func<string,JsonObject,HttpResponseMessage?>? change=null,Func<string,CancellationToken,Task>? wait=null)
     {
         var images=ComputeImageTests.Provider(bundle,calls,observations:tasks=>{
             foreach(var p in new[]{"api","worker","web"})foreach(var env in tasks[p]!["taskDefinition"]!["containerDefinitions"]![0]!["environment"]!.AsArray()) {

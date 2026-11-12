@@ -260,3 +260,15 @@ run "reject_implicit_development_cell" {
   variables { environment = "development" }
   expect_failures = [var.environment]
 }
+run "compute_database_graph_contract" {
+  command = plan
+  assert {
+    condition = (toset([for name, r in aws_vpc_security_group_egress_rule.database : "${name}:database:${r.from_port}"]) ==
+      toset([for e in jsondecode(file("../runtime-endpoints/tests/compute-network-graph.json")).edges : "${e.from}:${e.to}:${e.port}" if e.to == "database"]) &&
+      length(aws_vpc_security_group_ingress_rule.database) == 3 && alltrue([for name, r in aws_vpc_security_group_ingress_rule.database :
+      r.security_group_id == aws_security_group.database.id && r.referenced_security_group_id == aws_security_group.client[name].id && r.ip_protocol == "tcp" && r.from_port == 5432 && r.to_port == 5432 && r.cidr_ipv4 == null && r.cidr_ipv6 == null]) &&
+      alltrue([for name, r in aws_vpc_security_group_egress_rule.database : r.security_group_id == aws_security_group.client[name].id && r.referenced_security_group_id == aws_security_group.database.id && r.ip_protocol == "tcp" && r.to_port == 5432 && r.cidr_ipv4 == null && r.cidr_ipv6 == null]) &&
+    length(aws_default_security_group.cell.ingress) == 0 && length(aws_default_security_group.cell.egress) == 0)
+    error_message = "The frozen consumer graph requires exactly reciprocal API/worker/deployment PostgreSQL paths and an empty default group. Mocks are declared contracts, not rule/attachment proof."
+  }
+}
