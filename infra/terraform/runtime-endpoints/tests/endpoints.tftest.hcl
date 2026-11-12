@@ -1169,8 +1169,8 @@ run "null_after_bound_retains_legacy_filters" {
 run "network_bootstrap_creates_no_relay_group" {
   command = plan
   assert {
-    condition     = length(aws_security_group.relay) == 0 && output.relay_network == null && length(local.endpoint_clients) == 4 && length(aws_vpc_security_group_ingress_rule.interface) == 15
-    error_message = "Initial mode preserves the legacy resource graph and has no relay network binding."
+    condition     = length(aws_security_group.relay) == 0 && output.relay_network == null && output.compute_endpoint_policy_sha256 == null && length(local.endpoint_clients) == 4 && length(aws_vpc_security_group_ingress_rule.interface) == 15
+    error_message = "Initial mode preserves the legacy resource graph without a relay network binding or a complete compute policy digest set."
   }
 }
 run "network_cannot_skip_relay_admission" {

@@ -16,6 +16,9 @@ const routeObservations = Object.fromEntries(
     ([name, lines]) => [name, lines.join("\n")],
   ),
 );
+const endpointObservations = JSON.parse(
+  readFileSync(root + "endpoints.json", "utf8"),
+);
 const registryHost = "111122223333.dkr.ecr.us-east-1.amazonaws.com";
 const registryToken = Buffer.from(
   "AWS:synthetic-private-registry-password",
@@ -34,6 +37,8 @@ const counts = {
   configuration: 0,
   groups: 0,
   routes: 0,
+  endpoints: 0,
+  prefix: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -90,7 +95,7 @@ const service = httpsServer(options, (request, response) => {
       const selected =
         imageFixture.variants[mode] ??
         imageFixture.variants[
-          mode.startsWith("groups-") || mode.startsWith("routes-")
+          ["groups", "routes", "endpoints"].includes(mode.split("-")[0])
             ? "groups-valid"
             : mode.startsWith("configuration-")
               ? "configuration-valid"
@@ -158,6 +163,8 @@ const service = httpsServer(options, (request, response) => {
             "DescribeVpcAttribute",
             "DescribeSubnets",
             "DescribeRouteTables",
+            "DescribeVpcEndpoints",
+            "DescribeManagedPrefixLists",
           ],
           ecs: [
             "DescribeTaskDefinition",
@@ -189,6 +196,8 @@ const service = httpsServer(options, (request, response) => {
         DescribeVpcAttribute: "routes",
         DescribeSubnets: "routes",
         DescribeRouteTables: "routes",
+        DescribeVpcEndpoints: "endpoints",
+        DescribeManagedPrefixLists: "prefix",
       }[action];
       counts[counter]++;
       if (kind === "ec2") {
@@ -196,7 +205,9 @@ const service = httpsServer(options, (request, response) => {
         const vpc = "vpc-00000000000000001";
         const expected = { Action: action, Version: "2016-11-15" };
         const attribute = query.get("Attribute");
-        if (action === "DescribeVpcs") expected["VpcId.1"] = vpc;
+        if (action === "DescribeManagedPrefixLists")
+          expected["PrefixListId.1"] = "pl-00000001";
+        else if (action === "DescribeVpcs") expected["VpcId.1"] = vpc;
         else if (action === "DescribeVpcAttribute") {
           if (!["enableDnsSupport", "enableDnsHostnames"].includes(attribute))
             throw new Error();
@@ -205,7 +216,12 @@ const service = httpsServer(options, (request, response) => {
           Object.assign(expected, {
             "Filter.1.Name": "vpc-id",
             "Filter.1.Value.1": vpc,
-            MaxResults: action === "DescribeRouteTables" ? "100" : "1000",
+            MaxResults: [
+              "DescribeRouteTables",
+              "DescribeVpcEndpoints",
+            ].includes(action)
+              ? "100"
+              : "1000",
           });
         if (
           request.headers["x-amz-target"] ||
@@ -215,8 +231,37 @@ const service = httpsServer(options, (request, response) => {
           )
         )
           throw new Error();
+        if (counter === "endpoints" || counter === "prefix") {
+          if (!mode.startsWith("endpoints-")) throw new Error();
+          if (mode === "endpoints-stall" && counter === "prefix") {
+            stall(response, true);
+            return;
+          }
+          let xml = endpointObservations[counter].join("\n");
+          if (mode === "endpoints-policy" && counter === "endpoints")
+            xml = xml.replace("RejectInsecureTransport", "DifferentPolicy");
+          if (mode === "endpoints-group" && counter === "endpoints")
+            xml = xml.replace(
+              "<groupId>sg-00000000000000008</groupId>",
+              "<groupId>sg-00000000000000009</groupId>",
+            );
+          if (mode === "endpoints-next-page" && counter === "endpoints")
+            xml = xml.replace(
+              "</DescribeVpcEndpointsResponse>",
+              "<nextToken>synthetic-next</nextToken></DescribeVpcEndpointsResponse>",
+            );
+          if (mode === "endpoints-prefix-owner" && counter === "prefix")
+            xml = xml.replace(
+              "<ownerId>AWS</ownerId>",
+              "<ownerId>111122223333</ownerId>",
+            );
+          response.setHeader("Content-Type", "text/xml");
+          response.end(xml);
+          return;
+        }
         if (action !== "DescribeSecurityGroups") {
-          if (!mode.startsWith("routes-")) throw new Error();
+          if (!mode.startsWith("routes-") && !mode.startsWith("endpoints-"))
+            throw new Error();
           const stage = {
             DescribeVpcs: "vpc",
             DescribeVpcAttribute: attribute,
@@ -585,6 +630,12 @@ httpServer((request, response) => {
           "routes-next-page",
           "routes-association",
           "routes-stall",
+          "endpoints-valid",
+          "endpoints-policy",
+          "endpoints-group",
+          "endpoints-next-page",
+          "endpoints-prefix-owner",
+          "endpoints-stall",
         ].includes(body)
       ) {
         response.writeHead(400);

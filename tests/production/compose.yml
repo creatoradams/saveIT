@@ -133,6 +133,7 @@ services:
       - ../../.local/container-fixture/compute-private.json:/run/compute/private.json:ro
       - ../../.local/container-fixture/compute-groups.xml:/run/compute/groups.xml:ro
       - ../../infra/terraform/cell-foundation/tests/compute-route-observations.json:/run/compute/routes.json:ro
+      - ../../infra/terraform/runtime-endpoints/tests/compute-endpoint-observations.json:/run/compute/endpoints.json:ro
       - ../../.local/container-fixture/ca.crt:/run/compute/ca.crt:ro
       - ../../.local/container-fixture/compute.key:/run/compute/compute.key:ro
       - ../../.local/container-fixture/compute.crt:/run/compute/compute.crt:ro

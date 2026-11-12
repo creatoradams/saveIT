@@ -15,7 +15,7 @@ SaveIT is a working, persistent local documentation/inventory preview. It is not
 
 The ten roots include separate state, application and service lifecycle boundaries, not ten deployed services. The current runtime uses PostgreSQL; Redis, OpenSearch, OpenFGA, Temporal, vault/AI and connectors are not active subsystems.
 
-## Latest verified build
+## Prior verified build
 
 Implementation source **050ef1b11bb2a663ba622460189795030b920d09** passed all three workflows:
 
@@ -27,13 +27,19 @@ All four source-bound final image reports retain **zero critical/high/unknown; t
 
 The independent security agent closed the [workload review](reviews/2026-11-09-web-workload-review.md) and [coordination review](reviews/2026-11-09-compute-coordination-review.md), including the subsequent clock/recovery fixture remedies, without executing tests. The requested independent efficiency review remains outstanding after its agent's account usage limit. These reviews are not penetration tests. Earlier exact workload evidence remains at the [previous checkpoint](https://github.com/creatoradams/saveIT/blob/b813a78/docs/progress.md); historical evidence is not rewritten. Direct regional Logs customer CallerAccount compatibility remains a pre-apply gate.
 
-## Current engineering: bound private route acquisition
+## Current engineering: bound private endpoint acquisition
 
-The current servicing update pins SDK10.0.404, ASP.NET/Core10.0.15 and matching tool, package and image digests. Locked restore, Release build, 694 focused regressions, 82 real PostgreSQL compute/deployment/identity tests, TypeScript, web build, ignore check and NuGet audit pass locally. The packaged workflow now verifies the runtime versions inside each .NET image before running its fixtures. The patched image scan and native route run remain pending.
+[ADR060](adr/060-bound-private-endpoint-acquisition.md) adds an exact six-endpoint inventory and the regional AWS-owned S3 prefix check after route verification. It compares canonical policy readback hashes against signed bindings. The optional Terraform digest output is derived from the existing policies, with all 84 runtime-endpoint mock tests passing. Live AWS response compatibility, IAM evaluation, Resolver and independent attachment checks remain open.
+
+The 324 focused .NET regressions, TypeScript, optimized web build, ignore check, Compose validation and two signer tests pass locally. Seven new native cases cover the valid inventory, policy/group drift, pagination, prefix ownership and a stalled prefix response. Their packaged execution is tracked in CI.
+
+## Prior delivery: bound private route acquisition
+
+Source **29b0cf4** pins SDK10.0.404 and ASP.NET/Core10.0.15. [General checks](https://github.com/creatoradams/saveIT/actions/runs/43249803057) passed 1,336 backend tests with zero skipped, 62 Chromium tests and all Terraform mocks. [Source security](https://github.com/creatoradams/saveIT/actions/runs/43249803037) passed. The [packaged run](https://github.com/creatoradams/saveIT/actions/runs/43249803401) verified the runtime inside all three .NET images and passed 69 native acquisition checks, 12 signed-release checks and four browser cases. All four images had zero critical/high/unknown, with three medium, one low and one negligible finding per image. The database was built at 2026-11-12T06:20:58Z. The downloaded inventory archive, source, image and report bindings verified.
 
 [ADR059](adr/059-bound-private-route-acquisition.md) adds five fixed EC2 reads for the exact VPC, its DNS flags, all signed private subnets and the complete route inventory. It checks four explicit associations, the local-only main table, original local routes and the signed application-only S3 route. No SDK/dependency, Terraform resource, schema/API change, provider write or tenant authority is added.
 
-Local411 affected tests and101 producer mock plans across foundation/endpoints pass. Both agents reviewed the route source/fixture; the efficiency fixes bound child allocations, preserve the original fixture bytes and make the final-response expiry case deterministic. Native69-case execution/full CI are pending. Endpoint policies, S3 prefix ownership, DNS/Resolver and attachments are next; ownership transfer, durable provider effects, launch/drain/fencing and restricted ingress/Okta egress remain open.
+Local411 affected tests and101 producer mock plans across foundation/endpoints pass. Both prior reviewers checked the route source and fixture. The efficiency fixes bound child allocations, preserve original fixture bytes and make final-response expiry deterministic. Ownership transfer, durable provider effects, launch/drain/fencing and restricted ingress/Okta egress remain open.
 
 ## Prior delivery: bound security-group acquisition
 

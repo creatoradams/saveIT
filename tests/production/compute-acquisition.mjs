@@ -23,6 +23,12 @@ const compose = [
   "tests/production/compose.yml",
 ];
 const fixture = resolve(".local/container-fixture");
+const endpointFixture = JSON.parse(
+  await readFile(
+    "infra/terraform/runtime-endpoints/tests/compute-endpoint-observations.json",
+    "utf8",
+  ),
+);
 const contract = JSON.parse(
   await readFile(
     "infra/terraform/ecs-tasks/tests/compute-release-contract.json",
@@ -133,6 +139,20 @@ async function docker(args, timeout = 15000) {
 let imageFixture;
 function token(mode) {
   const now = Math.floor(Date.now() / 1000);
+  const family = mode?.split("-")[0];
+  const networkBound = ["groups", "routes", "endpoints"].includes(family);
+  let approved = contract;
+  if (networkBound || family === "configuration" || family === "images") {
+    const fallback = networkBound ? "groups-valid" : family + "-valid";
+    approved = (imageFixture.variants[mode] ?? imageFixture.variants[fallback])
+      .contract;
+  }
+  if (family === "endpoints") {
+    approved = structuredClone(approved);
+    approved.network.bindings.endpointPolicySha256 = Object.fromEntries(
+      endpointFixture.endpointPolicySha256,
+    );
+  }
   const body =
     Buffer.from(
       JSON.stringify({
@@ -149,22 +169,7 @@ function token(mode) {
         iat: now - 1,
         exp: now + 299,
         jti: randomUUID(),
-        contract:
-          mode?.startsWith("images-") ||
-          mode?.startsWith("configuration-") ||
-          mode?.startsWith("groups-") ||
-          mode?.startsWith("routes-")
-            ? (
-                imageFixture.variants[mode] ??
-                imageFixture.variants[
-                  mode.startsWith("groups-") || mode.startsWith("routes-")
-                    ? "groups-valid"
-                    : mode.startsWith("configuration-")
-                      ? "configuration-valid"
-                      : "images-valid"
-                ]
-              ).contract
-            : contract,
+        contract: approved,
       }),
     ).toString("base64url");
   return (
@@ -232,6 +237,12 @@ const acquisitionKinds = {
       "SaveIT acquired private route topology passed (no endpoint policy, attachment, launch or fencing verification).",
     failure: "SaveIT compute route acquisition failed.",
   },
+  endpoints: {
+    command: "check-compute-endpoints",
+    success:
+      "SaveIT acquired private endpoints and S3 prefix passed (no effective policy, attachment, launch or fencing verification).",
+    failure: "SaveIT compute endpoint acquisition failed.",
+  },
 };
 let stage = "private session fixture setup",
   checks = 0;
@@ -279,7 +290,8 @@ async function check(
     mode === "images-registry-stall" ||
     mode === "configuration-stall" ||
     mode === "groups-stall" ||
-    mode === "routes-stall"
+    mode === "routes-stall" ||
+    mode === "endpoints-stall"
   ) {
     // The provider times the stalled response itself. The bounded child
     // watchdog already covers Docker startup and preceding successful reads.
@@ -311,6 +323,8 @@ async function check(
   assert.equal(after.foreign, before.foreign);
   assert.equal(after.groups - before.groups, expectedCounts[8] ?? 0);
   assert.equal(after.routes - before.routes, expectedCounts[9] ?? 0);
+  assert.equal(after.endpoints - before.endpoints, expectedCounts[10] ?? 0);
+  assert.equal(after.prefix - before.prefix, expectedCounts[11] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -710,6 +724,25 @@ try {
     true,
     "routes",
   );
+  for (const [mode, passed, prefixReads] of [
+    ["endpoints-valid", true, 1],
+    ["endpoints-policy", false, 0],
+    ["endpoints-group", false, 0],
+    ["endpoints-next-page", false, 0],
+    ["endpoints-prefix-owner", false, 1],
+    ["endpoints-stall", false, 1],
+    ["endpoints-valid", true, 1],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 4, 1, 4, 3, 1, 5, 1, prefixReads],
+      "valid",
+      [],
+      false,
+      "endpoints",
+    );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity and original compute/network metadata; no AWS or provider writes.`,
   );

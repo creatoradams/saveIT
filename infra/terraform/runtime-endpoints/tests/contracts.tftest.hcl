@@ -987,4 +987,8 @@ run "compute_common_and_token_graph_contract" {
     strcontains(row, "<gatewayId>${aws_vpc_endpoint.layers.id}</gatewayId>")]))
     error_message = "The frozen route observation matches the declared application-only regional S3 gateway and prefix. AWS's automatic route installation is not tested by this mock."
   }
+  assert {
+    condition     = jsonencode(output.compute_endpoint_policy_sha256) == jsonencode({ for pair in jsondecode(file("tests/compute-endpoint-observations.json")).endpointPolicySha256 : pair[0] => pair[1] })
+    error_message = "The exact declared policy digests must match the independently frozen readback contract for all six endpoint roles."
+  }
 }

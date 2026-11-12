@@ -17,6 +17,14 @@ output "relay_admission" {
   }
 }
 
+output "compute_endpoint_policy_sha256" {
+  description = "Declared policy digests for independent review before signing a complete compute release. These are not remote readback or effective policy evidence."
+  value = var.relay_network_enabled && var.web_workload_pool != null ? merge(
+    { for name, endpoint in local.interfaces : name => sha256(endpoint.policy) },
+    { "web-token" = sha256(local.web_token_policy), layers = sha256(local.s3_policy) }
+  ) : null
+}
+
 output "relay_network" {
   description = "Optional separate relay group with declared endpoint/layer paths. No API/web transport, SG attachment/rule enforcement, task or launch readiness."
   value = var.relay_network_enabled ? {

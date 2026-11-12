@@ -91,9 +91,9 @@ public sealed class ComputeSecurityGroupTests(ComputeReleaseFixture signing,Comp
     private sealed class Handler(Func<HttpRequestMessage,CancellationToken,Task<HttpResponseMessage>> run):HttpMessageHandler
     {protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)=>run(request,ct);}
     internal static Task<ComputeAwsSession> Session()=>ComputeAwsSession.ReadAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new{accessKeyId="ASIA0000000000000000",secretAccessKey=new string('a',40),sessionToken="synthetic-temporary-session-token",expiration=DateTimeOffset.UtcNow.AddMinutes(30).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")})),CancellationToken.None);
-    internal async Task<(ComputeImageTests.Bundle Bundle,Func<string,HttpMessageHandler> Provider,List<string> Calls)> Acquisition(Func<XElement,string>? change=null,Func<CancellationToken,Task>? wait=null,long? expires=null,Action<HttpResponseMessage>? response=null)
+    internal async Task<(ComputeImageTests.Bundle Bundle,Func<string,HttpMessageHandler> Provider,List<string> Calls)> Acquisition(Func<XElement,string>? change=null,Func<CancellationToken,Task>? wait=null,long? expires=null,Action<HttpResponseMessage>? response=null,Action<JsonNode>? bind=null)
     {
-        var configuration=new ComputeConfigurationTests(signing,configurationFixture);var bundle=await new ComputeImageTests(signing).Images(expires:expires,approve:d=>{configuration.Approve(d);Bind(d);});var calls=new List<string>();
+        var configuration=new ComputeConfigurationTests(signing,configurationFixture);var bundle=await new ComputeImageTests(signing).Images(expires:expires,approve:d=>{configuration.Approve(d);(bind??Bind)(d);});var calls=new List<string>();
         var prior=configuration.Provider(bundle,calls);
         return (bundle,service=>service!="ec2"?prior(service):new Handler(async(request,ct)=>{
             calls.Add("groups");Assert.Equal("https://ec2.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);Assert.Contains("/us-east-1/ec2/aws4_request",request.Headers.GetValues("Authorization").Single());

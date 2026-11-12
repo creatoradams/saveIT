@@ -16,6 +16,7 @@ public static async Task<int> Main(string[] args)
     "check-compute-configuration"=>(ComputeConfigurationAcquisition.ValidateAsync,ComputeConfigurationAcquisition.Success,ComputeConfigurationAcquisition.Failure),
     "check-compute-security-groups"=>(ComputeSecurityGroupAcquisition.ValidateAsync,ComputeSecurityGroupAcquisition.Success,ComputeSecurityGroupAcquisition.Failure),
     "check-compute-routes"=>(ComputeRouteAcquisition.ValidateAsync,ComputeRouteAcquisition.Success,ComputeRouteAcquisition.Failure),
+    "check-compute-endpoints"=>(ComputeEndpointAcquisition.ValidateAsync,ComputeEndpointAcquisition.Success,ComputeEndpointAcquisition.Failure),
     _=>default
 };
 if(acquisition.Run is not null)

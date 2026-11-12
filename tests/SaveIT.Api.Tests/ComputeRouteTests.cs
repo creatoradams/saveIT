@@ -106,9 +106,11 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
     [Theory]
     [InlineData(null,5)][InlineData("vpc",1)][InlineData("enableDnsSupport",2)][InlineData("enableDnsHostnames",3)][InlineData("subnets",4)][InlineData("routes",5)]
     [InlineData("expired",5)]
-    public async Task Real_SDK_query_sequence_stops_at_first_invalid_original_response(string? invalid,int reads)
+    [InlineData(null,7,true)][InlineData("endpoints",6,true)][InlineData("prefix",7,true)]
+    public async Task Real_SDK_query_sequence_stops_at_first_invalid_original_response(string? invalid,int reads,bool endpoints=false)
     {
-        var prior=await new ComputeSecurityGroupTests(signing,configuration).Acquisition();var count=0;var returned=false;var clock=new FinalReadClock();
+        var prior=await new ComputeSecurityGroupTests(signing,configuration).Acquisition(bind:endpoints?ComputeEndpointTests.Bind:null);
+        var count=0;var returned=false;var clock=new FinalReadClock();
         HttpMessageHandler Provider(string service)=>service!="ec2"||count++==0?prior.Provider(service):new Handler(async(request,ct)=>{
             Assert.Equal("https://ec2.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);
             Assert.Contains("/us-east-1/ec2/aws4_request",request.Headers.GetValues("Authorization").Single());
@@ -121,17 +123,31 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
                 case "DescribeSubnets":case "DescribeRouteTables":
                     Assert.Equal(5,form.Count);Assert.Equal(VpcId,form["Filter.1.Value.1"]);Assert.Equal("vpc-id",form["Filter.1.Name"]);
                     bool subnet=form["Action"]=="DescribeSubnets";Assert.Equal(subnet?"1000":"100",form["MaxResults"]);stage=subnet?"subnets":"routes";break;
+                case "DescribeVpcEndpoints":
+                    Assert.Equal(5,form.Count);Assert.Equal(VpcId,form["Filter.1.Value.1"]);Assert.Equal("vpc-id",form["Filter.1.Name"]);
+                    Assert.Equal("100",form["MaxResults"]);stage="endpoints";break;
+                case "DescribeManagedPrefixLists":
+                    Assert.Equal(3,form.Count);Assert.Equal("pl-00000001",form["PrefixListId.1"]);stage="prefix";break;
                 default:throw new InvalidOperationException();
             }
-            prior.Calls.Add(stage);var body=Original(stage);
-            if(stage==invalid){var response=Observation(stage);response.Add(E("unreviewedAuthority","synthetic-private-marker"));body=response.ToString(SaveOptions.DisableFormatting);}
+            prior.Calls.Add(stage);var body=stage is "endpoints" or "prefix"?ComputeEndpointTests.Original(stage):Original(stage);
+            if(stage==invalid){var response=XElement.Parse(body);response.Add(E("unreviewedAuthority","synthetic-private-marker"));body=response.ToString(SaveOptions.DisableFormatting);}
             if(stage=="routes"&&invalid=="expired"){clock.Now=DateTimeOffset.FromUnixTimeSeconds(prior.Bundle.Release.ExpiresAt);returned=true;}
             return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(body,Encoding.UTF8,"text/xml")};
         });
-        var operation=AcquiredComputeRoutes.ReadAsync(prior.Bundle.Release,await ComputeSecurityGroupTests.Session(),Provider,configuration.Trust,CancellationToken.None,clock);
-        if(invalid is null)Assert.Same(prior.Bundle.Release,(await operation).SecurityGroups.Configuration.Images.Cell.Tasks.Release);
-        else {var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>operation);Assert.Equal(ComputeRouteAcquisition.Failure,error.Message);Assert.Null(error.InnerException);}
-        Assert.Equal(new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes"}.Take(reads),prior.Calls.Skip(20));
+        var session=await ComputeSecurityGroupTests.Session();
+        async Task Acquire()
+        {
+            if(endpoints)await ComputeEndpointAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            else
+            {
+                var routes=await AcquiredComputeRoutes.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None,clock);
+                Assert.Same(prior.Bundle.Release,routes.SecurityGroups.Configuration.Images.Cell.Tasks.Release);
+            }
+        }
+        if(invalid is null)await Acquire();
+        else {var error=await Assert.ThrowsAsync<InvalidOperationException>(Acquire);Assert.Equal(endpoints?ComputeEndpointAcquisition.Failure:ComputeRouteAcquisition.Failure,error.Message);Assert.Null(error.InnerException);}
+        Assert.Equal(new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes","endpoints","prefix"}.Take(reads),prior.Calls.Skip(20));
         Assert.Equal(20+reads,prior.Calls.Count);
         if(invalid=="expired")Assert.True(returned,"A valid response at simulated expiry must reach the validation boundary.");
     }

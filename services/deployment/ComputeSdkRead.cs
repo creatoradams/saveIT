@@ -51,6 +51,9 @@ internal sealed class ComputeSdkRead
     internal static ComputeSdkRead SecurityGroups(ComputeRelease release)=>VpcInventory(release,"DescribeSecurityGroups","1000",524288);
     internal static ComputeSdkRead Subnets(ComputeRelease release)=>VpcInventory(release,"DescribeSubnets","1000",65536);
     internal static ComputeSdkRead RouteTables(ComputeRelease release)=>VpcInventory(release,"DescribeRouteTables","100",131072);
+    internal static ComputeSdkRead Endpoints(ComputeRelease release)=>VpcInventory(release,"DescribeVpcEndpoints","100",524288);
+    internal static ComputeSdkRead S3Prefix(ComputeRelease release)=>Ec2("DescribeManagedPrefixLists",new JsonObject{
+        ["PrefixListId.1"]=ComputeNetworkBindings.Require(release).S3PrefixListId},16384);
     internal static ComputeSdkRead Vpc(ComputeRelease release)=>Ec2("DescribeVpcs",new JsonObject{["VpcId.1"]=release.Data.Network.VpcId},65536);
     internal static string DnsAttributeName(bool hostnames)=>hostnames?"enableDnsHostnames":"enableDnsSupport";
     internal static ComputeSdkRead VpcDns(ComputeRelease release,bool hostnames)=>Ec2("DescribeVpcAttribute",new JsonObject{
