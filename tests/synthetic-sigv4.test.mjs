@@ -6,8 +6,53 @@ import {
   CognitoIdentityClient,
   GetOpenIdTokenForDeveloperIdentityCommand,
 } from "@aws-sdk/client-cognito-identity";
-import { HttpResponse } from "@smithy/protocol-http";
+import { HttpRequest, HttpResponse } from "@smithy/protocol-http";
+import { SignatureV4 } from "@smithy/signature-v4";
+import { Hash } from "@smithy/core/serde";
 import { verifySyntheticSigV4 } from "./production/synthetic-sigv4.mjs";
+
+test("an official signed EC2 query accepts the digit in its exact service scope", async () => {
+  const expected = {
+    access: "synthetic-access",
+    secret: "synthetic-secret",
+    token: "synthetic-session",
+    service: "ec2",
+  };
+  const host = "ec2.us-east-1.amazonaws.com";
+  const body = "Action=DescribeSecurityGroups&Version=2016-11-15";
+  const signer = new SignatureV4({
+    service: "ec2",
+    region: "us-east-1",
+    sha256: Hash.bind(null, "sha256"),
+    credentials: {
+      accessKeyId: expected.access,
+      secretAccessKey: expected.secret,
+      sessionToken: expected.token,
+    },
+  });
+  const signed = await signer.sign(
+    new HttpRequest({
+      method: "POST",
+      protocol: "https:",
+      hostname: host,
+      path: "/",
+      body,
+      headers: { host, "content-type": "application/x-www-form-urlencoded" },
+    }),
+  );
+  const request = {
+    method: signed.method,
+    url: signed.path,
+    headers: signed.headers,
+  };
+  verifySyntheticSigV4(request, body, expected);
+  assert.throws(() =>
+    verifySyntheticSigV4(request, body, { ...expected, service: "ecs", host }),
+  );
+  assert.throws(() =>
+    verifySyntheticSigV4(request, body + "&MaxResults=1000", expected),
+  );
+});
 
 test("synthetic provider verifies the pinned official signer and detects changed signed bytes, token and authority", async () => {
   const credentials = {

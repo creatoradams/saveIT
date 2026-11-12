@@ -14,7 +14,7 @@ export function verifySyntheticSigV4(
   },
 ) {
   const auth =
-    /^AWS4-HMAC-SHA256 Credential=([^/]+)\/(\d{8}\/us-east-1\/([a-z-]+)\/aws4_request), SignedHeaders=([a-z0-9;-]+), Signature=([a-f0-9]{64})$/.exec(
+    /^AWS4-HMAC-SHA256 Credential=([^/]+)\/(\d{8}\/us-east-1\/([a-z][a-z0-9-]*)\/aws4_request), SignedHeaders=([a-z0-9;-]+), Signature=([a-f0-9]{64})$/.exec(
       request.headers.authorization ?? "",
     );
   if (
