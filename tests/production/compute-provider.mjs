@@ -92,15 +92,17 @@ const service = httpsServer(options, (request, response) => {
   });
   request.on("end", () => {
     try {
+      const family = mode.split("-")[0];
+      const networkBound = ["groups", "routes", "endpoints"].includes(family);
+      const packagedTasks =
+        networkBound || family === "configuration" || family === "images";
+      const fallback = networkBound
+        ? "groups-valid"
+        : family === "configuration"
+          ? "configuration-valid"
+          : "images-valid";
       const selected =
-        imageFixture.variants[mode] ??
-        imageFixture.variants[
-          ["groups", "routes", "endpoints"].includes(mode.split("-")[0])
-            ? "groups-valid"
-            : mode.startsWith("configuration-")
-              ? "configuration-valid"
-              : "images-valid"
-        ];
+        imageFixture.variants[mode] ?? imageFixture.variants[fallback];
       if (request.headers.host === registryHost) {
         if (
           request.method !== "GET" ||
@@ -540,12 +542,7 @@ const service = httpsServer(options, (request, response) => {
       )
         throw new Error();
       const match = Object.values(
-        mode.startsWith("images-") ||
-          mode.startsWith("configuration-") ||
-          mode.startsWith("groups-") ||
-          mode.startsWith("routes-")
-          ? selected.tasks
-          : fixtures,
+        packagedTasks ? selected.tasks : fixtures,
       ).find(
         (x) => x.taskDefinition.taskDefinitionArn === query.taskDefinition,
       );

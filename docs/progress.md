@@ -33,6 +33,8 @@ The independent security agent closed the [workload review](reviews/2026-11-09-w
 
 The 324 focused .NET regressions, TypeScript, optimized web build, ignore check, Compose validation and two signer tests pass locally. Seven new native cases cover the valid inventory, policy/group drift, pagination, prefix ownership and a stalled prefix response. Their packaged execution is tracked in CI.
 
+The first [packaged run](https://github.com/creatoradams/saveIT/actions/runs/43255787764) passed the 69 earlier acquisition cases and stopped at the first endpoint case. The synthetic provider selected the legacy task fixture for the new command family. Fixture selection now uses the same packaged-task decision for the endpoint command as it does for the earlier network checks.
+
 ## Prior delivery: bound private route acquisition
 
 Source **29b0cf4** pins SDK10.0.404 and ASP.NET/Core10.0.15. [General checks](https://github.com/creatoradams/saveIT/actions/runs/43249803057) passed 1,336 backend tests with zero skipped, 62 Chromium tests and all Terraform mocks. [Source security](https://github.com/creatoradams/saveIT/actions/runs/43249803037) passed. The [packaged run](https://github.com/creatoradams/saveIT/actions/runs/43249803401) verified the runtime inside all three .NET images and passed 69 native acquisition checks, 12 signed-release checks and four browser cases. All four images had zero critical/high/unknown, with three medium, one low and one negligible finding per image. The database was built at 2026-11-12T06:20:58Z. The downloaded inventory archive, source, image and report bindings verified.
