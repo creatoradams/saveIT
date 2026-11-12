@@ -7,15 +7,17 @@ using static SaveIT.Deployment.ComputeQueryXml;
 
 namespace SaveIT.Deployment;
 
+internal sealed record ComputeEndpointInterface(string EndpointId, string SecurityGroupId);
+
 internal static class ComputeEndpointContract
 {
-    internal static void Endpoints(ComputeRelease release, XElement response)
+    internal static IReadOnlyDictionary<string, ComputeEndpointInterface> Endpoints(ComputeRelease release, XElement response)
     {
         var network = release.Data.Network;
         var binding = ComputeNetworkBindings.Require(release);
         var byId = binding.Endpoints.ToDictionary(entry => entry.Value, entry => entry.Key, StringComparer.Ordinal);
         var observed = new HashSet<string>(StringComparer.Ordinal);
-        var interfaces = new HashSet<string>(StringComparer.Ordinal);
+        var interfaces = new Dictionary<string, ComputeEndpointInterface>(StringComparer.Ordinal);
         foreach (var item in Inventory(response, "vpcEndpointSet", byId.Count))
         {
             var fields = Fields(item, ["vpcEndpointId", "vpcEndpointType", "vpcId", "ownerId", "serviceName", "state",
@@ -63,7 +65,7 @@ internal static class ComputeEndpointContract
                 {
                     var value = Text(eni);
                     TaskMetadata.Match(value, "eni-[a-f0-9]{17}");
-                    if (!interfaces.Add(value)) throw new InvalidOperationException();
+                    if (!interfaces.TryAdd(value, new(id, binding.SecurityGroups[role]))) throw new InvalidOperationException();
                 }
             }
             Dns(fields, gateway);
@@ -71,6 +73,7 @@ internal static class ComputeEndpointContract
             if (policy.HasElements || PolicyHash(policy.Value) != binding.EndpointPolicySha256[role])
                 throw new InvalidOperationException();
         }
+        return interfaces;
     }
 
     internal static void S3Prefix(ComputeRelease release, XElement response)

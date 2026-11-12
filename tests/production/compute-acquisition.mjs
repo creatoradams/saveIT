@@ -140,14 +140,16 @@ let imageFixture;
 function token(mode) {
   const now = Math.floor(Date.now() / 1000);
   const family = mode?.split("-")[0];
-  const networkBound = ["groups", "routes", "endpoints"].includes(family);
+  const networkBound = ["groups", "routes", "endpoints", "network"].includes(
+    family,
+  );
   let approved = contract;
   if (networkBound || family === "configuration" || family === "images") {
     const fallback = networkBound ? "groups-valid" : family + "-valid";
     approved = (imageFixture.variants[mode] ?? imageFixture.variants[fallback])
       .contract;
   }
-  if (family === "endpoints") {
+  if (family === "endpoints" || family === "network") {
     approved = structuredClone(approved);
     approved.network.bindings.endpointPolicySha256 = Object.fromEntries(
       endpointFixture.endpointPolicySha256,
@@ -243,6 +245,12 @@ const acquisitionKinds = {
       "SaveIT acquired private endpoints and S3 prefix passed (no effective policy, attachment, launch or fencing verification).",
     failure: "SaveIT compute endpoint acquisition failed.",
   },
+  network: {
+    command: "check-compute-network",
+    success:
+      "SaveIT acquired DHCP and endpoint interfaces passed (no Resolver policy, packet, launch or fencing verification).",
+    failure: "SaveIT compute network acquisition failed.",
+  },
 };
 let stage = "private session fixture setup",
   checks = 0;
@@ -325,6 +333,8 @@ async function check(
   assert.equal(after.routes - before.routes, expectedCounts[9] ?? 0);
   assert.equal(after.endpoints - before.endpoints, expectedCounts[10] ?? 0);
   assert.equal(after.prefix - before.prefix, expectedCounts[11] ?? 0);
+  assert.equal(after.dhcp - before.dhcp, expectedCounts[12] ?? 0);
+  assert.equal(after.interfaces - before.interfaces, expectedCounts[13] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -742,6 +752,23 @@ try {
       [],
       false,
       "endpoints",
+    );
+  for (const [mode, passed, interfaceReads] of [
+    ["network-valid", true, 1],
+    ["network-custom-dns", false, 0],
+    ["network-foreign-interface", false, 1],
+    ["network-interface-page", false, 1],
+    ["network-valid", true, 1],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 4, 1, 4, 3, 1, 5, 1, 1, 1, interfaceReads],
+      "valid",
+      [],
+      false,
+      "network",
     );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity and original compute/network metadata; no AWS or provider writes.`,

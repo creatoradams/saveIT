@@ -7,11 +7,14 @@ using static SaveIT.Deployment.TaskMetadata;
 
 namespace SaveIT.Deployment;
 
+internal sealed record ComputeVpcObservation(string Cidr, string DhcpOptionsId);
+internal sealed record ComputeSubnetObservation(string Cidr, string Zone, string ZoneId);
+
 // Initial parked-cell routing only. Endpoint/Resolver policy, attachments and
 // an atomic view of the control plane require separate checks.
 internal static class ComputeRouteContract
 {
-    internal static string Vpc(ComputeRelease release, XElement response)
+    internal static ComputeVpcObservation Vpc(ComputeRelease release, XElement response)
     {
         var fields = Fields(Inventory(response, "vpcSet", 1).Single(),
             ["vpcId", "ownerId", "state", "cidrBlock", "cidrBlockAssociationSet", "dhcpOptionsId", "instanceTenancy", "isDefault", "tagSet"],
@@ -19,7 +22,8 @@ internal static class ComputeRouteContract
         var scope = release.Scope;
         if (Text(fields["vpcId"]) != release.Data.Network.VpcId || Text(fields["ownerId"]) != scope.AccountId ||
             Text(fields["state"]) != "available" || Text(fields["instanceTenancy"]) != "default" || Text(fields["isDefault"]) != "false") throw new InvalidOperationException();
-        Match(Text(fields["dhcpOptionsId"]), "dopt-([a-f0-9]{8}|[a-f0-9]{17})");
+        var dhcpOptionsId = Text(fields["dhcpOptionsId"]);
+        Match(dhcpOptionsId, "dopt-([a-f0-9]{8}|[a-f0-9]{17})");
         var cidr = Text(fields["cidrBlock"]);
         Match(cidr, @"10[.](0|[1-9][0-9]{0,2})[.]0[.]0/16");
         if (!IPAddress.TryParse(cidr[..^3], out var ip) || ip.ToString() + "/16" != cidr) throw new InvalidOperationException();
@@ -30,7 +34,7 @@ internal static class ComputeRouteContract
         CheckPublicAccess(fields);
         var tags = ReadTags(fields["tagSet"]); RequireScopeTags(tags, scope);
         if (tags.GetValueOrDefault("Name") != scope.Name) throw new InvalidOperationException();
-        return cidr;
+        return new(cidr, dhcpOptionsId);
     }
 
     internal static void DnsAttribute(ComputeRelease release, bool hostnames, XElement response)
@@ -41,11 +45,11 @@ internal static class ComputeRouteContract
         if (Text(fields["vpcId"]) != release.Data.Network.VpcId || Text(Fields(fields[attribute], ["value"])["value"]) != "true") throw new InvalidOperationException();
     }
 
-    internal static void Subnets(ComputeRelease release, string cidr, XElement response)
+    internal static IReadOnlyDictionary<string, ComputeSubnetObservation> Subnets(ComputeRelease release, string cidr, XElement response)
     {
         var scope = release.Scope; var network = release.Data.Network; var binding = ComputeNetworkBindings.Require(release);
         var prefix = cidr[..cidr.IndexOf('.', 3)]; // canonical 10.x from the checked VPC
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var subnets = new Dictionary<string, ComputeSubnetObservation>(StringComparer.Ordinal);
         var slots = new Dictionary<string, (string Zone, string ZoneId)>(StringComparer.Ordinal);
         foreach (var item in Inventory(response, "subnetSet", 4))
         {
@@ -54,7 +58,7 @@ internal static class ComputeRouteContract
                 "ipv6CidrBlockAssociationSet", "ipv6Native", "enableDns64", "mapCustomerOwnedIpOnLaunch", "privateDnsNameOptionsOnLaunch", "blockPublicAccessStates");
             string Value(string name) => Text(fields[name]);
             var id = Value("subnetId");
-            if (!seen.Add(id) || Value("subnetArn") != $"arn:aws:ec2:{scope.Region}:{scope.AccountId}:subnet/{id}" ||
+            if (Value("subnetArn") != $"arn:aws:ec2:{scope.Region}:{scope.AccountId}:subnet/{id}" ||
                 Value("ownerId") != scope.AccountId || Value("vpcId") != network.VpcId || Value("state") != "available" ||
                 Value("defaultForAz") != "false" || Value("mapPublicIpOnLaunch") != "false" || Value("assignIpv6AddressOnCreation") != "false") throw new InvalidOperationException();
             var tier = network.SubnetIds.Contains(id, StringComparer.Ordinal) ? "application" :
@@ -76,10 +80,11 @@ internal static class ComputeRouteContract
             if (tags.GetValueOrDefault("Name") != $"{scope.Name}-{name}" || tags.GetValueOrDefault("Tier") != tier) throw new InvalidOperationException();
             var zone = Value("availabilityZone"); var zoneId = Value("availabilityZoneId");
             Match(zone, Regex.Escape(scope.Region) + "[a-z]"); Match(zoneId, "[a-z0-9]{2,12}-az[1-9][0-9]?");
-            if (!slots.TryAdd(name, (zone, zoneId))) throw new InvalidOperationException();
+            if (!slots.TryAdd(name, (zone, zoneId)) || !subnets.TryAdd(id, new(Value("cidrBlock"), zone, zoneId))) throw new InvalidOperationException();
         }
         var first = slots["application-0"]; var second = slots["application-1"];
         if (StringComparer.Ordinal.Compare(first.Zone, second.Zone) >= 0 || first.ZoneId == second.ZoneId || first != slots["database-0"] || second != slots["database-1"]) throw new InvalidOperationException();
+        return subnets;
     }
 
     internal static void Routes(ComputeRelease release, string cidr, XElement response)

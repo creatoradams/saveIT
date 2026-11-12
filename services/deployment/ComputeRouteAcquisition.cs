@@ -6,7 +6,11 @@ namespace SaveIT.Deployment;
 internal sealed class AcquiredComputeRoutes
 {
     internal AcquiredComputeSecurityGroups SecurityGroups { get; }
-    private AcquiredComputeRoutes(AcquiredComputeSecurityGroups groups) => SecurityGroups = groups;
+    internal ComputeVpcObservation Vpc { get; }
+    internal IReadOnlyDictionary<string, ComputeSubnetObservation> Subnets { get; }
+    private AcquiredComputeRoutes(AcquiredComputeSecurityGroups groups, ComputeVpcObservation vpc,
+        IReadOnlyDictionary<string, ComputeSubnetObservation> subnets) =>
+        (SecurityGroups, Vpc, Subnets) = (groups, vpc, subnets);
 
     internal static async Task<AcquiredComputeRoutes> ReadAsync(ComputeRelease release, ComputeAwsSession session,
         Func<string, HttpMessageHandler> transport, ComputeConfigurationTrust trust, CancellationToken ct, TimeProvider? lastReadClock = null)
@@ -19,7 +23,7 @@ internal sealed class AcquiredComputeRoutes
             var groups = await AcquiredComputeSecurityGroups.ReadAsync(release, session, transport, trust, token);
             var id = release.Data.Network.VpcId;
             List<Filter> VpcFilter() => [new Filter { Name = "vpc-id", Values = [id] }];
-            var cidr = await ComputeEc2Acquisition.ReadAsync(release, session, transport, ComputeSdkRead.Vpc(release),
+            var vpc = await ComputeEc2Acquisition.ReadAsync(release, session, transport, ComputeSdkRead.Vpc(release),
                 (sdk, read) => sdk.DescribeVpcsAsync(new DescribeVpcsRequest { VpcIds = [id] }, read),
                 xml => ComputeRouteContract.Vpc(release, xml), token);
             foreach (var hostnames in new[] { false, true })
@@ -28,13 +32,13 @@ internal sealed class AcquiredComputeRoutes
                     (sdk, read) => sdk.DescribeVpcAttributeAsync(new DescribeVpcAttributeRequest { VpcId = id, Attribute = ComputeSdkRead.DnsAttributeName(hostnames) }, read),
                     xml => { ComputeRouteContract.DnsAttribute(release, hostnames, xml); return true; }, token);
             }
-            _ = await ComputeEc2Acquisition.ReadAsync(release, session, transport, ComputeSdkRead.Subnets(release),
+            var subnets = await ComputeEc2Acquisition.ReadAsync(release, session, transport, ComputeSdkRead.Subnets(release),
                 (sdk, read) => sdk.DescribeSubnetsAsync(new DescribeSubnetsRequest { Filters = VpcFilter(), MaxResults = 1000 }, read),
-                xml => { ComputeRouteContract.Subnets(release, cidr, xml); return true; }, token);
+                xml => ComputeRouteContract.Subnets(release, vpc.Cidr, xml), token);
             _ = await ComputeEc2Acquisition.ReadAsync(release, session, transport, ComputeSdkRead.RouteTables(release),
                 (sdk, read) => sdk.DescribeRouteTablesAsync(new DescribeRouteTablesRequest { Filters = VpcFilter(), MaxResults = 100 }, read),
-                xml => { ComputeRouteContract.Routes(release, cidr, xml); return true; }, token, lastReadClock);
-            return new(groups);
+                xml => { ComputeRouteContract.Routes(release, vpc.Cidr, xml); return true; }, token, lastReadClock);
+            return new(groups, vpc, subnets);
         }
         catch (Exception) { throw new InvalidOperationException(ComputeRouteAcquisition.Failure); }
     }

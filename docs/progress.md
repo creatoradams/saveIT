@@ -27,13 +27,19 @@ All four source-bound final image reports retain **zero critical/high/unknown; t
 
 The independent security agent closed the [workload review](reviews/2026-11-09-web-workload-review.md) and [coordination review](reviews/2026-11-09-compute-coordination-review.md), including the subsequent clock/recovery fixture remedies, without executing tests. The requested independent efficiency review remains outstanding after its agent's account usage limit. These reviews are not penetration tests. Earlier exact workload evidence remains at the [previous checkpoint](https://github.com/creatoradams/saveIT/blob/b813a78/docs/progress.md); historical evidence is not rewritten. Direct regional Logs customer CallerAccount compatibility remains a pre-apply gate.
 
-## Current engineering: bound private endpoint acquisition
+## Current engineering: DHCP and endpoint-interface acquisition
+
+[ADR061](adr/061-bound-dhcp-and-endpoint-interfaces.md) checks the associated DHCP options and independently verifies endpoint interface membership, placement, security groups and private IPv4 addresses. It adds two fixed EC2 reads and retains the existing signed contract and Terraform resources. Resolver policy, live DNS answers and other interface types remain open.
+
+Local verification passed 352 acquisition and signed release tests, all 84 runtime-endpoint Terraform mocks, TypeScript, the optimized web build, the ignore check and both synthetic signer tests. Five packaged cases cover valid readback, a custom resolver, a foreign interface and unexpected pagination.
+
+## Prior delivery: bound private endpoint acquisition
 
 [ADR060](adr/060-bound-private-endpoint-acquisition.md) adds an exact six-endpoint inventory and the regional AWS-owned S3 prefix check after route verification. It compares canonical policy readback hashes against signed bindings. The optional Terraform digest output is derived from the existing policies, with all 84 runtime-endpoint mock tests passing. Live AWS response compatibility, IAM evaluation, Resolver and independent attachment checks remain open.
 
 The 324 focused .NET regressions, TypeScript, optimized web build, ignore check, Compose validation and two signer tests pass locally. Seven new native cases cover the valid inventory, policy/group drift, pagination, prefix ownership and a stalled prefix response. Their packaged execution is tracked in CI.
 
-The first [packaged run](https://github.com/creatoradams/saveIT/actions/runs/43255787764) passed the 69 earlier acquisition cases and stopped at the first endpoint case. The synthetic provider selected the legacy task fixture for the new command family. Fixture selection now uses the same packaged-task decision for the endpoint command as it does for the earlier network checks.
+The first [packaged run](https://github.com/creatoradams/saveIT/actions/runs/43255787764) passed the 69 earlier acquisition cases and stopped at the first endpoint case because the synthetic provider selected the legacy task fixture. With that corrected, source **332ca2d** passed [general checks](https://github.com/creatoradams/saveIT/actions/runs/43257202166) with 1,369 backend tests, 62 Chromium cases and 465 Terraform mocks. [Source security](https://github.com/creatoradams/saveIT/actions/runs/43257202567) passed. The [packaged run](https://github.com/creatoradams/saveIT/actions/runs/43257202420) passed all 76 acquisition cases, 12 signed-release checks and four browser cases. Fresh image scans had zero critical/high/unknown findings, with three medium, one low and one negligible per image. The downloaded inventory and report hashes verified.
 
 ## Prior delivery: bound private route acquisition
 

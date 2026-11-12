@@ -54,6 +54,11 @@ internal sealed class ComputeSdkRead
     internal static ComputeSdkRead Endpoints(ComputeRelease release)=>VpcInventory(release,"DescribeVpcEndpoints","100",524288);
     internal static ComputeSdkRead S3Prefix(ComputeRelease release)=>Ec2("DescribeManagedPrefixLists",new JsonObject{
         ["PrefixListId.1"]=ComputeNetworkBindings.Require(release).S3PrefixListId},16384);
+    internal static ComputeSdkRead Dhcp(ComputeVpcObservation vpc)=>Ec2("DescribeDhcpOptions",new JsonObject{
+        ["DhcpOptionsId.1"]=vpc.DhcpOptionsId},16384);
+    internal static ComputeSdkRead EndpointInterfaces(ComputeRelease release)=>Ec2("DescribeNetworkInterfaces",new JsonObject{
+        ["Filter.1.Name"]="vpc-id",["Filter.1.Value.1"]=release.Data.Network.VpcId,
+        ["Filter.2.Name"]="interface-type",["Filter.2.Value.1"]="vpc_endpoint",["MaxResults"]="100"},131072);
     internal static ComputeSdkRead Vpc(ComputeRelease release)=>Ec2("DescribeVpcs",new JsonObject{["VpcId.1"]=release.Data.Network.VpcId},65536);
     internal static string DnsAttributeName(bool hostnames)=>hostnames?"enableDnsHostnames":"enableDnsSupport";
     internal static ComputeSdkRead VpcDns(ComputeRelease release,bool hostnames)=>Ec2("DescribeVpcAttribute",new JsonObject{

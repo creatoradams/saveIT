@@ -39,6 +39,8 @@ const counts = {
   routes: 0,
   endpoints: 0,
   prefix: 0,
+  dhcp: 0,
+  interfaces: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -93,7 +95,12 @@ const service = httpsServer(options, (request, response) => {
   request.on("end", () => {
     try {
       const family = mode.split("-")[0];
-      const networkBound = ["groups", "routes", "endpoints"].includes(family);
+      const networkBound = [
+        "groups",
+        "routes",
+        "endpoints",
+        "network",
+      ].includes(family);
       const packagedTasks =
         networkBound || family === "configuration" || family === "images";
       const fallback = networkBound
@@ -167,6 +174,8 @@ const service = httpsServer(options, (request, response) => {
             "DescribeRouteTables",
             "DescribeVpcEndpoints",
             "DescribeManagedPrefixLists",
+            "DescribeDhcpOptions",
+            "DescribeNetworkInterfaces",
           ],
           ecs: [
             "DescribeTaskDefinition",
@@ -200,6 +209,8 @@ const service = httpsServer(options, (request, response) => {
         DescribeRouteTables: "routes",
         DescribeVpcEndpoints: "endpoints",
         DescribeManagedPrefixLists: "prefix",
+        DescribeDhcpOptions: "dhcp",
+        DescribeNetworkInterfaces: "interfaces",
       }[action];
       counts[counter]++;
       if (kind === "ec2") {
@@ -209,6 +220,8 @@ const service = httpsServer(options, (request, response) => {
         const attribute = query.get("Attribute");
         if (action === "DescribeManagedPrefixLists")
           expected["PrefixListId.1"] = "pl-00000001";
+        else if (action === "DescribeDhcpOptions")
+          expected["DhcpOptionsId.1"] = "dopt-00000001";
         else if (action === "DescribeVpcs") expected["VpcId.1"] = vpc;
         else if (action === "DescribeVpcAttribute") {
           if (!["enableDnsSupport", "enableDnsHostnames"].includes(attribute))
@@ -221,9 +234,15 @@ const service = httpsServer(options, (request, response) => {
             MaxResults: [
               "DescribeRouteTables",
               "DescribeVpcEndpoints",
+              "DescribeNetworkInterfaces",
             ].includes(action)
               ? "100"
               : "1000",
+          });
+        if (action === "DescribeNetworkInterfaces")
+          Object.assign(expected, {
+            "Filter.2.Name": "interface-type",
+            "Filter.2.Value.1": "vpc_endpoint",
           });
         if (
           request.headers["x-amz-target"] ||
@@ -233,8 +252,13 @@ const service = httpsServer(options, (request, response) => {
           )
         )
           throw new Error();
-        if (counter === "endpoints" || counter === "prefix") {
-          if (!mode.startsWith("endpoints-")) throw new Error();
+        if (["endpoints", "prefix", "dhcp", "interfaces"].includes(counter)) {
+          if (
+            family !== "network" &&
+            (family !== "endpoints" ||
+              !["endpoints", "prefix"].includes(counter))
+          )
+            throw new Error();
           if (mode === "endpoints-stall" && counter === "prefix") {
             stall(response, true);
             return;
@@ -257,12 +281,27 @@ const service = httpsServer(options, (request, response) => {
               "<ownerId>AWS</ownerId>",
               "<ownerId>111122223333</ownerId>",
             );
+          if (mode === "network-custom-dns" && counter === "dhcp")
+            xml = xml.replace(
+              "<value>AmazonProvidedDNS</value>",
+              "<value>10.84.0.10</value>",
+            );
+          if (mode === "network-foreign-interface" && counter === "interfaces")
+            xml = xml.replace(
+              "<ownerId>111122223333</ownerId>",
+              "<ownerId>444455556666</ownerId>",
+            );
+          if (mode === "network-interface-page" && counter === "interfaces")
+            xml = xml.replace(
+              "</DescribeNetworkInterfacesResponse>",
+              "<nextToken>synthetic-next</nextToken></DescribeNetworkInterfacesResponse>",
+            );
           response.setHeader("Content-Type", "text/xml");
           response.end(xml);
           return;
         }
         if (action !== "DescribeSecurityGroups") {
-          if (!mode.startsWith("routes-") && !mode.startsWith("endpoints-"))
+          if (!["routes", "endpoints", "network"].includes(family))
             throw new Error();
           const stage = {
             DescribeVpcs: "vpc",
@@ -633,6 +672,10 @@ httpServer((request, response) => {
           "endpoints-next-page",
           "endpoints-prefix-owner",
           "endpoints-stall",
+          "network-valid",
+          "network-custom-dns",
+          "network-foreign-interface",
+          "network-interface-page",
         ].includes(body)
       ) {
         response.writeHead(400);

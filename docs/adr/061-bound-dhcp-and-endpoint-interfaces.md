@@ -1,0 +1,11 @@
+# ADR061: bound DHCP and endpoint interfaces
+
+`check-compute-network` extends the existing endpoint check with two fixed regional EC2 reads. It looks up only the DHCP options ID returned for the signed VPC and inventories only `vpc_endpoint` network interfaces in that VPC. The pinned SDK signs both requests through the existing bounded TLS transport. The full sequence is 29 reads with 190 seconds overall, 180 seconds for acquisition, ten seconds for stdin EOF and five seconds per provider read. The command returns a fixed status and makes no provider changes.
+
+Require the observed DHCP options set to belong to the approved account and contain exactly AmazonProvidedDNS and the standard regional search domain. The default IPv6 lease time may be present. Reject custom servers or domains, duplicate settings and other DHCP options. This checks the association and option metadata reported by EC2. It does not exercise DNS from a workload, inspect Resolver rules or DNS Firewall, or verify private zone associations and record answers.
+
+Independently match all ten endpoint interfaces to the earlier endpoint membership observations and signed group and subnet references. Require one requester-managed, in-use interface per endpoint per application subnet, the matching account and AZ, the dedicated group alone and a single canonical private IPv4 address inside that subnet. Refuse public associations, secondary addresses, IPv6, prefixes, unknown fields, extra interfaces and continuation. The description is a consistency check and never an authority source. Live AWS readback compatibility remains a pre-apply gate.
+
+The fixture covers this inventory through .NET and packaged Linux SDK requests. Reads are sequential. They establish no packet reachability, exclusive security-group use across other interface types, task/RDS/EFS attachments, drift prevention, launch approval or fencing. Terraform resources and the signed release shape remain unchanged.
+
+[EC2 DHCP option inventory](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeDhcpOptions.html) · [AWS default DHCP options](https://docs.aws.amazon.com/vpc/latest/userguide/DHCPOptionSetConcepts.html) · [EC2 network interface inventory](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeNetworkInterfaces.html)

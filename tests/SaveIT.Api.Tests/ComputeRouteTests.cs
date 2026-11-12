@@ -27,7 +27,7 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
     [Fact]
     public async Task Complete_parked_topology_accepts_exact_tiers_explicit_associations_and_local_only_main()
     {
-        var release=await Release();var cidr=ComputeRouteContract.Vpc(release,ParseOriginal("vpc","DescribeVpcs"));Assert.Equal(Cidr,cidr);
+        var release=await Release();var cidr=ComputeRouteContract.Vpc(release,ParseOriginal("vpc","DescribeVpcs")).Cidr;Assert.Equal(Cidr,cidr);
         ComputeRouteContract.DnsAttribute(release,false,ParseOriginal("enableDnsSupport","DescribeVpcAttribute"));
         ComputeRouteContract.DnsAttribute(release,true,ParseOriginal("enableDnsHostnames","DescribeVpcAttribute"));
         ComputeRouteContract.Subnets(release,cidr,ParseOriginal("subnets","DescribeSubnets"));ComputeRouteContract.Routes(release,cidr,ParseOriginal("routes","DescribeRouteTables"));
@@ -106,10 +106,11 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
     [Theory]
     [InlineData(null,5)][InlineData("vpc",1)][InlineData("enableDnsSupport",2)][InlineData("enableDnsHostnames",3)][InlineData("subnets",4)][InlineData("routes",5)]
     [InlineData("expired",5)]
-    [InlineData(null,7,true)][InlineData("endpoints",6,true)][InlineData("prefix",7,true)]
-    public async Task Real_SDK_query_sequence_stops_at_first_invalid_original_response(string? invalid,int reads,bool endpoints=false)
+    [InlineData(null,7,"endpoints")][InlineData("endpoints",6,"endpoints")][InlineData("prefix",7,"endpoints")]
+    [InlineData(null,9,"network")][InlineData("dhcp",8,"network")][InlineData("interfaces",9,"network")]
+    public async Task Real_SDK_query_sequence_stops_at_first_invalid_original_response(string? invalid,int reads,string kind="routes")
     {
-        var prior=await new ComputeSecurityGroupTests(signing,configuration).Acquisition(bind:endpoints?ComputeEndpointTests.Bind:null);
+        var prior=await new ComputeSecurityGroupTests(signing,configuration).Acquisition(bind:kind=="routes"?null:ComputeEndpointTests.Bind);
         var count=0;var returned=false;var clock=new FinalReadClock();
         HttpMessageHandler Provider(string service)=>service!="ec2"||count++==0?prior.Provider(service):new Handler(async(request,ct)=>{
             Assert.Equal("https://ec2.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);
@@ -128,9 +129,15 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
                     Assert.Equal("100",form["MaxResults"]);stage="endpoints";break;
                 case "DescribeManagedPrefixLists":
                     Assert.Equal(3,form.Count);Assert.Equal("pl-00000001",form["PrefixListId.1"]);stage="prefix";break;
+                case "DescribeDhcpOptions":
+                    Assert.Equal(3,form.Count);Assert.Equal("dopt-00000001",form["DhcpOptionsId.1"]);stage="dhcp";break;
+                case "DescribeNetworkInterfaces":
+                    Assert.Equal(7,form.Count);Assert.Equal("vpc-id",form["Filter.1.Name"]);Assert.Equal(VpcId,form["Filter.1.Value.1"]);
+                    Assert.Equal("interface-type",form["Filter.2.Name"]);Assert.Equal("vpc_endpoint",form["Filter.2.Value.1"]);
+                    Assert.Equal("100",form["MaxResults"]);stage="interfaces";break;
                 default:throw new InvalidOperationException();
             }
-            prior.Calls.Add(stage);var body=stage is "endpoints" or "prefix"?ComputeEndpointTests.Original(stage):Original(stage);
+            prior.Calls.Add(stage);var body=stage is "endpoints" or "prefix" or "dhcp" or "interfaces"?ComputeEndpointTests.Original(stage):Original(stage);
             if(stage==invalid){var response=XElement.Parse(body);response.Add(E("unreviewedAuthority","synthetic-private-marker"));body=response.ToString(SaveOptions.DisableFormatting);}
             if(stage=="routes"&&invalid=="expired"){clock.Now=DateTimeOffset.FromUnixTimeSeconds(prior.Bundle.Release.ExpiresAt);returned=true;}
             return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(body,Encoding.UTF8,"text/xml")};
@@ -138,7 +145,8 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
         var session=await ComputeSecurityGroupTests.Session();
         async Task Acquire()
         {
-            if(endpoints)await ComputeEndpointAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            if(kind=="network")await ComputeNetworkAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            else if(kind=="endpoints")await ComputeEndpointAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else
             {
                 var routes=await AcquiredComputeRoutes.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None,clock);
@@ -146,9 +154,85 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
             }
         }
         if(invalid is null)await Acquire();
-        else {var error=await Assert.ThrowsAsync<InvalidOperationException>(Acquire);Assert.Equal(endpoints?ComputeEndpointAcquisition.Failure:ComputeRouteAcquisition.Failure,error.Message);Assert.Null(error.InnerException);}
-        Assert.Equal(new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes","endpoints","prefix"}.Take(reads),prior.Calls.Skip(20));
+        else
+        {
+            var error=await Assert.ThrowsAsync<InvalidOperationException>(Acquire);
+            Assert.Equal(kind switch { "network"=>ComputeNetworkAcquisition.Failure, "endpoints"=>ComputeEndpointAcquisition.Failure, _=>ComputeRouteAcquisition.Failure },error.Message);
+            Assert.Null(error.InnerException);
+        }
+        Assert.Equal(new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes","endpoints","prefix","dhcp","interfaces"}.Take(reads),prior.Calls.Skip(20));
         Assert.Equal(20+reads,prior.Calls.Count);
         if(invalid=="expired")Assert.True(returned,"A valid response at simulated expiry must reach the validation boundary.");
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("ownerId", "444455556666")]
+    [InlineData("dhcpOptionsId", "dopt-00000002")]
+    [InlineData("value", "other.internal")]
+    [InlineData("dns-server", "10.84.0.10")]
+    [InlineData("extra-server", "10.84.0.10")]
+    [InlineData("extra-option", "ntp-servers")]
+    [InlineData("nextToken", "next")]
+    public async Task Dhcp_accepts_only_the_observed_regional_amazon_resolver_options(string? field, string? value)
+    {
+        var release = await Release();
+        var vpc = ComputeRouteContract.Vpc(release, Vpc());
+        var response = XElement.Parse(ComputeEndpointTests.Original("dhcp"));
+        var options = response.Descendants(Ns + "dhcpConfigurationSet").Single();
+        if (field == "dns-server") options.Descendants(Ns + "value").Last().Value = value!;
+        else if (field == "extra-server") options.Descendants(Ns + "valueSet").Last().Add(E("item", E("value", value)));
+        else if (field == "extra-option") options.Add(E("item", E("key", value), E("valueSet", E("item", E("value", "10.84.0.10")))));
+        else if (field == "nextToken") response.Add(E(field, value));
+        else if (field is not null) response.Descendants(Ns + field).First().Value = value!;
+        void Check() => ComputeNetworkObservation.Dhcp(release.Scope, vpc, Parse(response));
+        if (field is null) Check();
+        else Assert.Throws<InvalidOperationException>(Check);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("ownerId", "444455556666")]
+    [InlineData("vpcId", "vpc-00000000000000002")]
+    [InlineData("subnetId", "subnet-00000000000000003")]
+    [InlineData("availabilityZoneId", "use1-az2")]
+    [InlineData("interfaceType", "interface")]
+    [InlineData("status", "detaching")]
+    [InlineData("requesterManaged", "false")]
+    [InlineData("description", "VPC Endpoint Interface vpce-00000000000000002")]
+    [InlineData("groupId", "sg-00000000000000009")]
+    [InlineData("networkInterfaceId", "eni-0000000000000000b")]
+    [InlineData("ip", "10.84.0.1")]
+    [InlineData("ip", "10.84.1.10")]
+    [InlineData("same-subnet", null)]
+    [InlineData("association", null)]
+    [InlineData("secondary", null)]
+    [InlineData("nextToken", "next")]
+    public async Task Interface_inventory_requires_exact_private_endpoint_placements(string? field, string? value)
+    {
+        var release = await signing.CreateAsync(mutate: ComputeEndpointTests.Bind);
+        var subnets = ComputeRouteContract.Subnets(release, Cidr, Subnets());
+        var endpoints = ComputeEndpointContract.Endpoints(release, XElement.Parse(ComputeEndpointTests.Original("endpoints")));
+        var response = XElement.Parse(ComputeEndpointTests.Original("interfaces"));
+        var rows = response.Element(Ns + "networkInterfaceSet")!.Elements().ToArray();
+        var first = rows[0];
+        switch (field)
+        {
+            case "ip":
+                foreach (var address in first.Descendants(Ns + "privateIpAddress")) address.Value = value!;
+                break;
+            case "same-subnet":
+                foreach (var key in new[] { "subnetId", "availabilityZone", "availabilityZoneId" })
+                    rows[1].Element(Ns + key)!.Value = first.Element(Ns + key)!.Value;
+                foreach (var address in rows[1].Descendants(Ns + "privateIpAddress")) address.Value = "10.84.0.55";
+                break;
+            case "association": first.Add(E("association", E("publicIp", "192.0.2.1"))); break;
+            case "secondary": first.Element(Ns + "privateIpAddressesSet")!.Add(E("item", E("privateIpAddress", "10.84.0.99"), E("primary", "false"))); break;
+            case "nextToken": response.Add(E(field, value)); break;
+            case not null: first.Descendants(Ns + field).First().Value = value!; break;
+        }
+        void Check() => ComputeNetworkObservation.Interfaces(release, subnets, endpoints, Parse(response));
+        if (field is null) Check();
+        else Assert.Throws<InvalidOperationException>(Check);
     }
 }

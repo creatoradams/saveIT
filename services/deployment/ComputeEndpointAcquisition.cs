@@ -3,6 +3,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace SaveIT.Deployment;
 
+internal sealed record AcquiredComputeEndpoints(AcquiredComputeRoutes Routes,
+    IReadOnlyDictionary<string, ComputeEndpointInterface> Interfaces);
+
 public static class ComputeEndpointAcquisition
 {
     public const string Success = "SaveIT acquired private endpoints and S3 prefix passed (no effective policy, attachment, launch or fencing verification).";
@@ -14,7 +17,7 @@ public static class ComputeEndpointAcquisition
         catch (Exception) { throw new InvalidOperationException(Failure); }
     }
 
-    internal static async Task ReadAsync(ComputeRelease release, ComputeAwsSession session,
+    internal static async Task<AcquiredComputeEndpoints> ReadAsync(ComputeRelease release, ComputeAwsSession session,
         Func<string, HttpMessageHandler> transport, ComputeConfigurationTrust trust, CancellationToken ct)
     {
         try
@@ -23,20 +26,21 @@ public static class ComputeEndpointAcquisition
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
             deadline.CancelAfter(TimeSpan.FromSeconds(165));
             var token = deadline.Token;
-            _ = await AcquiredComputeRoutes.ReadAsync(release, session, transport, trust, token);
-            _ = await ComputeEc2Acquisition.ReadAsync(release, session, transport, ComputeSdkRead.Endpoints(release),
+            var routes = await AcquiredComputeRoutes.ReadAsync(release, session, transport, trust, token);
+            var interfaces = await ComputeEc2Acquisition.ReadAsync(release, session, transport, ComputeSdkRead.Endpoints(release),
                 (sdk, read) => sdk.DescribeVpcEndpointsAsync(new DescribeVpcEndpointsRequest
                 {
                     Filters = [new Filter { Name = "vpc-id", Values = [release.Data.Network.VpcId] }],
                     MaxResults = 100
                 }, read),
-                xml => { ComputeEndpointContract.Endpoints(release, xml); return true; }, token);
+                xml => ComputeEndpointContract.Endpoints(release, xml), token);
             _ = await ComputeEc2Acquisition.ReadAsync(release, session, transport, ComputeSdkRead.S3Prefix(release),
                 (sdk, read) => sdk.DescribeManagedPrefixListsAsync(new DescribeManagedPrefixListsRequest
                 {
                     PrefixListIds = [binding.S3PrefixListId]
                 }, read),
                 xml => { ComputeEndpointContract.S3Prefix(release, xml); return true; }, token);
+            return new(routes, interfaces);
         }
         catch (Exception) { throw new InvalidOperationException(Failure); }
     }
