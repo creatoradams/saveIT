@@ -53,7 +53,8 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
                 try
                 {
                     if(rest is not null)ResponseXml=ComputeQueryXml.Read(bytes,read.Action,ComputeRoute53Acquisition.XmlNamespace);
-                    else if(read.Query)ResponseXml=ComputeQueryXml.Read(bytes,read.Action);
+                    else if(read.Query)ResponseXml=ComputeQueryXml.Read(bytes,read.Action,
+                        service=="rds"?ComputeRdsAcquisition.XmlNamespace:null);
                     else {
                         _=new UTF8Encoding(false,true).GetCharCount(bytes);
                         if(identity)ValidateIdentityXml(bytes);

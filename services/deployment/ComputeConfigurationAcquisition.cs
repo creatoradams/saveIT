@@ -37,22 +37,22 @@ internal static class ComputeConfigurationEnvelope
 internal sealed class AcquiredComputeConfiguration
 {
     internal AcquiredComputeImages Images {get;}
-    private AcquiredComputeConfiguration(AcquiredComputeImages images)=>Images=images;
+    internal ProtectedConfiguration.DatabaseTarget Database {get;}
+    private AcquiredComputeConfiguration(AcquiredComputeImages images,ProtectedConfiguration.DatabaseTarget database)=>(Images,Database)=(images,database);
     internal static async Task<AcquiredComputeConfiguration> ReadAsync(ComputeRelease release,ComputeAwsSession session,Func<string,HttpMessageHandler> transport,ComputeConfigurationTrust trust,CancellationToken ct)
     {
         var payloads=new Dictionary<string,byte[]>(StringComparer.Ordinal);
         try {
             using var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct);deadline.CancelAfter(TimeSpan.FromSeconds(110));
             var images=await AcquiredComputeImages.ReadAsync(release,session,transport,deadline.Token);
-            await ValidateAsync(release,session,transport,trust,payloads,deadline.Token);
-            return new(images);
+            var database=await ValidateAsync(release,session,transport,trust,payloads,deadline.Token);
+            return new(images,database);
         }
         catch(Exception){throw new InvalidOperationException(ComputeConfigurationAcquisition.Failure);}
         finally{foreach(var bytes in payloads.Values)CryptographicOperations.ZeroMemory(bytes);payloads.Clear();}
     }
-    // The acquisition result retains only checked public metadata. Private values
-    // are neither returned, written to disk nor accepted as launch overrides.
-    private static async Task ValidateAsync(ComputeRelease release,ComputeAwsSession session,Func<string,HttpMessageHandler> transport,ComputeConfigurationTrust trust,Dictionary<string,byte[]> payloads,CancellationToken ct)
+    // Only the checked address, port and database name survive for internal comparison.
+    private static async Task<ProtectedConfiguration.DatabaseTarget> ValidateAsync(ComputeRelease release,ComputeAwsSession session,Func<string,HttpMessageHandler> transport,ComputeConfigurationTrust trust,Dictionary<string,byte[]> payloads,CancellationToken ct)
     {
         foreach(var process in new[]{"api","worker","relay"}) {
             Fresh(release,session,ct);var reference=release.Data.Tasks[process];
@@ -62,7 +62,7 @@ internal sealed class AcquiredComputeConfiguration
             _=await sdk.GetSecretValueAsync(new GetSecretValueRequest{SecretId=reference.ConfigurationArn,VersionId=reference.ConfigurationVersionId},ct);
             payloads.Add(process,ComputeConfigurationEnvelope.Read(release,process,wire.ResponseJson));Fresh(release,session,ct);
         }
-        await ComputeConfigurationCohort.ValidateAsync(release,payloads,trust,ct);Fresh(release,session,ct);
+        var target=await ComputeConfigurationCohort.ValidateAsync(release,payloads,trust,ct);Fresh(release,session,ct);return target;
     }
     private static void Fresh(ComputeRelease release,ComputeAwsSession session,CancellationToken ct)
     {ct.ThrowIfCancellationRequested();session.RequireFresh();if(release.ExpiresAt<=DateTimeOffset.UtcNow.ToUnixTimeSeconds())throw new InvalidOperationException();}

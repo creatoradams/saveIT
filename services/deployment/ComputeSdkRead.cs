@@ -12,7 +12,10 @@ internal sealed class ComputeSdkRead
     internal string? OptionalRoot {get;}
     internal int MaximumBytes {get;}
     internal bool Identity=>Endpoint=="sts";
-    internal bool Query=>Endpoint=="ec2";
+    internal bool Query=>Endpoint is "ec2" or "rds";
+    internal static string DatabaseArn(ComputeScope s)=>$"arn:aws:rds:{s.Region}:{s.AccountId}:db:{s.Name}";
+    internal static ComputeSdkRead Database(ComputeScope scope)=>new("rds","DescribeDBInstances",new JsonObject{
+        ["Action"]="DescribeDBInstances",["Version"]="2014-10-31",["DBInstanceIdentifier"]=DatabaseArn(scope)},"",null,65536);
     internal string? Route53Path {get;private init;}
     private readonly string request;
     private ComputeSdkRead(string endpoint,string action,JsonObject body,string root,string? optional,int maximumBytes)

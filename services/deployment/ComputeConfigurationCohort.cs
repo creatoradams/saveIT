@@ -16,7 +16,7 @@ internal sealed record ComputeConfigurationTrust(string Database,string Api,stri
 
 internal static class ComputeConfigurationCohort
 {
-    internal static async Task ValidateAsync(ComputeRelease release,IReadOnlyDictionary<string,byte[]> payloads,ComputeConfigurationTrust trust,CancellationToken ct)
+    internal static async Task<DatabaseTarget> ValidateAsync(ComputeRelease release,IReadOnlyDictionary<string,byte[]> payloads,ComputeConfigurationTrust trust,CancellationToken ct)
     {
         try {
             if(payloads.Count!=3||new[]{"api","worker","relay"}.Any(p=>!payloads.ContainsKey(p)))throw new InvalidOperationException();
@@ -48,6 +48,7 @@ internal static class ComputeConfigurationCohort
             var transports=new HashSet<string>([PublicKeyHash(server),PublicKeyHash(relay.Server),PublicKeyHash(relay.Client)],StringComparer.Ordinal);
             if(transports.Count!=3||transports.Overlaps(anchorKeys)||api.ProtectorKeys.Any(key=>transports.Contains(key)||anchorKeys.Contains(key)))throw new InvalidOperationException();
             ct.ThrowIfCancellationRequested();
+            return api.Target;
         }
         catch(Exception){throw new InvalidOperationException(ComputeConfigurationAcquisition.Failure);}
     }

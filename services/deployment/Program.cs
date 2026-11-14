@@ -15,6 +15,7 @@ public static async Task<int> Main(string[] args)
     "check-compute-parked-tasks"=>(ComputeParkedTaskAcquisition.ValidateAsync,ComputeParkedTaskAcquisition.Success,ComputeParkedTaskAcquisition.Failure),
     "check-compute-parked-discovery"=>(ComputeDiscoveryAcquisition.ValidateAsync,ComputeDiscoveryAcquisition.Success,ComputeDiscoveryAcquisition.Failure),
     "check-compute-parked-dns"=>(ComputeRoute53Acquisition.ValidateAsync,ComputeRoute53Acquisition.Success,ComputeRoute53Acquisition.Failure),
+    "check-compute-rds"=>(ComputeRdsAcquisition.ValidateAsync,ComputeRdsAcquisition.Success,ComputeRdsAcquisition.Failure),
     "check-compute-images"=>(ComputeImageAcquisition.ValidateAsync,ComputeImageAcquisition.Success,ComputeImageAcquisition.Failure),
     "check-compute-configuration"=>(ComputeConfigurationAcquisition.ValidateAsync,ComputeConfigurationAcquisition.Success,ComputeConfigurationAcquisition.Failure),
     "check-compute-security-groups"=>(ComputeSecurityGroupAcquisition.ValidateAsync,ComputeSecurityGroupAcquisition.Success,ComputeSecurityGroupAcquisition.Failure),

@@ -146,6 +146,7 @@ function token(mode) {
     "endpoints",
     "network",
     "resolver",
+    "rds",
   ].includes(family);
   let approved = contract;
   if (networkBound || family === "configuration" || family === "images") {
@@ -238,6 +239,12 @@ const acquisitionKinds = {
     success:
       "SaveIT parked private DNS passed (Profiles and live DNS answers unverified).",
     failure: "SaveIT parked private DNS acquisition failed.",
+  },
+  rds: {
+    command: "check-compute-rds",
+    success:
+      "SaveIT private RDS metadata passed (database TLS, roles and recovery unverified).",
+    failure: "SaveIT private RDS acquisition failed.",
   },
   images: {
     command: "check-compute-images",
@@ -369,6 +376,7 @@ async function check(
   assert.equal(after.parkedTasks - before.parkedTasks, expectedCounts[15] ?? 0);
   assert.equal(after.discovery - before.discovery, expectedCounts[16] ?? 0);
   assert.equal(after.dns - before.dns, expectedCounts[17] ?? 0);
+  assert.equal(after.rds - before.rds, expectedCounts[18] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -853,6 +861,22 @@ try {
       [],
       false,
       "dns",
+    );
+  for (const [mode, passed] of [
+    ["rds-valid", true],
+    ["rds-public", false],
+    ["rds-target", false],
+    ["rds-subnet", false],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 4, 1, 4, 3, 1, 5, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      "valid",
+      [],
+      false,
+      "rds",
     );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity and original compute/network metadata; no AWS or provider writes.`,

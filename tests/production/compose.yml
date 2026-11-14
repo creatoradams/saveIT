@@ -133,6 +133,7 @@ services:
       - ../../.local/container-fixture/compute-private.json:/run/compute/private.json:ro
       - ../../.local/container-fixture/compute-groups.xml:/run/compute/groups.xml:ro
       - ../../infra/terraform/cell-foundation/tests/compute-route-observations.json:/run/compute/routes.json:ro
+      - ../../infra/terraform/cell-foundation/tests/compute-rds-observation.xml:/run/compute/rds.xml:ro
       - ../../infra/terraform/runtime-endpoints/tests/compute-endpoint-observations.json:/run/compute/endpoints.json:ro
       - ../../infra/terraform/runtime-endpoints/tests/compute-resolver-observations.json:/run/compute/resolver.json:ro
       - ../../.local/container-fixture/ca.crt:/run/compute/ca.crt:ro
@@ -146,6 +147,7 @@ services:
             "sts.us-east-1.amazonaws.com",
             "ecs.us-east-1.amazonaws.com",
             "ec2.us-east-1.amazonaws.com",
+            "rds.us-east-1.amazonaws.com",
             "route53resolver.us-east-1.amazonaws.com",
             "route53.amazonaws.com",
             "servicediscovery.us-east-1.amazonaws.com",

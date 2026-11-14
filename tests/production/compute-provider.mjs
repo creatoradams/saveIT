@@ -38,6 +38,7 @@ const counts = {
   parkedTasks: 0,
   discovery: 0,
   dns: 0,
+  rds: 0,
   ecr: 0,
   authorization: 0,
   registry: 0,
@@ -109,6 +110,7 @@ const service = httpsServer(options, (request, response) => {
         "endpoints",
         "network",
         "resolver",
+        "rds",
       ].includes(family);
       const packagedTasks =
         networkBound || family === "configuration" || family === "images";
@@ -154,22 +156,31 @@ const service = httpsServer(options, (request, response) => {
         return;
       }
       const kind = request.headers.host?.split(".")[0];
+      const zonePath = "/2013-04-01/hostedzone/Z0000000000000001";
+      const records = request.url === zonePath + "/rrset?maxitems=10";
+      verifySyntheticSigV4(request, body, {
+        access,
+        secret,
+        token,
+        service: kind === "api" ? "ecr" : kind,
+        ...(kind === "route53"
+          ? {
+              host: "route53.amazonaws.com",
+              method: "GET",
+              path: records ? zonePath + "/rrset" : zonePath,
+              query: records ? "maxitems=10" : "",
+            }
+          : {
+              host:
+                kind === "api"
+                  ? "api.ecr.us-east-1.amazonaws.com"
+                  : kind + ".us-east-1.amazonaws.com",
+            }),
+      });
       if (kind === "route53") {
         if (family !== "dns" || body !== "") throw new Error();
         const zone = "pilot.staging.saveit.internal.";
         const id = "Z0000000000000001";
-        const path = "/2013-04-01/hostedzone/" + id;
-        const records = request.url === path + "/rrset?maxitems=10";
-        verifySyntheticSigV4(request, body, {
-          access,
-          secret,
-          token,
-          service: "route53",
-          host: "route53.amazonaws.com",
-          method: "GET",
-          path: records ? path + "/rrset" : path,
-          query: records ? "maxitems=10" : "",
-        });
         counts.dns++;
         const ns = ' xmlns="https://route53.amazonaws.com/doc/2013-04-01/"';
         const entry = (name, type, values) =>
@@ -206,23 +217,14 @@ const service = httpsServer(options, (request, response) => {
           "secretsmanager",
           "route53resolver",
           "servicediscovery",
+          "rds",
         ].includes(kind)
       )
         throw new Error();
-      verifySyntheticSigV4(request, body, {
-        access,
-        secret,
-        token,
-        service: kind === "api" ? "ecr" : kind,
-        host:
-          kind === "api"
-            ? "api.ecr.us-east-1.amazonaws.com"
-            : kind + ".us-east-1.amazonaws.com",
-      });
       const action =
         kind === "sts"
           ? "identity"
-          : kind === "ec2"
+          : ["ec2", "rds"].includes(kind)
             ? new URLSearchParams(body).get("Action")
             : request.headers["x-amz-target"]?.split(".")[1];
       if (
@@ -249,6 +251,7 @@ const service = httpsServer(options, (request, response) => {
           secretsmanager: ["GetSecretValue"],
           route53resolver: Object.keys(resolverObservations),
           servicediscovery: ["GetNamespace", "GetService", "ListInstances"],
+          rds: ["DescribeDBInstances"],
         }[kind].includes(action)
       )
         throw new Error();
@@ -283,8 +286,40 @@ const service = httpsServer(options, (request, response) => {
         GetNamespace: "discovery",
         GetService: "discovery",
         ListInstances: "discovery",
+        DescribeDBInstances: "rds",
       }[action];
       counts[counter]++;
+      if (kind === "rds") {
+        const query = new URLSearchParams(body);
+        if (
+          family !== "rds" ||
+          [...query].length !== 3 ||
+          request.headers["x-amz-target"] ||
+          query.get("Version") !== "2014-10-31" ||
+          query.get("DBInstanceIdentifier") !==
+            "arn:aws:rds:us-east-1:111122223333:db:saveit-pilot-staging"
+        )
+          throw new Error();
+        let xml = readFileSync(root + "rds.xml", "utf8");
+        if (mode === "rds-public")
+          xml = xml.replace(
+            "<PubliclyAccessible>false",
+            "<PubliclyAccessible>true",
+          );
+        if (mode === "rds-target")
+          xml = xml.replace(
+            "db.synthetic.invalid",
+            "foreign.synthetic.invalid",
+          );
+        if (mode === "rds-subnet")
+          xml = xml.replace(
+            "subnet-00000000000000003",
+            "subnet-00000000000000001",
+          );
+        response.setHeader("Content-Type", "text/xml");
+        response.end(xml);
+        return;
+      }
       if (kind === "servicediscovery") {
         if (
           family !== "dns" ||
@@ -501,7 +536,11 @@ const service = httpsServer(options, (request, response) => {
           return;
         }
         if (action !== "DescribeSecurityGroups") {
-          if (!["routes", "endpoints", "network", "resolver"].includes(family))
+          if (
+            !["routes", "endpoints", "network", "resolver", "rds"].includes(
+              family,
+            )
+          )
             throw new Error();
           const stage = {
             DescribeVpcs: "vpc",
@@ -889,6 +928,10 @@ httpServer((request, response) => {
           "dns-foreign",
           "dns-stale",
           "dns-instance",
+          "rds-valid",
+          "rds-public",
+          "rds-target",
+          "rds-subnet",
         ].includes(body)
       ) {
         response.writeHead(400);

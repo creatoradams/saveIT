@@ -27,7 +27,11 @@ All four source-bound final image reports retain **zero critical/high/unknown; t
 
 The independent security agent closed the [workload review](reviews/2026-11-09-web-workload-review.md) and [coordination review](reviews/2026-11-09-compute-coordination-review.md), including the subsequent clock/recovery fixture remedies, without executing tests. The requested independent efficiency review remains outstanding after its agent's account usage limit. These reviews are not penetration tests. Earlier exact workload evidence remains at the [previous checkpoint](https://github.com/creatoradams/saveIT/blob/b813a78/docs/progress.md); historical evidence is not rewritten. Direct regional Logs customer CallerAccount compatibility remains a pre-apply gate.
 
-## Current engineering: parked Route 53 readback
+## Current engineering: private RDS readback
+
+`check-compute-rds` uses the signed scope to read one exact RDS instance ARN after the configuration, SG and subnet/route checks. It verifies the private IPv4 PostgreSQL instance, exact database group and active database subnets/AZs, and compares the observed host, port and database name with the validated API and worker configuration. It makes no database connection and emits a fixed status. All 154 local acquisition and configuration tests passed. Four packaged cases cover valid readback, public access, target mismatch and subnet drift. [RDS metadata API](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DescribeDBInstances.html)
+
+## Prior delivery: parked Route 53 readback
 
 `check-compute-parked-dns` adds two bounded SDK reads after Cloud Map. It checks the signed private zone and its one direct VPC association and requires an untruncated inventory of only apex NS and SOA records. It rejects stale workload records and adds no provider write. The SDK uses the fixed global Route 53 endpoint and signs in us-east-1. Live response compatibility, Profile-inherited DNS and workload answers remain open. All 174 focused .NET acquisition tests passed locally. Four packaged cases cover the valid inventory, foreign VPC, stale record and stale Cloud Map registration.
 

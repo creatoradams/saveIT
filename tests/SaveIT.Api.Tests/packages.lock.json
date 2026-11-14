@@ -69,6 +69,14 @@
           "AWSSDK.Core": "[4.0.102.20, 5.0.0)"
         }
       },
+      "AWSSDK.RDS": {
+        "type": "Transitive",
+        "resolved": "4.0.108.2",
+        "contentHash": "YExGHoq2Z5OZrUJ3j5TeCvpDz/XOYT6RXfjOhAHtMxNQVPfRp2rFVL8Nilqli05cUcMUAui2QWxEE/c5bTEsqA==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
+        }
+      },
       "AWSSDK.Route53": {
         "type": "Transitive",
         "resolved": "4.0.100.24",
@@ -638,6 +646,7 @@
           "AWSSDK.EC2": "[4.0.132.2, )",
           "AWSSDK.ECR": "[4.0.102.3, )",
           "AWSSDK.ECS": "[4.0.111, )",
+          "AWSSDK.RDS": "[4.0.108.2, )",
           "AWSSDK.Route53": "[4.0.100.24, )",
           "AWSSDK.Route53Resolver": "[4.0.100.26, )",
           "AWSSDK.SecretsManager": "[4.0.100.25, )",

@@ -62,7 +62,7 @@ trap cleanup EXIT
 test -s "$fixture/ca.key" && test -s "$fixture/ca.crt"
 for name in tls pg api relay secrets cognito compute; do
   if [[ "$name" == tls ]]; then san='DNS:saveit.localhost,DNS:idp.localhost'; elif [[ "$name" == api ]]; then san='DNS:api,DNS:api-client-auth,DNS:api-server-only'; elif [[ "$name" == relay ]]; then san='DNS:relay,DNS:relay-workload'; elif [[ "$name" == secrets ]]; then san='DNS:secretsmanager.us-east-1.amazonaws.com'; elif [[ "$name" == cognito ]]; then san='DNS:cognito-identity.us-east-1.amazonaws.com'; elif [[ "$name" == compute ]]; then san='DNS:sts.us-east-1.amazonaws.com,DNS:ecs.us-east-1.amazonaws.com,DNS:api.ecr.us-east-1.amazonaws.com,DNS:secretsmanager.us-east-1.amazonaws.com,DNS:111122223333.dkr.ecr.us-east-1.amazonaws.com,DNS:foreign-control.invalid'; else san='DNS:db'; fi
-  if [[ "$name" == compute ]]; then san="$san,DNS:ec2.us-east-1.amazonaws.com,DNS:route53resolver.us-east-1.amazonaws.com,DNS:route53.amazonaws.com,DNS:servicediscovery.us-east-1.amazonaws.com"; fi
+  if [[ "$name" == compute ]]; then san="$san,DNS:ec2.us-east-1.amazonaws.com,DNS:rds.us-east-1.amazonaws.com,DNS:route53resolver.us-east-1.amazonaws.com,DNS:route53.amazonaws.com,DNS:servicediscovery.us-east-1.amazonaws.com"; fi
   openssl req -newkey rsa:2048 -nodes -keyout "$fixture/$name.new.key" -out "$fixture/$name.csr" -subj "/CN=$name" >/dev/null 2>&1
   mv -f "$fixture/$name.new.key" "$fixture/$name.key"
   printf 'subjectAltName=%s\nextendedKeyUsage=serverAuth\n' "$san" > "$fixture/$name.ext"

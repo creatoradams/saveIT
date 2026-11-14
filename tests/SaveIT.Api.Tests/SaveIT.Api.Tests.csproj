@@ -16,4 +16,5 @@
   <ItemGroup><Content Include="../../infra/terraform/cell-foundation/tests/compute-route-observations.json" Link="Fixtures/compute-route-observations.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="../../infra/terraform/runtime-endpoints/tests/compute-endpoint-observations.json" Link="Fixtures/compute-endpoint-observations.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="../../infra/terraform/runtime-endpoints/tests/compute-resolver-observations.json" Link="Fixtures/compute-resolver-observations.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="../../infra/terraform/cell-foundation/tests/compute-rds-observation.xml" Link="Fixtures/compute-rds-observation.xml" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

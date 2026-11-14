@@ -113,11 +113,25 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
     [InlineData("forward",10,"resolver")][InlineData("rule-vpc",10,"resolver")][InlineData("page",10,"resolver")]
     [InlineData("group",11,"resolver")][InlineData("group-page",11,"resolver")]
     [InlineData("owner",12,"resolver")][InlineData("open",12,"resolver")][InlineData("duplicate",12,"resolver")]
+    [InlineData(null,6,"rds")][InlineData("rds-owner",6,"rds")][InlineData("rds-public",6,"rds")]
+    [InlineData("rds-subnet",6,"rds")][InlineData("rds-group",6,"rds")][InlineData("rds-target",6,"rds")]
+    [InlineData("rds-page",6,"rds")][InlineData("rds-pending",6,"rds")]
     public async Task Real_SDK_query_sequence_stops_at_first_invalid_original_response(string? invalid,int reads,string kind="routes")
     {
         var prior=await new ComputeSecurityGroupTests(signing,configuration).Acquisition(bind:kind=="routes"?null:ComputeEndpointTests.Bind);
         var count=0;var returned=false;var clock=new FinalReadClock();
-        HttpMessageHandler Provider(string service)=>service=="route53resolver"?new Handler(async(request,ct)=>{
+        HttpMessageHandler Provider(string service)=>service=="rds"?new Handler(async(request,ct)=>{
+            Assert.Equal("https://rds.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);
+            Assert.Contains("/us-east-1/rds/aws4_request",request.Headers.GetValues("Authorization").Single());
+            prior.Calls.Add("rds");
+            var query=(await request.Content!.ReadAsStringAsync(ct)).Split('&').Select(pair=>pair.Split('='))
+                .ToDictionary(pair=>pair[0],pair=>Uri.UnescapeDataString(pair[1]));
+            Assert.Equal(3,query.Count);
+            Assert.Equal("DescribeDBInstances",query["Action"]);
+            Assert.Equal("2014-10-31",query["Version"]);
+            Assert.Equal("arn:aws:rds:us-east-1:111122223333:db:saveit-pilot-staging",query["DBInstanceIdentifier"]);
+            return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(RdsObservation(invalid),Encoding.UTF8,"text/xml")};
+        }):service=="route53resolver"?new Handler(async(request,ct)=>{
             Assert.Equal("https://route53resolver.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);
             Assert.Contains("/us-east-1/route53resolver/aws4_request",request.Headers.GetValues("Authorization").Single());
             const string prefix = "Route53Resolver.";
@@ -189,7 +203,8 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
         var session=await ComputeSecurityGroupTests.Session();
         async Task Acquire()
         {
-            if(kind=="resolver")await ComputeResolverAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            if(kind=="rds")await ComputeRdsAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            else if(kind=="resolver")await ComputeResolverAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else if(kind=="network")await ComputeNetworkAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else if(kind=="endpoints")await ComputeEndpointAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else
@@ -202,12 +217,30 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
         else
         {
             var error=await Assert.ThrowsAsync<InvalidOperationException>(Acquire);
-            Assert.Equal(kind switch { "resolver"=>ComputeResolverAcquisition.Failure, "network"=>ComputeNetworkAcquisition.Failure, "endpoints"=>ComputeEndpointAcquisition.Failure, _=>ComputeRouteAcquisition.Failure },error.Message);
+            Assert.Equal(kind switch { "rds"=>ComputeRdsAcquisition.Failure, "resolver"=>ComputeResolverAcquisition.Failure, "network"=>ComputeNetworkAcquisition.Failure, "endpoints"=>ComputeEndpointAcquisition.Failure, _=>ComputeRouteAcquisition.Failure },error.Message);
             Assert.Null(error.InnerException);
         }
-        Assert.Equal(new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes","endpoints","prefix","dhcp","interfaces","ListResolverRuleAssociations","ListFirewallRuleGroupAssociations","GetFirewallConfig"}.Take(reads),prior.Calls.Skip(20));
+        var stages=new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes","endpoints","prefix","dhcp","interfaces","ListResolverRuleAssociations","ListFirewallRuleGroupAssociations","GetFirewallConfig"};
+        Assert.Equal(kind=="rds"?stages.Take(5).Append("rds"):stages.Take(reads),prior.Calls.Skip(20));
         Assert.Equal(20+reads,prior.Calls.Count);
         if(invalid=="expired")Assert.True(returned,"A valid response at simulated expiry must reach the validation boundary.");
+    }
+
+    private static string RdsObservation(string? invalid)
+    {
+        var xml=File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-rds-observation.xml"));
+        var (from,to)=invalid switch
+        {
+            "rds-owner"=>("111122223333:db:","444455556666:db:"),
+            "rds-public"=>("<PubliclyAccessible>false","<PubliclyAccessible>true"),
+            "rds-subnet"=>("subnet-00000000000000003","subnet-00000000000000001"),
+            "rds-group"=>("sg-00000000000000005","sg-00000000000000004"),
+            "rds-target"=>("db.synthetic.invalid","foreign.synthetic.invalid"),
+            "rds-page"=>("</DBInstances>","</DBInstances><Marker>synthetic-page</Marker>"),
+            "rds-pending"=>("<PendingModifiedValues/>","<PendingModifiedValues><DBInstanceClass>db.synthetic</DBInstanceClass></PendingModifiedValues>"),
+            _=>("","")
+        };
+        return from.Length==0?xml:xml.Replace(from,to,StringComparison.Ordinal);
     }
 
     [Theory]
