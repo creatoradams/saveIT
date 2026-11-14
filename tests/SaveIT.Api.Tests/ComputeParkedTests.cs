@@ -137,14 +137,33 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
     [Theory]
     [InlineData("valid")] [InlineData("raw-unknown")] [InlineData("duplicate")]
     [InlineData("root-unknown")] [InlineData("overflow")] [InlineData("private-drift")]
+    [InlineData("inventory-empty")] [InlineData("inventory-active")] [InlineData("inventory-next")]
+    [InlineData("inventory-duplicate")] [InlineData("inventory-unknown")] [InlineData("inventory-null-token")]
     public async Task Official_SDK_acquires_exact_cluster_and_four_services_after_identity_and_tasks(string mode)
     {
         var release=await Release();var tasks=Tasks();var f=Fixture();var calls=new List<string>();
-        var operation=AcquiredParkedComputeCell.ReadAsync(release,await Session(),service=>new Handler(async(request,ct)=>{
+        var inventory=mode.StartsWith("inventory-",StringComparison.Ordinal);
+        var session=await Session();
+        HttpMessageHandler Provider(string service)=>new Handler(async(request,ct)=>{
             if(service=="sts")return Response("<GetCallerIdentityResponse xmlns=\"https://sts.amazonaws.com/doc/2011-06-15/\"><GetCallerIdentityResult><Arn>arn:aws:sts::111122223333:assumed-role/saveit-pilot-staging-compute-controller/synthetic</Arn><UserId>AROA00000000000000000:synthetic</UserId><Account>111122223333</Account></GetCallerIdentityResult><ResponseMetadata><RequestId>synthetic</RequestId></ResponseMetadata></GetCallerIdentityResponse>");
             var action=request.Headers.GetValues("X-Amz-Target").Single().Split('.')[1];calls.Add(action);using var json=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
             if(action=="DescribeTaskDefinition"){var p=release.Data.Tasks.Single(x=>x.Value.TaskDefinitionArn==json.RootElement.GetProperty("taskDefinition").GetString()).Key;return Response(tasks[p]!.ToJsonString());}
             if(action=="DescribeClusters")return Response(f["cluster"]!.ToJsonString());
+            if(action=="ListTasks")
+            {
+                Assert.Equal(ComputeSdkRead.ClusterArn(release.Scope),json.RootElement.GetProperty("cluster").GetString());
+                Assert.Equal("RUNNING",json.RootElement.GetProperty("desiredStatus").GetString());
+                Assert.Equal(100,json.RootElement.GetProperty("maxResults").GetInt32());
+                return Response(mode switch
+                {
+                    "inventory-active" => """{"taskArns":["arn:aws:ecs:us-east-1:111122223333:task/saveit-pilot-staging/00000000000000000000000000000001"]}""",
+                    "inventory-next" => """{"taskArns":[],"nextToken":"synthetic-page"}""",
+                    "inventory-duplicate" => """{"taskArns":[],"taskArns":[]}""",
+                    "inventory-unknown" => """{"taskArns":[],"tasks":[]}""",
+                    "inventory-null-token" => """{"taskArns":[],"nextToken":null}""",
+                    _ => """{"taskArns":[]}"""
+                });
+            }
             Assert.Equal(ComputeSdkRead.ClusterArn(release.Scope),json.RootElement.GetProperty("cluster").GetString());Assert.Equal(4,json.RootElement.GetProperty("services").GetArrayLength());
             var value=f["services"]!;
             if(mode=="raw-unknown")value["services"]![0]!["unknownAuthority"]=false;
@@ -152,9 +171,25 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
             if(mode=="private-drift")value["services"]![0]!["deploymentConfiguration"]!["private"]="synthetic-private-marker";
             var body=value.ToJsonString();if(mode=="duplicate")body=body.Replace("\"desiredCount\":0","\"desiredCount\":1,\"desiredC\\u006funt\":0",StringComparison.Ordinal);if(mode=="overflow")body=body.PadRight(524289);
             return Response(body);
-        }),CancellationToken.None);
-        if(mode=="valid")Assert.Same(release,(await operation).Tasks.Release);
-        else {var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>operation);Assert.Equal(ComputeCellAcquisition.Failure,error.Message);Assert.Null(error.InnerException);}
-        Assert.Equal(new[]{"DescribeTaskDefinition","DescribeTaskDefinition","DescribeTaskDefinition","DescribeTaskDefinition","DescribeClusters","DescribeServices"},calls);
+        });
+        if(inventory)
+        {
+            var operation=ComputeParkedTaskAcquisition.ReadAsync(release,session,Provider,CancellationToken.None);
+            if(mode is "inventory-empty" or "inventory-null-token")await operation;
+            else
+            {
+                var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>operation);
+                Assert.Equal(ComputeParkedTaskAcquisition.Failure,error.Message);
+                Assert.Null(error.InnerException);
+            }
+        }
+        else
+        {
+            var operation=AcquiredParkedComputeCell.ReadAsync(release,session,Provider,CancellationToken.None);
+            if(mode=="valid")Assert.Same(release,(await operation).Tasks.Release);
+            else {var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>operation);Assert.Equal(ComputeCellAcquisition.Failure,error.Message);Assert.Null(error.InnerException);}
+        }
+        var expected=new[]{"DescribeTaskDefinition","DescribeTaskDefinition","DescribeTaskDefinition","DescribeTaskDefinition","DescribeClusters","DescribeServices"};
+        Assert.Equal(inventory?expected.Append("ListTasks"):expected,calls);
     }
 }

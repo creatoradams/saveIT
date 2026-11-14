@@ -24,6 +24,8 @@ internal sealed class ComputeSdkRead
         ["clusters"]=new JsonArray(ClusterArn(s)),["include"]=new JsonArray("ATTACHMENTS","CONFIGURATIONS","SETTINGS","TAGS")},"clusters","failures",65536);
     internal static ComputeSdkRead Services(ComputeScope s)=>new("ecs","DescribeServices",new JsonObject{
         ["cluster"]=ClusterArn(s),["services"]=new JsonArray(ComputeRelease.Processes.Select(p=>(JsonNode?)JsonValue.Create(ServiceArn(s,p))).ToArray()),["include"]=new JsonArray("TAGS")},"services","failures",524288);
+    internal static ComputeSdkRead ParkedTasks(ComputeScope s)=>new("ecs","ListTasks",new JsonObject{
+        ["cluster"]=ClusterArn(s),["desiredStatus"]="RUNNING",["maxResults"]=100},"taskArns","nextToken",32768);
     internal static ComputeSdkRead Manifest(ComputeRelease release,string process)=>new("api.ecr","BatchGetImage",new JsonObject{
         ["registryId"]=release.Scope.AccountId,["repositoryName"]=Repository(release.Scope,process),
         ["imageIds"]=new JsonArray(new JsonObject{["imageDigest"]=release.Data.Tasks[process].Image.Split('@')[1]}),

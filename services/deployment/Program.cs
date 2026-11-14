@@ -12,6 +12,7 @@ public static async Task<int> Main(string[] args)
 (Func<Stream,CancellationToken,Task>? Run,string Success,string Failure) acquisition=args.FirstOrDefault() switch {
     "check-compute-tasks"=>(ComputeTaskAcquisition.ValidateAsync,ComputeTaskAcquisition.Success,ComputeTaskAcquisition.Failure),
     "check-compute-parked-services"=>(ComputeCellAcquisition.ValidateAsync,ComputeCellAcquisition.Success,ComputeCellAcquisition.Failure),
+    "check-compute-parked-tasks"=>(ComputeParkedTaskAcquisition.ValidateAsync,ComputeParkedTaskAcquisition.Success,ComputeParkedTaskAcquisition.Failure),
     "check-compute-images"=>(ComputeImageAcquisition.ValidateAsync,ComputeImageAcquisition.Success,ComputeImageAcquisition.Failure),
     "check-compute-configuration"=>(ComputeConfigurationAcquisition.ValidateAsync,ComputeConfigurationAcquisition.Success,ComputeConfigurationAcquisition.Failure),
     "check-compute-security-groups"=>(ComputeSecurityGroupAcquisition.ValidateAsync,ComputeSecurityGroupAcquisition.Success,ComputeSecurityGroupAcquisition.Failure),

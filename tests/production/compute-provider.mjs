@@ -35,6 +35,7 @@ const counts = {
   ecs: 0,
   cluster: 0,
   services: 0,
+  parkedTasks: 0,
   ecr: 0,
   authorization: 0,
   registry: 0,
@@ -196,6 +197,7 @@ const service = httpsServer(options, (request, response) => {
             "DescribeTaskDefinition",
             "DescribeClusters",
             "DescribeServices",
+            "ListTasks",
           ],
           api: ["BatchGetImage", "GetAuthorizationToken"],
           secretsmanager: ["GetSecretValue"],
@@ -215,6 +217,7 @@ const service = httpsServer(options, (request, response) => {
         DescribeTaskDefinition: "ecs",
         DescribeClusters: "cluster",
         DescribeServices: "services",
+        ListTasks: "parkedTasks",
         BatchGetImage: "ecr",
         GetAuthorizationToken: "authorization",
         GetSecretValue: "configuration",
@@ -232,6 +235,30 @@ const service = httpsServer(options, (request, response) => {
         GetFirewallConfig: "resolver",
       }[action];
       counts[counter]++;
+      if (action === "ListTasks") {
+        const expected = {
+          cluster:
+            "arn:aws:ecs:us-east-1:111122223333:cluster/saveit-pilot-staging",
+          desiredStatus: "RUNNING",
+          maxResults: 100,
+        };
+        if (
+          family !== "inventory" ||
+          request.headers["x-amz-target"] !==
+            "AmazonEC2ContainerServiceV20141113.ListTasks" ||
+          !isDeepStrictEqual(JSON.parse(body), expected)
+        )
+          throw new Error();
+        const result = { taskArns: [] };
+        if (mode === "inventory-active")
+          result.taskArns.push(
+            "arn:aws:ecs:us-east-1:111122223333:task/saveit-pilot-staging/00000000000000000000000000000001",
+          );
+        if (mode === "inventory-page") result.nextToken = "synthetic-page";
+        response.setHeader("Content-Type", "application/x-amz-json-1.1");
+        response.end(JSON.stringify(result));
+        return;
+      }
       if (kind === "route53resolver") {
         const vpc = "vpc-00000000000000001";
         const expected = {
@@ -743,6 +770,9 @@ httpServer((request, response) => {
           "resolver-page",
           "resolver-owner",
           "resolver-open",
+          "inventory-valid",
+          "inventory-active",
+          "inventory-page",
         ].includes(body)
       ) {
         response.writeHead(400);

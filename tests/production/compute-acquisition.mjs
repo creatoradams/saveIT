@@ -219,6 +219,12 @@ const acquisitionKinds = {
       "SaveIT acquired parked cell metadata passed (no ownership handoff, launch or fencing).",
     failure: "SaveIT compute cell acquisition failed.",
   },
+  parkedTasks: {
+    command: "check-compute-parked-tasks",
+    success:
+      "SaveIT parked task inventory passed (no task termination or fencing verification).",
+    failure: "SaveIT parked task inventory failed.",
+  },
   images: {
     command: "check-compute-images",
     success:
@@ -346,6 +352,7 @@ async function check(
   assert.equal(after.dhcp - before.dhcp, expectedCounts[12] ?? 0);
   assert.equal(after.interfaces - before.interfaces, expectedCounts[13] ?? 0);
   assert.equal(after.resolver - before.resolver, expectedCounts[14] ?? 0);
+  assert.equal(after.parkedTasks - before.parkedTasks, expectedCounts[15] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -799,6 +806,21 @@ try {
       [],
       false,
       "resolver",
+    );
+  for (const [mode, passed] of [
+    ["inventory-valid", true],
+    ["inventory-active", false],
+    ["inventory-page", false],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      "valid",
+      [],
+      false,
+      "parkedTasks",
     );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity and original compute/network metadata; no AWS or provider writes.`,
