@@ -33,7 +33,7 @@ ADR061 verifies the VPC's DHCP options and independently cross-checks the ten in
 - [x] Record the missing DNS Firewall policy. The current roots declare zero custom direct forwarding and firewall associations.
 - [x] Add fixed regional read-only checks bound to the approved VPC.
 - [x] Verify the direct baseline and reject drift, foreign references and incomplete results.
-- [ ] Confirm the synthetic SDK and packaged Linux checks in CI.
+- [x] Confirm the synthetic SDK and packaged Linux checks. All 361 local acquisition regressions and 88 packaged acquisition cases passed, including seven Resolver cases. [Packaged CI](https://github.com/creatoradams/saveIT/actions/runs/43539335185)
 
 Approving and declaring a filtering policy, verifying Route 53 Profile associations and testing live DNS answers remain open. [ADR062](adr/062-direct-resolver-baseline.md)
 
