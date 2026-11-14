@@ -139,14 +139,55 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
     [InlineData("root-unknown")] [InlineData("overflow")] [InlineData("private-drift")]
     [InlineData("inventory-empty")] [InlineData("inventory-active")] [InlineData("inventory-next")]
     [InlineData("inventory-duplicate")] [InlineData("inventory-unknown")] [InlineData("inventory-null-token")]
+    [InlineData("discovery-valid")] [InlineData("discovery-unbound")] [InlineData("discovery-zone")]
+    [InlineData("discovery-routing")] [InlineData("discovery-instance")] [InlineData("discovery-page")]
     public async Task Official_SDK_acquires_exact_cluster_and_four_services_after_identity_and_tasks(string mode)
     {
-        var release=await Release();var tasks=Tasks();var f=Fixture();var calls=new List<string>();
-        var inventory=mode.StartsWith("inventory-",StringComparison.Ordinal);
+        var discovery=mode.StartsWith("discovery-",StringComparison.Ordinal);
+        const string namespaceId="ns-0000000000000001", zoneId="Z0000000000000001";
+        const string namespaceArn="arn:aws:servicediscovery:us-east-1:111122223333:namespace/"+namespaceId;
+        var release=discovery&&mode!="discovery-unbound"
+            ?await signing.CreateAsync(generation:Guid.Parse("70000000-0000-0000-0000-000000000001"),
+                mutate:data=>data["network"]!["privateDns"]=new JsonObject{["namespaceArn"]=namespaceArn,["hostedZoneId"]=zoneId})
+            :await Release();
+        var tasks=Tasks();var f=Fixture();var calls=new List<string>();
+        var inventory=discovery||mode.StartsWith("inventory-",StringComparison.Ordinal);
         var session=await Session();
         HttpMessageHandler Provider(string service)=>new Handler(async(request,ct)=>{
             if(service=="sts")return Response("<GetCallerIdentityResponse xmlns=\"https://sts.amazonaws.com/doc/2011-06-15/\"><GetCallerIdentityResult><Arn>arn:aws:sts::111122223333:assumed-role/saveit-pilot-staging-compute-controller/synthetic</Arn><UserId>AROA00000000000000000:synthetic</UserId><Account>111122223333</Account></GetCallerIdentityResult><ResponseMetadata><RequestId>synthetic</RequestId></ResponseMetadata></GetCallerIdentityResponse>");
             var action=request.Headers.GetValues("X-Amz-Target").Single().Split('.')[1];calls.Add(action);using var json=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
+            if(service=="servicediscovery")
+            {
+                Assert.Equal("https://servicediscovery.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);
+                Assert.Contains("/us-east-1/servicediscovery/aws4_request",request.Headers.GetValues("Authorization").Single());
+                var arn=json.RootElement.GetProperty(action=="ListInstances"?"ServiceId":"Id").GetString();
+                if(action=="GetNamespace")
+                {
+                    Assert.Equal(namespaceArn,arn);
+                    return Response(new JsonObject{["Namespace"]=new JsonObject{
+                        ["Arn"]=namespaceArn,["Id"]=namespaceId,["Name"]="pilot.staging.saveit.internal",["Type"]="DNS_PRIVATE",
+                        ["Properties"]=new JsonObject{["DnsProperties"]=new JsonObject{["HostedZoneId"]=mode=="discovery-zone"?"ZOTHER":zoneId}}
+                    }}.ToJsonString());
+                }
+                var name=arn==release.Data.Network.ApiDiscoveryServiceArn?"api":"relay";
+                Assert.Equal(name=="api"?release.Data.Network.ApiDiscoveryServiceArn:release.Data.Network.RelayDiscoveryServiceArn,arn);
+                if(action=="ListInstances")
+                {
+                    Assert.Equal(100,json.RootElement.GetProperty("MaxResults").GetInt32());
+                    return Response(mode switch {
+                        "discovery-instance"=>"""{"Instances":[{"Id":"synthetic-instance"}]}""",
+                        "discovery-page"=>"""{"Instances":[],"NextToken":"synthetic-page"}""",
+                        _=>"""{"Instances":[]}"""
+                    });
+                }
+                Assert.Equal("GetService",action);
+                return Response(new JsonObject{["Service"]=new JsonObject{
+                    ["Arn"]=arn,["Id"]=arn!.Split('/')[1],["Name"]=name,["NamespaceId"]=namespaceId,
+                    ["DnsConfig"]=new JsonObject{["RoutingPolicy"]=mode=="discovery-routing"?"WEIGHTED":"MULTIVALUE",
+                        ["DnsRecords"]=new JsonArray(new JsonObject{["Type"]="A",["TTL"]=10})},
+                    ["HealthCheckCustomConfig"]=new JsonObject{["FailureThreshold"]=1}
+                }}.ToJsonString());
+            }
             if(action=="DescribeTaskDefinition"){var p=release.Data.Tasks.Single(x=>x.Value.TaskDefinitionArn==json.RootElement.GetProperty("taskDefinition").GetString()).Key;return Response(tasks[p]!.ToJsonString());}
             if(action=="DescribeClusters")return Response(f["cluster"]!.ToJsonString());
             if(action=="ListTasks")
@@ -172,7 +213,18 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
             var body=value.ToJsonString();if(mode=="duplicate")body=body.Replace("\"desiredCount\":0","\"desiredCount\":1,\"desiredC\\u006funt\":0",StringComparison.Ordinal);if(mode=="overflow")body=body.PadRight(524289);
             return Response(body);
         });
-        if(inventory)
+        if(discovery)
+        {
+            var operation=ComputeDiscoveryAcquisition.ReadAsync(release,session,Provider,CancellationToken.None);
+            if(mode=="discovery-valid")await operation;
+            else
+            {
+                var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>operation);
+                Assert.Equal(ComputeDiscoveryAcquisition.Failure,error.Message);
+                Assert.Null(error.InnerException);
+            }
+        }
+        else if(inventory)
         {
             var operation=ComputeParkedTaskAcquisition.ReadAsync(release,session,Provider,CancellationToken.None);
             if(mode is "inventory-empty" or "inventory-null-token")await operation;
@@ -190,6 +242,13 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
             else {var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>operation);Assert.Equal(ComputeCellAcquisition.Failure,error.Message);Assert.Null(error.InnerException);}
         }
         var expected=new[]{"DescribeTaskDefinition","DescribeTaskDefinition","DescribeTaskDefinition","DescribeTaskDefinition","DescribeClusters","DescribeServices"};
-        Assert.Equal(inventory?expected.Append("ListTasks"):expected,calls);
+        IEnumerable<string> sequence=inventory?expected.Append("ListTasks"):expected;
+        if(discovery)
+        {
+            var reads=mode switch { "discovery-valid"=>5, "discovery-zone"=>1, "discovery-routing"=>2, _=>3 };
+            sequence=mode=="discovery-unbound"?[]:sequence.Concat(
+                new[]{"GetNamespace","GetService","ListInstances","GetService","ListInstances"}.Take(reads));
+        }
+        Assert.Equal(sequence,calls);
     }
 }

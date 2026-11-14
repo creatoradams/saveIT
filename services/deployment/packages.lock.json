@@ -62,6 +62,15 @@
           "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
         }
       },
+      "AWSSDK.ServiceDiscovery": {
+        "type": "Direct",
+        "requested": "[4.0.101.20, )",
+        "resolved": "4.0.101.20",
+        "contentHash": "ddhEbra2uI0jsxrZBJGkYiU4SZj9l+Wbg1Ca4sYYDHNgJEVmtq2/jugouFmg+7rYVEzG42xwu8QLuXgYLb/9jQ==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
+        }
+      },
       "Microsoft.AspNetCore.Authentication.OpenIdConnect": {
         "type": "Transitive",
         "resolved": "10.0.15",

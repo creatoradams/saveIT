@@ -43,7 +43,10 @@ internal sealed class ComputeSdkRead
         ["VpcId"]=vpc,["MaxResults"]=100},"FirewallRuleGroupAssociations","NextToken",32768);
     internal static ComputeSdkRead FirewallConfig(string vpc)=>new("route53resolver","GetFirewallConfig",new JsonObject{
         ["ResourceId"]=vpc},"FirewallConfig",null,16384);
-    internal string TargetPrefix=>Endpoint switch {"ecs"=>"AmazonEC2ContainerServiceV20141113.","api.ecr"=>"AmazonEC2ContainerRegistry_V20150921.","secretsmanager"=>"secretsmanager.","route53resolver"=>"Route53Resolver.",_=>throw new InvalidOperationException()};
+    internal static ComputeSdkRead DiscoveryNamespace(string arn)=>new("servicediscovery","GetNamespace",new JsonObject{["Id"]=arn},"Namespace",null,32768);
+    internal static ComputeSdkRead DiscoveryService(string arn)=>new("servicediscovery","GetService",new JsonObject{["Id"]=arn},"Service",null,32768);
+    internal static ComputeSdkRead DiscoveryInstances(string arn)=>new("servicediscovery","ListInstances",new JsonObject{["ServiceId"]=arn,["MaxResults"]=100},"Instances","NextToken",32768);
+    internal string TargetPrefix=>Endpoint switch {"ecs"=>"AmazonEC2ContainerServiceV20141113.","api.ecr"=>"AmazonEC2ContainerRegistry_V20150921.","secretsmanager"=>"secretsmanager.","route53resolver"=>"Route53Resolver.","servicediscovery"=>"Route53AutoNaming_v20170314.",_=>throw new InvalidOperationException()};
     internal void ValidateResponse(JsonElement root)
     {
         RejectResponse(root);

@@ -27,7 +27,11 @@ All four source-bound final image reports retain **zero critical/high/unknown; t
 
 The independent security agent closed the [workload review](reviews/2026-11-09-web-workload-review.md) and [coordination review](reviews/2026-11-09-compute-coordination-review.md), including the subsequent clock/recovery fixture remedies, without executing tests. The requested independent efficiency review remains outstanding after its agent's account usage limit. These reviews are not penetration tests. Earlier exact workload evidence remains at the [previous checkpoint](https://github.com/creatoradams/saveIT/blob/b813a78/docs/progress.md); historical evidence is not rewritten. Direct regional Logs customer CallerAccount compatibility remains a pre-apply gate.
 
-## Current engineering: parked workload inventory
+## Current engineering: parked Cloud Map readback
+
+The independently signed private DNS binding pins the namespace ARN and hosted zone ID. The private-discovery producer exports the pair when relay discovery is bound. `check-compute-parked-discovery` requires that binding before any provider call and verifies the exact Cloud Map namespace, API and relay service configurations and empty instance inventories after the parked workload check. It uses deployment-only AWSSDK.ServiceDiscovery 4.0.101.20 with the existing Core pin. Direct Route 53 records and associations, cloud tag drift, packaged Cloud Map canaries and live DNS remain open.
+
+## Prior delivery: parked workload inventory
 
 `check-compute-parked-tasks` adds one signed-cluster ECS inventory read after the existing parked-service preflight. It rejects any desired-RUNNING task and any incomplete inventory. All 76 local parked-state tests passed. Three packaged Linux cases cover the empty inventory, an unexpected task and pagination. Private zone and registry readback, RDS and EFS attachment checks and post-launch task-to-ENI verification remain open.
 

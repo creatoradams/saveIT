@@ -28,7 +28,16 @@ internal sealed record ComputeRuntime(string PublicOrigin, string OktaIssuer, st
     string ClientCaSha256, ImmutableArray<string> ClientLeafSha256, string FileSystemId, string AccessPointId,
     string PoolId, string WorkloadIssuer, string WorkloadJwksSha256);
 internal sealed record ComputeNetwork(string VpcId, ImmutableArray<string> SubnetIds, ImmutableDictionary<string,string> SecurityGroups,
-    string ApiDiscoveryServiceArn, string RelayDiscoveryServiceArn, ComputeNetworkBindings? Bindings=null);
+    string ApiDiscoveryServiceArn, string RelayDiscoveryServiceArn, ComputeNetworkBindings? Bindings=null,
+    ComputePrivateDnsBinding? PrivateDns=null);
+internal sealed record ComputePrivateDnsBinding(string NamespaceArn, string HostedZoneId)
+{
+    internal void Validate(ComputeScope scope)
+    {
+        Match(NamespaceArn, Regex.Escape($"arn:aws:servicediscovery:{scope.Region}:{scope.AccountId}:namespace/ns-")+"[a-z0-9]{16}");
+        Match(HostedZoneId, "Z[A-Z0-9]{1,31}");
+    }
+}
 internal sealed record ComputeReleaseData(long ExpectedVersion, string Generation, string SourceRevision,
     ImmutableDictionary<string,ComputeTaskReference> Tasks, ComputeRuntime Runtime, ComputeNetwork Network);
 
@@ -121,6 +130,7 @@ internal sealed class ComputeRelease
         foreach(var arn in new[]{n.ApiDiscoveryServiceArn,n.RelayDiscoveryServiceArn}) Match(arn,Regex.Escape($"arn:aws:servicediscovery:{s.Region}:{s.AccountId}:service/srv-")+"[a-z0-9]{16}");
         if(n.ApiDiscoveryServiceArn==n.RelayDiscoveryServiceArn) throw new InvalidOperationException();
         n.Bindings?.Validate(n);
+        n.PrivateDns?.Validate(s);
     }
     private static byte[] Decode(string value,int limit)
     {

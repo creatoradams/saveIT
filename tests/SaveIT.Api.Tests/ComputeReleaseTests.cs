@@ -30,6 +30,32 @@ public sealed class ComputeReleaseFixture : IDisposable
 public sealed class ComputeReleaseTests(ComputeReleaseFixture fixture) : IClassFixture<ComputeReleaseFixture>
 {
     private static readonly ComputeScope Scope=new("111122223333","us-east-1","pilot","staging");
+    private const string NamespaceArn = "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001";
+    private const string HostedZoneId = "Z0000000000000001";
+
+    [Fact]
+    public async Task Private_dns_binding_is_optional_for_legacy_inspection_and_retained_when_signed()
+    {
+        Assert.Null((await fixture.CreateAsync()).Data.Network.PrivateDns);
+        var release = await fixture.CreateAsync(mutate: data => BindDns(data, NamespaceArn, HostedZoneId));
+        Assert.Equal(new ComputePrivateDnsBinding(NamespaceArn, HostedZoneId), release.Data.Network.PrivateDns);
+    }
+
+    [Theory]
+    [InlineData("arn:aws:servicediscovery:us-east-1:444455556666:namespace/ns-0000000000000001", HostedZoneId)]
+    [InlineData("arn:aws:servicediscovery:us-west-2:111122223333:namespace/ns-0000000000000001", HostedZoneId)]
+    [InlineData("arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000001", HostedZoneId)]
+    [InlineData(NamespaceArn, "/hostedzone/Z0000000000000001")]
+    [InlineData(NamespaceArn, "z0000000000000001")]
+    [InlineData(NamespaceArn, null)]
+    public async Task Private_dns_binding_rejects_foreign_arns_and_noncanonical_zone_ids(string arn, string? zone)
+    {
+        await Rejected(() => fixture.CreateAsync(mutate: data => BindDns(data, arn, zone)));
+    }
+
+    private static void BindDns(JsonNode data, string arn, string? zone) =>
+        data["network"]!["privateDns"] = new JsonObject { ["namespaceArn"] = arn, ["hostedZoneId"] = zone };
+
     private static JsonObject Contract()=>JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-release-contract.json")))!.AsObject();
     private static JsonObject Observations()=>JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-release-observations.json")))!.AsObject();
     private static JsonObject Claims(JsonObject? contract=null)

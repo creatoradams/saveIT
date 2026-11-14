@@ -792,7 +792,7 @@ override_resource {
 run "null_relay_keeps_initial_discovery_graph" {
   command = plan
   assert {
-    condition     = output.relay_discovery == null && length(data.aws_security_group.relay) == 0 && length(aws_service_discovery_service.relay) == 0 && length(aws_vpc_security_group_ingress_rule.relay_https) == 0 && length(aws_vpc_security_group_egress_rule.relay_https) == 0 && aws_vpc_security_group_ingress_rule.api_https.referenced_security_group_id == var.network.client_security_groups.web
+    condition     = output.relay_discovery == null && output.compute_private_dns == null && length(data.aws_security_group.relay) == 0 && length(aws_service_discovery_service.relay) == 0 && length(aws_vpc_security_group_ingress_rule.relay_https) == 0 && length(aws_vpc_security_group_egress_rule.relay_https) == 0 && aws_vpc_security_group_ingress_rule.api_https.referenced_security_group_id == var.network.client_security_groups.web
     error_message = "Null initial mode is unchanged; this fresh mock plan is not withdrawal/failover/fencing evidence."
   }
 }
@@ -830,6 +830,13 @@ run "relay_private_registry_and_exact_transport_paths" {
     condition = (jsonencode(output.relay_discovery) == jsonencode({ namespace_id = "ns-0000000000000001", namespace_arn = "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001", service_arn = "arn:aws:servicediscovery:us-east-1:111122223333:service/srv-0000000000000002", hostname = "relay.pilot.staging.saveit.internal", origin = "https://relay.pilot.staging.saveit.internal:8443", port = 8443, api_origin = var.api_transport.origin, vpc_id = var.network.vpc_id, application_subnet_ids = var.network.application_subnet_ids, security_group_id = var.relay_network.security_group_id }) &&
     output.api_discovery.hostname == "api.pilot.staging.saveit.internal" && output.api_discovery.origin == var.api_transport.origin && output.api_discovery.client_security_groups == var.network.client_security_groups)
     error_message = "Distinct fixed API/relay origins and legacy API output retain public scoped metadata only, not TLS/workload/launch readiness."
+  }
+  assert {
+    condition = output.compute_private_dns == {
+      namespaceArn = "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001"
+      hostedZoneId = "Z0000000000000001"
+    }
+    error_message = "The signed release inputs come from the exact declared private namespace and hosted zone."
   }
 }
 run "relay_subnet_order_is_not_authority" {

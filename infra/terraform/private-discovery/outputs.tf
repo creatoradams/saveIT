@@ -22,3 +22,11 @@ output "relay_discovery" {
     vpc_id       = var.network.vpc_id, application_subnet_ids = var.network.application_subnet_ids, security_group_id = var.relay_network.security_group_id
   }
 }
+
+output "compute_private_dns" {
+  description = "Namespace ARN and hosted zone ID for an independently reviewed signed release. This output does not verify DNS or hosted zone associations."
+  value = var.relay_network == null ? null : {
+    namespaceArn = aws_service_discovery_private_dns_namespace.cell.arn
+    hostedZoneId = aws_service_discovery_private_dns_namespace.cell.hosted_zone
+  }
+}

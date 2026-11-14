@@ -39,8 +39,9 @@ Approving and declaring a filtering policy, verifying Route 53 Profile associati
 
 ### Block 3 — Private DNS and resource attachments
 
-- [ ] Bind the private hosted zone and namespace to the signed release. The VPC and exact API and relay service ARNs are already signed. Names follow the existing cell and environment convention.
-- [ ] Read back the hosted zone, its associations and records, and the two Cloud Map registries. Require empty API and relay registrations while parked.
+- [x] Bind the private hosted zone ID and namespace ARN to the signed release. Names follow the existing cell and environment convention.
+- [x] Read back the Cloud Map namespace, both registries and their empty parked instance inventories.
+- [ ] Read back Route 53 private zone associations and records. Cloud Map metadata alone does not verify the Route 53 zone.
 - [ ] Verify RDS identity, private subnet placement and the dedicated database group.
 - [ ] Verify EFS mount targets, their subnet and group placement, and the approved access point.
 - [x] Implement the parked task inventory. The signed cluster must return a complete, empty desired-RUNNING task list. All 76 local parked-state tests passed.
