@@ -116,11 +116,35 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
     [InlineData(null,6,"rds")][InlineData("rds-owner",6,"rds")][InlineData("rds-public",6,"rds")]
     [InlineData("rds-subnet",6,"rds")][InlineData("rds-group",6,"rds")][InlineData("rds-target",6,"rds")]
     [InlineData("rds-page",6,"rds")][InlineData("rds-pending",6,"rds")]
+    [InlineData(null,9,"efs")][InlineData("efs-owner",6,"efs")][InlineData("efs-mode",6,"efs")]
+    [InlineData("efs-subnet",7,"efs")][InlineData("efs-page",7,"efs")][InlineData("efs-group",9,"efs")]
     public async Task Real_SDK_query_sequence_stops_at_first_invalid_original_response(string? invalid,int reads,string kind="routes")
     {
         var prior=await new ComputeSecurityGroupTests(signing,configuration).Acquisition(bind:kind=="routes"?null:ComputeEndpointTests.Bind);
         var count=0;var returned=false;var clock=new FinalReadClock();
-        HttpMessageHandler Provider(string service)=>service=="rds"?new Handler(async(request,ct)=>{
+        HttpMessageHandler Provider(string service)=>service=="elasticfilesystem"?new Handler((request,ct)=>{
+            Assert.Equal(HttpMethod.Get,request.Method);
+            Assert.Null(request.Content);
+            Assert.Contains("/us-east-1/elasticfilesystem/aws4_request",request.Headers.GetValues("Authorization").Single());
+            const string origin="https://elasticfilesystem.us-east-1.amazonaws.com/2015-02-01/";
+            var stage=request.RequestUri!.AbsoluteUri switch {
+                origin+"access-points?AccessPointId=fsap-00000000000000001"=>"accessPoint",
+                origin+"mount-targets?FileSystemId=fs-00000000000000001"=>"mountTargets",
+                origin+"mount-targets/fsmt-00000001/security-groups"=>"groups",
+                origin+"mount-targets/fsmt-00000002/security-groups"=>"groups",
+                _=>throw new InvalidOperationException()
+            };
+            prior.Calls.Add(stage);
+            var fixture=JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-efs-observations.json")))!;
+            var reply=fixture[stage]!;
+            if(stage=="accessPoint"&&invalid=="efs-owner")reply["AccessPoints"]![0]!["OwnerId"]="444455556666";
+            if(stage=="accessPoint"&&invalid=="efs-mode")reply["AccessPoints"]![0]!["RootDirectory"]!["CreationInfo"]!["Permissions"]="0777";
+            if(stage=="mountTargets"&&invalid=="efs-subnet")reply["MountTargets"]![0]!["SubnetId"]="subnet-00000000000000003";
+            if(stage=="mountTargets"&&invalid=="efs-page")reply["NextMarker"]="synthetic-page";
+            if(invalid=="efs-group"&&request.RequestUri.AbsoluteUri.Contains("fsmt-00000002",StringComparison.Ordinal))
+                reply["SecurityGroups"]!.AsArray().Add("sg-00000000000000001");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(reply.ToJsonString(),Encoding.UTF8,"application/json")});
+        }):service=="rds"?new Handler(async(request,ct)=>{
             Assert.Equal("https://rds.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);
             Assert.Contains("/us-east-1/rds/aws4_request",request.Headers.GetValues("Authorization").Single());
             prior.Calls.Add("rds");
@@ -203,7 +227,8 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
         var session=await ComputeSecurityGroupTests.Session();
         async Task Acquire()
         {
-            if(kind=="rds")await ComputeRdsAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            if(kind=="efs")await ComputeEfsAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            else if(kind=="rds")await ComputeRdsAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else if(kind=="resolver")await ComputeResolverAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else if(kind=="network")await ComputeNetworkAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else if(kind=="endpoints")await ComputeEndpointAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
@@ -217,11 +242,16 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
         else
         {
             var error=await Assert.ThrowsAsync<InvalidOperationException>(Acquire);
-            Assert.Equal(kind switch { "rds"=>ComputeRdsAcquisition.Failure, "resolver"=>ComputeResolverAcquisition.Failure, "network"=>ComputeNetworkAcquisition.Failure, "endpoints"=>ComputeEndpointAcquisition.Failure, _=>ComputeRouteAcquisition.Failure },error.Message);
+            Assert.Equal(kind switch { "efs"=>ComputeEfsAcquisition.Failure, "rds"=>ComputeRdsAcquisition.Failure, "resolver"=>ComputeResolverAcquisition.Failure, "network"=>ComputeNetworkAcquisition.Failure, "endpoints"=>ComputeEndpointAcquisition.Failure, _=>ComputeRouteAcquisition.Failure },error.Message);
             Assert.Null(error.InnerException);
         }
         var stages=new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes","endpoints","prefix","dhcp","interfaces","ListResolverRuleAssociations","ListFirewallRuleGroupAssociations","GetFirewallConfig"};
-        Assert.Equal(kind=="rds"?stages.Take(5).Append("rds"):stages.Take(reads),prior.Calls.Skip(20));
+        var expected=kind switch {
+            "efs"=>stages.Take(5).Concat(new[]{"accessPoint","mountTargets","groups","groups"}).Take(reads),
+            "rds"=>stages.Take(5).Append("rds"),
+            _=>stages.Take(reads)
+        };
+        Assert.Equal(expected,prior.Calls.Skip(20));
         Assert.Equal(20+reads,prior.Calls.Count);
         if(invalid=="expired")Assert.True(returned,"A valid response at simulated expiry must reach the validation boundary.");
     }

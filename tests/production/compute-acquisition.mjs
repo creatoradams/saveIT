@@ -147,6 +147,7 @@ function token(mode) {
     "network",
     "resolver",
     "rds",
+    "efs",
   ].includes(family);
   let approved = contract;
   if (networkBound || family === "configuration" || family === "images") {
@@ -245,6 +246,12 @@ const acquisitionKinds = {
     success:
       "SaveIT private RDS metadata passed (database TLS, roles and recovery unverified).",
     failure: "SaveIT private RDS acquisition failed.",
+  },
+  efs: {
+    command: "check-compute-efs",
+    success:
+      "SaveIT EFS attachment metadata passed (mounts, policy enforcement and recovery unverified).",
+    failure: "SaveIT EFS attachment acquisition failed.",
   },
   images: {
     command: "check-compute-images",
@@ -377,6 +384,7 @@ async function check(
   assert.equal(after.discovery - before.discovery, expectedCounts[16] ?? 0);
   assert.equal(after.dns - before.dns, expectedCounts[17] ?? 0);
   assert.equal(after.rds - before.rds, expectedCounts[18] ?? 0);
+  assert.equal(after.efs - before.efs, expectedCounts[19] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -877,6 +885,22 @@ try {
       [],
       false,
       "rds",
+    );
+  for (const [mode, passed, reads] of [
+    ["efs-valid", true, 4],
+    ["efs-mode", false, 1],
+    ["efs-page", false, 2],
+    ["efs-group", false, 4],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 4, 1, 4, 3, 1, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, reads],
+      "valid",
+      [],
+      false,
+      "efs",
     );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity and original compute/network metadata; no AWS or provider writes.`,

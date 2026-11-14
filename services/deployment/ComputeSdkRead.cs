@@ -16,7 +16,7 @@ internal sealed class ComputeSdkRead
     internal static string DatabaseArn(ComputeScope s)=>$"arn:aws:rds:{s.Region}:{s.AccountId}:db:{s.Name}";
     internal static ComputeSdkRead Database(ComputeScope scope)=>new("rds","DescribeDBInstances",new JsonObject{
         ["Action"]="DescribeDBInstances",["Version"]="2014-10-31",["DBInstanceIdentifier"]=DatabaseArn(scope)},"",null,65536);
-    internal string? Route53Path {get;private init;}
+    internal string? GetPath {get;private init;}
     private readonly string request;
     private ComputeSdkRead(string endpoint,string action,JsonObject body,string root,string? optional,int maximumBytes)
     {Endpoint=endpoint;Action=action;request=body.ToJsonString();Root=root;OptionalRoot=optional;MaximumBytes=maximumBytes;}
@@ -51,7 +51,13 @@ internal sealed class ComputeSdkRead
     internal static ComputeSdkRead DiscoveryService(string arn)=>new("servicediscovery","GetService",new JsonObject{["Id"]=arn},"Service",null,32768);
     internal static ComputeSdkRead DiscoveryInstances(string arn)=>new("servicediscovery","ListInstances",new JsonObject{["ServiceId"]=arn,["MaxResults"]=100},"Instances","NextToken",32768);
     internal static ComputeSdkRead HostedZone(string id,bool records)=>new("route53",records?"ListResourceRecordSets":"GetHostedZone",
-        new JsonObject(),"",null,32768) { Route53Path=$"/2013-04-01/hostedzone/{id}"+(records?"/rrset?maxitems=10":"") };
+        new JsonObject(),"",null,32768) { GetPath=$"/2013-04-01/hostedzone/{id}"+(records?"/rrset?maxitems=10":"") };
+    internal static ComputeSdkRead EfsAccessPoint(string id)=>new("elasticfilesystem","DescribeAccessPoints",
+        new JsonObject(),"AccessPoints","NextToken",32768) { GetPath=$"/2015-02-01/access-points?AccessPointId={id}" };
+    internal static ComputeSdkRead EfsMountTargets(string id)=>new("elasticfilesystem","DescribeMountTargets",
+        new JsonObject(),"MountTargets","NextMarker",32768) { GetPath=$"/2015-02-01/mount-targets?FileSystemId={id}" };
+    internal static ComputeSdkRead EfsMountGroups(string id)=>new("elasticfilesystem","DescribeMountTargetSecurityGroups",
+        new JsonObject(),"SecurityGroups",null,16384) { GetPath=$"/2015-02-01/mount-targets/{id}/security-groups" };
     internal string TargetPrefix=>Endpoint switch {"ecs"=>"AmazonEC2ContainerServiceV20141113.","api.ecr"=>"AmazonEC2ContainerRegistry_V20150921.","secretsmanager"=>"secretsmanager.","route53resolver"=>"Route53Resolver.","servicediscovery"=>"Route53AutoNaming_v20170314.",_=>throw new InvalidOperationException()};
     internal void ValidateResponse(JsonElement root)
     {

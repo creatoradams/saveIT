@@ -35,6 +35,15 @@
           "AWSSDK.Core": "[4.0.102.20, 5.0.0)"
         }
       },
+      "AWSSDK.ElasticFileSystem": {
+        "type": "Direct",
+        "requested": "[4.0.100.25, )",
+        "resolved": "4.0.100.25",
+        "contentHash": "yWGL1ROIDNCrr7wBMiqi0dsgQU38GEO2N3VThB+pUinPfwPC8dC9NgibaV3KCvh0+bOPq+zjaflBi217IdlEnQ==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
+        }
+      },
       "AWSSDK.RDS": {
         "type": "Direct",
         "requested": "[4.0.108.2, )",

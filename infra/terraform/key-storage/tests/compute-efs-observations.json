@@ -1,0 +1,56 @@
+{
+  "accessPoint": {
+    "AccessPoints": [
+      {
+        "AccessPointArn": "arn:aws:elasticfilesystem:us-east-1:111122223333:access-point/fsap-00000000000000001",
+        "AccessPointId": "fsap-00000000000000001",
+        "FileSystemId": "fs-00000000000000001",
+        "OwnerId": "111122223333",
+        "LifeCycleState": "available",
+        "PosixUser": {
+          "Uid": 1654,
+          "Gid": 1654
+        },
+        "RootDirectory": {
+          "Path": "/saveit-session-keys",
+          "CreationInfo": {
+            "OwnerUid": 1654,
+            "OwnerGid": 1654,
+            "Permissions": "0700"
+          }
+        }
+      }
+    ]
+  },
+  "mountTargets": {
+    "MountTargets": [
+      {
+        "MountTargetId": "fsmt-00000001",
+        "FileSystemId": "fs-00000000000000001",
+        "OwnerId": "111122223333",
+        "VpcId": "vpc-00000000000000001",
+        "SubnetId": "subnet-00000000000000001",
+        "LifeCycleState": "available",
+        "NetworkInterfaceId": "eni-00000000000000001",
+        "AvailabilityZoneName": "us-east-1a",
+        "AvailabilityZoneId": "use1-az1",
+        "IpAddress": "10.84.0.30"
+      },
+      {
+        "MountTargetId": "fsmt-00000002",
+        "FileSystemId": "fs-00000000000000001",
+        "OwnerId": "111122223333",
+        "VpcId": "vpc-00000000000000001",
+        "SubnetId": "subnet-00000000000000002",
+        "LifeCycleState": "available",
+        "NetworkInterfaceId": "eni-00000000000000002",
+        "AvailabilityZoneName": "us-east-1b",
+        "AvailabilityZoneId": "use1-az2",
+        "IpAddress": "10.84.1.30"
+      }
+    ]
+  },
+  "groups": {
+    "SecurityGroups": ["sg-00000000000000007"]
+  }
+}

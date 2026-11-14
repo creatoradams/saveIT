@@ -43,7 +43,7 @@ Approving and declaring a filtering policy, verifying Route 53 Profile associati
 - [x] Read back the Cloud Map namespace, both registries and their empty parked instance inventories.
 - [x] Read back the signed Route 53 private zone, require its one direct association with the signed VPC and check that only apex NS and SOA records exist while parked. Profile-inherited settings and live answers remain open.
 - [x] Verify RDS identity, private subnet placement, the dedicated database group and the exact target configured by API and worker. Managed TLS and database roles remain staging gates.
-- [ ] Verify EFS mount targets, their subnet and group placement, and the approved access point.
+- [x] Verify EFS mount targets, their subnet and group placement, and the approved access point with synthetic provider responses. Live mounts and policy enforcement remain staging gates.
 - [x] Implement the parked task inventory. The signed cluster must return a complete, empty desired-RUNNING task list. All 76 local parked-state tests passed.
 - [ ] Match post-launch tasks to their exact task revisions and independent ENI observations.
 - [ ] Complete synthetic and packaged evidence for all Block 3 reads. Verify live DNS, database TLS and EFS mounts during managed staging.

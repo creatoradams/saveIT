@@ -69,6 +69,14 @@
           "AWSSDK.Core": "[4.0.102.20, 5.0.0)"
         }
       },
+      "AWSSDK.ElasticFileSystem": {
+        "type": "Transitive",
+        "resolved": "4.0.100.25",
+        "contentHash": "yWGL1ROIDNCrr7wBMiqi0dsgQU38GEO2N3VThB+pUinPfwPC8dC9NgibaV3KCvh0+bOPq+zjaflBi217IdlEnQ==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
+        }
+      },
       "AWSSDK.RDS": {
         "type": "Transitive",
         "resolved": "4.0.108.2",
@@ -646,6 +654,7 @@
           "AWSSDK.EC2": "[4.0.132.2, )",
           "AWSSDK.ECR": "[4.0.102.3, )",
           "AWSSDK.ECS": "[4.0.111, )",
+          "AWSSDK.ElasticFileSystem": "[4.0.100.25, )",
           "AWSSDK.RDS": "[4.0.108.2, )",
           "AWSSDK.Route53": "[4.0.100.24, )",
           "AWSSDK.Route53Resolver": "[4.0.100.26, )",

@@ -8,6 +8,7 @@ using Amazon.EC2;
 using Amazon.Route53Resolver;
 using Amazon.Route53;
 using Amazon.RDS;
+using Amazon.ElasticFileSystem;
 using Amazon.ServiceDiscovery;
 
 namespace SaveIT.Deployment;
@@ -22,6 +23,7 @@ internal static class ComputeSdkConfiguration
     internal static AmazonEC2Config Ec2(string region,HttpClient http)=>Configure(new AmazonEC2Config(),region,"ec2",http);
     internal static AmazonRoute53ResolverConfig Resolver(string region,HttpClient http)=>Configure(new AmazonRoute53ResolverConfig(),region,"route53resolver",http);
     internal static AmazonRDSConfig Rds(string region,HttpClient http)=>Configure(new AmazonRDSConfig(),region,"rds",http);
+    internal static AmazonElasticFileSystemConfig Efs(string region,HttpClient http)=>Configure(new AmazonElasticFileSystemConfig(),region,"elasticfilesystem",http);
     internal static AmazonRoute53Config Route53(HttpClient http)
     {
         var config=Configure(new AmazonRoute53Config(),"us-east-1","route53",http);

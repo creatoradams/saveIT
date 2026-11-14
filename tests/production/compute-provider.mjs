@@ -12,6 +12,7 @@ const parked = JSON.parse(readFileSync(root + "parked.json", "utf8"));
 const imageFixture = JSON.parse(readFileSync(root + "images.json", "utf8"));
 const configurations = JSON.parse(readFileSync(root + "private.json", "utf8"));
 const groupXml = readFileSync(root + "groups.xml", "utf8");
+const efsObservations = JSON.parse(readFileSync(root + "efs.json", "utf8"));
 const routeObservations = Object.fromEntries(
   Object.entries(JSON.parse(readFileSync(root + "routes.json", "utf8"))).map(
     ([name, lines]) => [name, lines.join("\n")],
@@ -39,6 +40,7 @@ const counts = {
   discovery: 0,
   dns: 0,
   rds: 0,
+  efs: 0,
   ecr: 0,
   authorization: 0,
   registry: 0,
@@ -111,6 +113,7 @@ const service = httpsServer(options, (request, response) => {
         "network",
         "resolver",
         "rds",
+        "efs",
       ].includes(family);
       const packagedTasks =
         networkBound || family === "configuration" || family === "images";
@@ -158,6 +161,34 @@ const service = httpsServer(options, (request, response) => {
       const kind = request.headers.host?.split(".")[0];
       const zonePath = "/2013-04-01/hostedzone/Z0000000000000001";
       const records = request.url === zonePath + "/rrset?maxitems=10";
+      const efsReads = [
+        [
+          "/2015-02-01/access-points",
+          "AccessPointId=fsap-00000000000000001",
+          "accessPoint",
+        ],
+        [
+          "/2015-02-01/mount-targets",
+          "FileSystemId=fs-00000000000000001",
+          "mountTargets",
+        ],
+        [
+          "/2015-02-01/mount-targets/fsmt-00000001/security-groups",
+          "",
+          "groups",
+        ],
+        [
+          "/2015-02-01/mount-targets/fsmt-00000002/security-groups",
+          "",
+          "groups",
+        ],
+      ];
+      const efsRead =
+        kind === "elasticfilesystem" &&
+        efsReads.find(
+          ([path, query]) => request.url === path + (query ? "?" + query : ""),
+        );
+      if (kind === "elasticfilesystem" && !efsRead) throw new Error();
       verifySyntheticSigV4(request, body, {
         access,
         secret,
@@ -170,13 +201,31 @@ const service = httpsServer(options, (request, response) => {
               path: records ? zonePath + "/rrset" : zonePath,
               query: records ? "maxitems=10" : "",
             }
-          : {
-              host:
-                kind === "api"
-                  ? "api.ecr.us-east-1.amazonaws.com"
-                  : kind + ".us-east-1.amazonaws.com",
-            }),
+          : efsRead
+            ? { method: "GET", path: efsRead[0], query: efsRead[1] }
+            : {
+                host:
+                  kind === "api"
+                    ? "api.ecr.us-east-1.amazonaws.com"
+                    : kind + ".us-east-1.amazonaws.com",
+              }),
       });
+      if (kind === "elasticfilesystem") {
+        if (family !== "efs" || body !== "") throw new Error();
+        counts.efs++;
+        const stage = efsRead[2];
+        const result = structuredClone(efsObservations[stage]);
+        if (mode === "efs-mode" && stage === "accessPoint")
+          result.AccessPoints[0].RootDirectory.CreationInfo.Permissions =
+            "0777";
+        if (mode === "efs-page" && stage === "mountTargets")
+          result.NextMarker = "synthetic-page";
+        if (mode === "efs-group" && efsRead[0].includes("fsmt-00000002"))
+          result.SecurityGroups.push("sg-00000000000000001");
+        response.setHeader("Content-Type", "application/json");
+        response.end(JSON.stringify(result));
+        return;
+      }
       if (kind === "route53") {
         if (family !== "dns" || body !== "") throw new Error();
         const zone = "pilot.staging.saveit.internal.";
@@ -537,9 +586,14 @@ const service = httpsServer(options, (request, response) => {
         }
         if (action !== "DescribeSecurityGroups") {
           if (
-            !["routes", "endpoints", "network", "resolver", "rds"].includes(
-              family,
-            )
+            ![
+              "routes",
+              "endpoints",
+              "network",
+              "resolver",
+              "rds",
+              "efs",
+            ].includes(family)
           )
             throw new Error();
           const stage = {
@@ -932,6 +986,10 @@ httpServer((request, response) => {
           "rds-public",
           "rds-target",
           "rds-subnet",
+          "efs-valid",
+          "efs-mode",
+          "efs-page",
+          "efs-group",
         ].includes(body)
       ) {
         response.writeHead(400);
