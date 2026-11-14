@@ -18,7 +18,7 @@ internal static class ComputeEc2Acquisition
         var result=validate(wire.ResponseXml??throw new InvalidOperationException());
         Fresh(release,session,ct,timeProvider);return result;
     }
-    private static void Fresh(ComputeRelease release,ComputeAwsSession session,CancellationToken ct,TimeProvider? testClock)
+    internal static void Fresh(ComputeRelease release,ComputeAwsSession session,CancellationToken ct,TimeProvider? testClock=null)
     {
         ct.ThrowIfCancellationRequested();session.RequireFresh();
         // The internal deterministic test clock can only tighten the real UTC check.

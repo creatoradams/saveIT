@@ -27,7 +27,11 @@ All four source-bound final image reports retain **zero critical/high/unknown; t
 
 The independent security agent closed the [workload review](reviews/2026-11-09-web-workload-review.md) and [coordination review](reviews/2026-11-09-compute-coordination-review.md), including the subsequent clock/recovery fixture remedies, without executing tests. The requested independent efficiency review remains outstanding after its agent's account usage limit. These reviews are not penetration tests. Earlier exact workload evidence remains at the [previous checkpoint](https://github.com/creatoradams/saveIT/blob/b813a78/docs/progress.md); historical evidence is not rewritten. Direct regional Logs customer CallerAccount compatibility remains a pre-apply gate.
 
-## Current engineering: DHCP and endpoint-interface acquisition
+## Current engineering: direct Resolver baseline
+
+[ADR062](adr/062-direct-resolver-baseline.md) adds read-only verification of direct Resolver associations, DNS Firewall associations and the VPC's fail-open setting. The current infrastructure declares no custom associations or approved filtering policy. Route 53 Profiles, effective filtering and live DNS answers remain open.
+
+## Prior delivery: DHCP and endpoint-interface acquisition
 
 [ADR061](adr/061-bound-dhcp-and-endpoint-interfaces.md) checks the associated DHCP options and independently verifies endpoint interface membership, placement, security groups and private IPv4 addresses. It adds two fixed EC2 reads and retains the existing signed contract and Terraform resources. Resolver policy, live DNS answers and other interface types remain open.
 

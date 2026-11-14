@@ -18,6 +18,7 @@ public static async Task<int> Main(string[] args)
     "check-compute-routes"=>(ComputeRouteAcquisition.ValidateAsync,ComputeRouteAcquisition.Success,ComputeRouteAcquisition.Failure),
     "check-compute-endpoints"=>(ComputeEndpointAcquisition.ValidateAsync,ComputeEndpointAcquisition.Success,ComputeEndpointAcquisition.Failure),
     "check-compute-network"=>(ComputeNetworkAcquisition.ValidateAsync,ComputeNetworkAcquisition.Success,ComputeNetworkAcquisition.Failure),
+    "check-compute-resolver"=>(ComputeResolverAcquisition.ValidateAsync,ComputeResolverAcquisition.Success,ComputeResolverAcquisition.Failure),
     _=>default
 };
 if(acquisition.Run is not null)

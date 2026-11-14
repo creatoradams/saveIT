@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using SaveIT.Deployment;
 using Xunit;
@@ -108,11 +109,54 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
     [InlineData("expired",5)]
     [InlineData(null,7,"endpoints")][InlineData("endpoints",6,"endpoints")][InlineData("prefix",7,"endpoints")]
     [InlineData(null,9,"network")][InlineData("dhcp",8,"network")][InlineData("interfaces",9,"network")]
+    [InlineData(null,12,"resolver")]
+    [InlineData("forward",10,"resolver")][InlineData("rule-vpc",10,"resolver")][InlineData("page",10,"resolver")]
+    [InlineData("group",11,"resolver")][InlineData("group-page",11,"resolver")]
+    [InlineData("owner",12,"resolver")][InlineData("open",12,"resolver")][InlineData("duplicate",12,"resolver")]
     public async Task Real_SDK_query_sequence_stops_at_first_invalid_original_response(string? invalid,int reads,string kind="routes")
     {
         var prior=await new ComputeSecurityGroupTests(signing,configuration).Acquisition(bind:kind=="routes"?null:ComputeEndpointTests.Bind);
         var count=0;var returned=false;var clock=new FinalReadClock();
-        HttpMessageHandler Provider(string service)=>service!="ec2"||count++==0?prior.Provider(service):new Handler(async(request,ct)=>{
+        HttpMessageHandler Provider(string service)=>service=="route53resolver"?new Handler(async(request,ct)=>{
+            Assert.Equal("https://route53resolver.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);
+            Assert.Contains("/us-east-1/route53resolver/aws4_request",request.Headers.GetValues("Authorization").Single());
+            const string prefix = "Route53Resolver.";
+            var target = request.Headers.GetValues("X-Amz-Target").Single();
+            Assert.StartsWith(prefix,target);
+            var action = target[prefix.Length..];
+            prior.Calls.Add(action);
+            var requestBody = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct));
+            var expected = action switch {
+                "ListResolverRuleAssociations" => """{"Filters":[{"Name":"VPCId","Values":["vpc-00000000000000001"]}],"MaxResults":100}""",
+                "ListFirewallRuleGroupAssociations" => """{"VpcId":"vpc-00000000000000001","MaxResults":100}""",
+                "GetFirewallConfig" => """{"ResourceId":"vpc-00000000000000001"}""",
+                _ => throw new InvalidOperationException()
+            };
+            Assert.True(JsonNode.DeepEquals(requestBody,JsonNode.Parse(expected)));
+            var fixture=JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"Fixtures","compute-resolver-observations.json")))!;
+            var reply=fixture[action]!;
+            if(action=="ListResolverRuleAssociations")
+            {
+                var rules=reply["ResolverRuleAssociations"]!.AsArray();
+                if(invalid=="forward")rules.Add(new JsonObject{["ResolverRuleId"]="rslvr-rr-synthetic"});
+                if(invalid=="rule-vpc")rules[0]!["VPCId"]="vpc-00000000000000002";
+                if(invalid=="page")reply["NextToken"]="synthetic-page";
+            }
+            if(action=="ListFirewallRuleGroupAssociations")
+            {
+                if(invalid=="group")reply["FirewallRuleGroupAssociations"]!.AsArray().Add(new JsonObject{["Priority"]=100});
+                if(invalid=="group-page")reply["NextToken"]="synthetic-page";
+            }
+            if(action=="GetFirewallConfig")
+            {
+                if(invalid=="owner")reply["FirewallConfig"]!["OwnerId"]="444455556666";
+                if(invalid=="open")reply["FirewallConfig"]!["FirewallFailOpen"]="ENABLED";
+            }
+            var body=reply.ToJsonString();
+            if(action=="GetFirewallConfig"&&invalid=="duplicate")
+                body=body.Replace("\"OwnerId\":","\"OwnerId\":\"444455556666\",\"OwnerId\":",StringComparison.Ordinal);
+            return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(body,Encoding.UTF8,"application/x-amz-json-1.1")};
+        }):service!="ec2"||count++==0?prior.Provider(service):new Handler(async(request,ct)=>{
             Assert.Equal("https://ec2.us-east-1.amazonaws.com/",request.RequestUri!.AbsoluteUri);
             Assert.Contains("/us-east-1/ec2/aws4_request",request.Headers.GetValues("Authorization").Single());
             var form=(await request.Content!.ReadAsStringAsync(ct)).Split('&').ToDictionary(p=>Uri.UnescapeDataString(p.Split('=')[0]),p=>Uri.UnescapeDataString(p.Split('=')[1]));
@@ -145,7 +189,8 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
         var session=await ComputeSecurityGroupTests.Session();
         async Task Acquire()
         {
-            if(kind=="network")await ComputeNetworkAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            if(kind=="resolver")await ComputeResolverAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
+            else if(kind=="network")await ComputeNetworkAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else if(kind=="endpoints")await ComputeEndpointAcquisition.ReadAsync(prior.Bundle.Release,session,Provider,configuration.Trust,CancellationToken.None);
             else
             {
@@ -157,10 +202,10 @@ public sealed class ComputeRouteTests(ComputeReleaseFixture signing,ComputeConfi
         else
         {
             var error=await Assert.ThrowsAsync<InvalidOperationException>(Acquire);
-            Assert.Equal(kind switch { "network"=>ComputeNetworkAcquisition.Failure, "endpoints"=>ComputeEndpointAcquisition.Failure, _=>ComputeRouteAcquisition.Failure },error.Message);
+            Assert.Equal(kind switch { "resolver"=>ComputeResolverAcquisition.Failure, "network"=>ComputeNetworkAcquisition.Failure, "endpoints"=>ComputeEndpointAcquisition.Failure, _=>ComputeRouteAcquisition.Failure },error.Message);
             Assert.Null(error.InnerException);
         }
-        Assert.Equal(new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes","endpoints","prefix","dhcp","interfaces"}.Take(reads),prior.Calls.Skip(20));
+        Assert.Equal(new[]{"vpc","enableDnsSupport","enableDnsHostnames","subnets","routes","endpoints","prefix","dhcp","interfaces","ListResolverRuleAssociations","ListFirewallRuleGroupAssociations","GetFirewallConfig"}.Take(reads),prior.Calls.Skip(20));
         Assert.Equal(20+reads,prior.Calls.Count);
         if(invalid=="expired")Assert.True(returned,"A valid response at simulated expiry must reach the validation boundary.");
     }

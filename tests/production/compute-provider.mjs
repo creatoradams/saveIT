@@ -4,6 +4,7 @@ import { createServer as httpsServer } from "node:https";
 import { createSocket } from "node:dgram";
 import { readFileSync } from "node:fs";
 import { createSecureContext } from "node:tls";
+import { isDeepStrictEqual } from "node:util";
 import { verifySyntheticSigV4 } from "./synthetic-sigv4.mjs";
 const root = "/run/compute/";
 const fixtures = JSON.parse(readFileSync(root + "observations.json", "utf8"));
@@ -18,6 +19,9 @@ const routeObservations = Object.fromEntries(
 );
 const endpointObservations = JSON.parse(
   readFileSync(root + "endpoints.json", "utf8"),
+);
+const resolverObservations = JSON.parse(
+  readFileSync(root + "resolver.json", "utf8"),
 );
 const registryHost = "111122223333.dkr.ecr.us-east-1.amazonaws.com";
 const registryToken = Buffer.from(
@@ -41,6 +45,7 @@ const counts = {
   prefix: 0,
   dhcp: 0,
   interfaces: 0,
+  resolver: 0,
   proxy: 0,
   monitoring: 0,
   unexpected: 0,
@@ -100,6 +105,7 @@ const service = httpsServer(options, (request, response) => {
         "routes",
         "endpoints",
         "network",
+        "resolver",
       ].includes(family);
       const packagedTasks =
         networkBound || family === "configuration" || family === "images";
@@ -145,7 +151,16 @@ const service = httpsServer(options, (request, response) => {
         return;
       }
       const kind = request.headers.host?.split(".")[0];
-      if (!["sts", "ecs", "ec2", "api", "secretsmanager"].includes(kind))
+      if (
+        ![
+          "sts",
+          "ecs",
+          "ec2",
+          "api",
+          "secretsmanager",
+          "route53resolver",
+        ].includes(kind)
+      )
         throw new Error();
       verifySyntheticSigV4(request, body, {
         access,
@@ -184,6 +199,7 @@ const service = httpsServer(options, (request, response) => {
           ],
           api: ["BatchGetImage", "GetAuthorizationToken"],
           secretsmanager: ["GetSecretValue"],
+          route53resolver: Object.keys(resolverObservations),
         }[kind].includes(action)
       )
         throw new Error();
@@ -211,8 +227,53 @@ const service = httpsServer(options, (request, response) => {
         DescribeManagedPrefixLists: "prefix",
         DescribeDhcpOptions: "dhcp",
         DescribeNetworkInterfaces: "interfaces",
+        ListResolverRuleAssociations: "resolver",
+        ListFirewallRuleGroupAssociations: "resolver",
+        GetFirewallConfig: "resolver",
       }[action];
       counts[counter]++;
+      if (kind === "route53resolver") {
+        const vpc = "vpc-00000000000000001";
+        const expected = {
+          ListResolverRuleAssociations: {
+            Filters: [{ Name: "VPCId", Values: [vpc] }],
+            MaxResults: 100,
+          },
+          ListFirewallRuleGroupAssociations: { VpcId: vpc, MaxResults: 100 },
+          GetFirewallConfig: { ResourceId: vpc },
+        };
+        if (
+          family !== "resolver" ||
+          request.headers["x-amz-target"] !== "Route53Resolver." + action ||
+          !isDeepStrictEqual(JSON.parse(body), expected[action])
+        )
+          throw new Error();
+        const result = structuredClone(resolverObservations[action]);
+        if (
+          action === "ListResolverRuleAssociations" &&
+          mode === "resolver-forward"
+        )
+          result.ResolverRuleAssociations.push({
+            ResolverRuleId: "rslvr-rr-synthetic",
+          });
+        if (
+          action === "ListFirewallRuleGroupAssociations" &&
+          mode === "resolver-group"
+        )
+          result.FirewallRuleGroupAssociations.push({ Priority: 100 });
+        if (
+          action === "ListFirewallRuleGroupAssociations" &&
+          mode === "resolver-page"
+        )
+          result.NextToken = "synthetic-next-page";
+        if (action === "GetFirewallConfig" && mode === "resolver-owner")
+          result.FirewallConfig.OwnerId = "444455556666";
+        if (action === "GetFirewallConfig" && mode === "resolver-open")
+          result.FirewallConfig.FirewallFailOpen = "ENABLED";
+        response.setHeader("Content-Type", "application/x-amz-json-1.1");
+        response.end(JSON.stringify(result));
+        return;
+      }
       if (kind === "ec2") {
         const query = new URLSearchParams(body);
         const vpc = "vpc-00000000000000001";
@@ -254,7 +315,7 @@ const service = httpsServer(options, (request, response) => {
           throw new Error();
         if (["endpoints", "prefix", "dhcp", "interfaces"].includes(counter)) {
           if (
-            family !== "network" &&
+            !["network", "resolver"].includes(family) &&
             (family !== "endpoints" ||
               !["endpoints", "prefix"].includes(counter))
           )
@@ -301,7 +362,7 @@ const service = httpsServer(options, (request, response) => {
           return;
         }
         if (action !== "DescribeSecurityGroups") {
-          if (!["routes", "endpoints", "network"].includes(family))
+          if (!["routes", "endpoints", "network", "resolver"].includes(family))
             throw new Error();
           const stage = {
             DescribeVpcs: "vpc",
@@ -676,6 +737,12 @@ httpServer((request, response) => {
           "network-custom-dns",
           "network-foreign-interface",
           "network-interface-page",
+          "resolver-valid",
+          "resolver-forward",
+          "resolver-group",
+          "resolver-page",
+          "resolver-owner",
+          "resolver-open",
         ].includes(body)
       ) {
         response.writeHead(400);

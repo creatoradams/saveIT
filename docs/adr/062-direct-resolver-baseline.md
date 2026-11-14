@@ -1,0 +1,9 @@
+# ADR062: direct Resolver baseline
+
+`check-compute-resolver` follows the 29 existing network reads with three fixed Route 53 Resolver reads scoped to the signed VPC. It uses deployment-only AWSSDK.Route53Resolver 4.0.100.26 with the existing Core 4.0.102.20 and fixed SDK/TLS transport. The 210-second command budget includes ten seconds for stdin EOF and 200 seconds for acquisition. Each read has a five-second deadline. Approval and temporary session freshness are checked around each read.
+
+The Terraform roots declare no custom Resolver rules, DNS Firewall rule groups or Route 53 Profiles. The direct baseline requires the VPC's exact AWS-defined Internet Resolver association in COMPLETE state, an empty firewall group association inventory and the same-account VPC firewall configuration with fail-open disabled. Extra associations, foreign references, nonempty continuation tokens, duplicate JSON properties and unexpected fields fail closed. The fail-open setting applies when a rule group is associated.
+
+Before treating DNS filtering as ready, approve the required domains and actions, declare the groups and priorities, and verify their contents and any Route 53 Profile associations. Managed AWS response compatibility, inherited policy, private hosted zones and actual answers from workloads remain open. This is a read-only preflight. Terraform resources, signed release format and service counts remain unchanged.
+
+[Resolver rule associations](https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_ListResolverRuleAssociations.html) · [Firewall group associations](https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_ListFirewallRuleGroupAssociations.html) · [Firewall behavior](https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_GetFirewallConfig.html) · [Route 53 Profile resources](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/profiles-resources-editing.html)

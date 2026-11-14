@@ -140,16 +140,20 @@ let imageFixture;
 function token(mode) {
   const now = Math.floor(Date.now() / 1000);
   const family = mode?.split("-")[0];
-  const networkBound = ["groups", "routes", "endpoints", "network"].includes(
-    family,
-  );
+  const networkBound = [
+    "groups",
+    "routes",
+    "endpoints",
+    "network",
+    "resolver",
+  ].includes(family);
   let approved = contract;
   if (networkBound || family === "configuration" || family === "images") {
     const fallback = networkBound ? "groups-valid" : family + "-valid";
     approved = (imageFixture.variants[mode] ?? imageFixture.variants[fallback])
       .contract;
   }
-  if (family === "endpoints" || family === "network") {
+  if (["endpoints", "network", "resolver"].includes(family)) {
     approved = structuredClone(approved);
     approved.network.bindings.endpointPolicySha256 = Object.fromEntries(
       endpointFixture.endpointPolicySha256,
@@ -251,6 +255,12 @@ const acquisitionKinds = {
       "SaveIT acquired DHCP and endpoint interfaces passed (no Resolver policy, packet, launch or fencing verification).",
     failure: "SaveIT compute network acquisition failed.",
   },
+  resolver: {
+    command: "check-compute-resolver",
+    success:
+      "SaveIT acquired direct Resolver baseline passed (DNS filtering, Profiles, live answers and launch unverified).",
+    failure: "SaveIT compute Resolver acquisition failed.",
+  },
 };
 let stage = "private session fixture setup",
   checks = 0;
@@ -335,6 +345,7 @@ async function check(
   assert.equal(after.prefix - before.prefix, expectedCounts[11] ?? 0);
   assert.equal(after.dhcp - before.dhcp, expectedCounts[12] ?? 0);
   assert.equal(after.interfaces - before.interfaces, expectedCounts[13] ?? 0);
+  assert.equal(after.resolver - before.resolver, expectedCounts[14] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -769,6 +780,25 @@ try {
       [],
       false,
       "network",
+    );
+  for (const [mode, passed, resolverReads] of [
+    ["resolver-valid", true, 3],
+    ["resolver-forward", false, 1],
+    ["resolver-group", false, 2],
+    ["resolver-page", false, 2],
+    ["resolver-owner", false, 3],
+    ["resolver-open", false, 3],
+    ["resolver-valid", true, 3],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 4, 1, 4, 3, 1, 5, 1, 1, 1, 1, resolverReads],
+      "valid",
+      [],
+      false,
+      "resolver",
     );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity and original compute/network metadata; no AWS or provider writes.`,

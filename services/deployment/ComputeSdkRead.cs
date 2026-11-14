@@ -35,7 +35,13 @@ internal sealed class ComputeSdkRead
         var reference=release.Data.Tasks[process];
         return new("secretsmanager","GetSecretValue",new JsonObject{["SecretId"]=reference.ConfigurationArn,["VersionId"]=reference.ConfigurationVersionId},"SecretString",null,524288);
     }
-    internal string TargetPrefix=>Endpoint switch {"ecs"=>"AmazonEC2ContainerServiceV20141113.","api.ecr"=>"AmazonEC2ContainerRegistry_V20150921.","secretsmanager"=>"secretsmanager.",_=>throw new InvalidOperationException()};
+    internal static ComputeSdkRead ResolverRules(string vpc)=>new("route53resolver","ListResolverRuleAssociations",new JsonObject{
+        ["Filters"]=new JsonArray(new JsonObject{["Name"]="VPCId",["Values"]=new JsonArray(vpc)}),["MaxResults"]=100},"ResolverRuleAssociations","NextToken",32768);
+    internal static ComputeSdkRead FirewallGroups(string vpc)=>new("route53resolver","ListFirewallRuleGroupAssociations",new JsonObject{
+        ["VpcId"]=vpc,["MaxResults"]=100},"FirewallRuleGroupAssociations","NextToken",32768);
+    internal static ComputeSdkRead FirewallConfig(string vpc)=>new("route53resolver","GetFirewallConfig",new JsonObject{
+        ["ResourceId"]=vpc},"FirewallConfig",null,16384);
+    internal string TargetPrefix=>Endpoint switch {"ecs"=>"AmazonEC2ContainerServiceV20141113.","api.ecr"=>"AmazonEC2ContainerRegistry_V20150921.","secretsmanager"=>"secretsmanager.","route53resolver"=>"Route53Resolver.",_=>throw new InvalidOperationException()};
     internal void ValidateResponse(JsonElement root)
     {
         RejectResponse(root);
@@ -43,7 +49,8 @@ internal sealed class ComputeSdkRead
             var names=new[]{"ARN","Name","VersionId","SecretString","CreatedDate","VersionStages"};
             if(root.EnumerateObject().Any(x=>!names.Contains(x.Name,StringComparer.Ordinal)))throw new InvalidOperationException();
         }
-        else if(root.EnumerateObject().Any(x=>x.Name!=Root&&x.Name!=OptionalRoot))throw new InvalidOperationException();
+        else if(root.EnumerateObject().Any(x=>x.Name!=Root&&x.Name!=OptionalRoot&&
+            !(Action=="ListResolverRuleAssociations"&&x.Name=="MaxResults")))throw new InvalidOperationException();
     }
     private void RejectResponse(JsonElement root)
     {TaskMetadata.RejectDuplicates(root);if(root.ValueKind!=JsonValueKind.Object||!root.TryGetProperty(Root,out _))throw new InvalidOperationException();}

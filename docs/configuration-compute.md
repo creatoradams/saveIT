@@ -27,6 +27,16 @@ ADR060 verifies the six signed endpoints and declared policy digests plus the ex
 
 ADR061 verifies the VPC's DHCP options and independently cross-checks the ten interface endpoint attachments. Resolver rules, DNS Firewall, actual answers, attachments for other resource types, exclusive ownership and launch/drain/fencing remain open. [ADR061](adr/061-bound-dhcp-and-endpoint-interfaces.md)
 
+### Block 2 — Resolver and DNS Firewall
+
+- [x] Inspect Terraform and the signed release contract for declared DNS policy.
+- [x] Record the missing DNS Firewall policy. The current roots declare zero custom direct forwarding and firewall associations.
+- [x] Add fixed regional read-only checks bound to the approved VPC.
+- [x] Verify the direct baseline and reject drift, foreign references and incomplete results.
+- [ ] Confirm the synthetic SDK and packaged Linux checks in CI.
+
+Approving and declaring a filtering policy, verifying Route 53 Profile associations and testing live DNS answers remain open. [ADR062](adr/062-direct-resolver-baseline.md)
+
 Keep existing ten roots and zero-count/null bootstrap contracts. Add no secret values to Terraform. Workload admission uses a dedicated Cognito developer identity pool solely for web, not customer identity; Okta and live SQL tenant authority are unchanged. Web never reads a PFX or configuration secret. The client requests60s tokens; IAM limits issuance to the isolated pool/endpoint, and relay independently limits accepted lifetime. This is not an IAM-enforced duration or developer-identifier restriction. Relay validates standard signed JWTs using reviewed public keys, exact issuer/audience/provider and at most60s lifetime; tokens are bearer capabilities, not per-task attestation or proof of possession. No SaveIT role trusts the pool for STS exchange. Public Cognito operations cannot be controlled by an IAM Deny alone; strict receiver lifetime/amr checks remain mandatory.
 
 Preserve verified web/relay TLS rather than replacing it with Lattice's unverified backend certificate handling. Preserve separate API mTLS, current session/organization authority and all28 forced-RLS tables. No controller may close response-protocol records; only server OnCompleted can do that. A provider stop acknowledgement alone is not fencing evidence. Protected release/signing/population prerequisites remain explicit dependencies, not caller-supplied approval booleans.

@@ -1,0 +1,26 @@
+{
+  "ListResolverRuleAssociations": {
+    "MaxResults": 100,
+    "ResolverRuleAssociations": [
+      {
+        "Id": "rslvr-autodefined-assoc-vpc-00000000000000001-internet-resolver",
+        "Name": "System Rule Association",
+        "ResolverRuleId": "rslvr-autodefined-rr-internet-resolver",
+        "Status": "COMPLETE",
+        "StatusMessage": "",
+        "VPCId": "vpc-00000000000000001"
+      }
+    ]
+  },
+  "ListFirewallRuleGroupAssociations": {
+    "FirewallRuleGroupAssociations": []
+  },
+  "GetFirewallConfig": {
+    "FirewallConfig": {
+      "Id": "rslvr-fc-00000000000000001",
+      "ResourceId": "vpc-00000000000000001",
+      "OwnerId": "111122223333",
+      "FirewallFailOpen": "DISABLED"
+    }
+  }
+}

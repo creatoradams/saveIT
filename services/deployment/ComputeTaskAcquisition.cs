@@ -8,7 +8,7 @@ using static SaveIT.Deployment.TaskMetadata;
 
 namespace SaveIT.Deployment;
 
-internal enum ComputeAcquisitionKind { Tasks, ParkedCell, Images, Configuration, SecurityGroups, Routes, Endpoints, Network }
+internal enum ComputeAcquisitionKind { Tasks, ParkedCell, Images, Configuration, SecurityGroups, Routes, Endpoints, Network, Resolver }
 
 internal sealed class AcquiredComputeTasks
 {
@@ -60,13 +60,14 @@ public static class ComputeTaskAcquisition
     {
         if(!OperatingSystem.IsLinux())throw new InvalidOperationException();
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct);
-        deadline.CancelAfter(TimeSpan.FromSeconds(kind switch { ComputeAcquisitionKind.Network=>190, ComputeAcquisitionKind.Endpoints=>175, ComputeAcquisitionKind.Routes=>160, ComputeAcquisitionKind.SecurityGroups=>130, ComputeAcquisitionKind.Configuration=>120, ComputeAcquisitionKind.Images=>100, _=>40 }));
+        deadline.CancelAfter(TimeSpan.FromSeconds(kind switch { ComputeAcquisitionKind.Resolver=>210, ComputeAcquisitionKind.Network=>190, ComputeAcquisitionKind.Endpoints=>175, ComputeAcquisitionKind.Routes=>160, ComputeAcquisitionKind.SecurityGroups=>130, ComputeAcquisitionKind.Configuration=>120, ComputeAcquisitionKind.Images=>100, _=>40 }));
         var trust=await ComputeReleaseTrust.ReadAsync(deadline.Token);
         using var inputDeadline=CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);inputDeadline.CancelAfter(TimeSpan.FromSeconds(10));
         var token=await ProtectedJsonInput.ReadAsync(input,2,root=>{RejectDuplicates(root);return Object(root,"signedRelease")["signedRelease"].GetString()??throw new InvalidOperationException();},inputDeadline.Token);
         var release=await ComputeRelease.VerifyAsync(token,trust.Scope,trust.PublicSpki,trust.Pin,deadline.Token);
         var session=await ComputeAwsSession.ReadAsync(Environment.GetEnvironmentVariable("SAVEIT_COMPUTE_AWS_SESSION_FILE")??throw new InvalidOperationException(),Environment.GetEnvironmentVariable,deadline.Token);
-        if(kind==ComputeAcquisitionKind.Network)await ComputeNetworkAcquisition.ReadAsync(release,session,_=>RelayStartupTransport.Native(),ComputeConfigurationTrust.Packaged,deadline.Token);
+        if(kind==ComputeAcquisitionKind.Resolver)await ComputeResolverAcquisition.ReadAsync(release,session,_=>RelayStartupTransport.Native(),ComputeConfigurationTrust.Packaged,deadline.Token);
+        else if(kind==ComputeAcquisitionKind.Network)await ComputeNetworkAcquisition.ReadAsync(release,session,_=>RelayStartupTransport.Native(),ComputeConfigurationTrust.Packaged,deadline.Token);
         else if(kind==ComputeAcquisitionKind.Endpoints)await ComputeEndpointAcquisition.ReadAsync(release,session,_=>RelayStartupTransport.Native(),ComputeConfigurationTrust.Packaged,deadline.Token);
         else if(kind==ComputeAcquisitionKind.Routes)_=await AcquiredComputeRoutes.ReadAsync(release,session,_=>RelayStartupTransport.Native(),ComputeConfigurationTrust.Packaged,deadline.Token);
         else if(kind==ComputeAcquisitionKind.SecurityGroups)_=await AcquiredComputeSecurityGroups.ReadAsync(release,session,_=>RelayStartupTransport.Native(),ComputeConfigurationTrust.Packaged,deadline.Token);

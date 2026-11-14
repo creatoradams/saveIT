@@ -5,6 +5,7 @@ using Amazon.SecurityToken;
 using Amazon.ECR;
 using Amazon.SecretsManager;
 using Amazon.EC2;
+using Amazon.Route53Resolver;
 
 namespace SaveIT.Deployment;
 
@@ -16,6 +17,7 @@ internal static class ComputeSdkConfiguration
     internal static AmazonECRConfig Ecr(string region,HttpClient http)=>Configure(new AmazonECRConfig(),region,"api.ecr",http);
     internal static AmazonSecretsManagerConfig Secrets(string region,HttpClient http)=>Configure(new AmazonSecretsManagerConfig(),region,"secretsmanager",http);
     internal static AmazonEC2Config Ec2(string region,HttpClient http)=>Configure(new AmazonEC2Config(),region,"ec2",http);
+    internal static AmazonRoute53ResolverConfig Resolver(string region,HttpClient http)=>Configure(new AmazonRoute53ResolverConfig(),region,"route53resolver",http);
     private static T Configure<T>(T config,string region,string service,HttpClient http) where T:ClientConfig
     {
         config.ServiceURL=$"https://{service}.{region}.amazonaws.com/";config.AuthenticationRegion=region;config.AuthenticationServiceName=service=="api.ecr"?"ecr":service;
