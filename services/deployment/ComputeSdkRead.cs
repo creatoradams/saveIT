@@ -13,6 +13,7 @@ internal sealed class ComputeSdkRead
     internal int MaximumBytes {get;}
     internal bool Identity=>Endpoint=="sts";
     internal bool Query=>Endpoint=="ec2";
+    internal string? Route53Path {get;private init;}
     private readonly string request;
     private ComputeSdkRead(string endpoint,string action,JsonObject body,string root,string? optional,int maximumBytes)
     {Endpoint=endpoint;Action=action;request=body.ToJsonString();Root=root;OptionalRoot=optional;MaximumBytes=maximumBytes;}
@@ -46,6 +47,8 @@ internal sealed class ComputeSdkRead
     internal static ComputeSdkRead DiscoveryNamespace(string arn)=>new("servicediscovery","GetNamespace",new JsonObject{["Id"]=arn},"Namespace",null,32768);
     internal static ComputeSdkRead DiscoveryService(string arn)=>new("servicediscovery","GetService",new JsonObject{["Id"]=arn},"Service",null,32768);
     internal static ComputeSdkRead DiscoveryInstances(string arn)=>new("servicediscovery","ListInstances",new JsonObject{["ServiceId"]=arn,["MaxResults"]=100},"Instances","NextToken",32768);
+    internal static ComputeSdkRead HostedZone(string id,bool records)=>new("route53",records?"ListResourceRecordSets":"GetHostedZone",
+        new JsonObject(),"",null,32768) { Route53Path=$"/2013-04-01/hostedzone/{id}"+(records?"/rrset?maxitems=10":"") };
     internal string TargetPrefix=>Endpoint switch {"ecs"=>"AmazonEC2ContainerServiceV20141113.","api.ecr"=>"AmazonEC2ContainerRegistry_V20150921.","secretsmanager"=>"secretsmanager.","route53resolver"=>"Route53Resolver.","servicediscovery"=>"Route53AutoNaming_v20170314.",_=>throw new InvalidOperationException()};
     internal void ValidateResponse(JsonElement root)
     {

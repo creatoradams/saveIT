@@ -147,6 +147,8 @@ services:
             "ecs.us-east-1.amazonaws.com",
             "ec2.us-east-1.amazonaws.com",
             "route53resolver.us-east-1.amazonaws.com",
+            "route53.amazonaws.com",
+            "servicediscovery.us-east-1.amazonaws.com",
             "api.ecr.us-east-1.amazonaws.com",
             "secretsmanager.us-east-1.amazonaws.com",
             "111122223333.dkr.ecr.us-east-1.amazonaws.com",

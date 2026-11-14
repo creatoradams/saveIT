@@ -41,7 +41,7 @@ Approving and declaring a filtering policy, verifying Route 53 Profile associati
 
 - [x] Bind the private hosted zone ID and namespace ARN to the signed release. Names follow the existing cell and environment convention.
 - [x] Read back the Cloud Map namespace, both registries and their empty parked instance inventories.
-- [ ] Read back Route 53 private zone associations and records. Cloud Map metadata alone does not verify the Route 53 zone.
+- [x] Read back the signed Route 53 private zone, require its one direct association with the signed VPC and check that only apex NS and SOA records exist while parked. Profile-inherited settings and live answers remain open.
 - [ ] Verify RDS identity, private subnet placement and the dedicated database group.
 - [ ] Verify EFS mount targets, their subnet and group placement, and the approved access point.
 - [x] Implement the parked task inventory. The signed cluster must return a complete, empty desired-RUNNING task list. All 76 local parked-state tests passed.

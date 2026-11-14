@@ -27,7 +27,11 @@ All four source-bound final image reports retain **zero critical/high/unknown; t
 
 The independent security agent closed the [workload review](reviews/2026-11-09-web-workload-review.md) and [coordination review](reviews/2026-11-09-compute-coordination-review.md), including the subsequent clock/recovery fixture remedies, without executing tests. The requested independent efficiency review remains outstanding after its agent's account usage limit. These reviews are not penetration tests. Earlier exact workload evidence remains at the [previous checkpoint](https://github.com/creatoradams/saveIT/blob/b813a78/docs/progress.md); historical evidence is not rewritten. Direct regional Logs customer CallerAccount compatibility remains a pre-apply gate.
 
-## Current engineering: parked Cloud Map readback
+## Current engineering: parked Route 53 readback
+
+`check-compute-parked-dns` adds two bounded SDK reads after Cloud Map. It checks the signed private zone and its one direct VPC association and requires an untruncated inventory of only apex NS and SOA records. It rejects stale workload records and adds no provider write. The SDK uses the fixed global Route 53 endpoint and signs in us-east-1. Live response compatibility, Profile-inherited DNS and workload answers remain open. All 174 focused .NET acquisition tests passed locally. Four packaged cases cover the valid inventory, foreign VPC, stale record and stale Cloud Map registration.
+
+## Prior delivery: parked Cloud Map readback
 
 The independently signed private DNS binding pins the namespace ARN and hosted zone ID. The private-discovery producer exports the pair when relay discovery is bound. `check-compute-parked-discovery` requires that binding before any provider call and verifies the exact Cloud Map namespace, API and relay service configurations and empty instance inventories after the parked workload check. It uses deployment-only AWSSDK.ServiceDiscovery 4.0.101.20 with the existing Core pin. Direct Route 53 records and associations, cloud tag drift, packaged Cloud Map canaries and live DNS remain open.
 

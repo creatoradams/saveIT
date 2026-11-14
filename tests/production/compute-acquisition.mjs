@@ -159,6 +159,14 @@ function token(mode) {
       endpointFixture.endpointPolicySha256,
     );
   }
+  if (family === "dns") {
+    approved = structuredClone(approved);
+    approved.network.privateDns = {
+      namespaceArn:
+        "arn:aws:servicediscovery:us-east-1:111122223333:namespace/ns-0000000000000001",
+      hostedZoneId: "Z0000000000000001",
+    };
+  }
   const body =
     Buffer.from(
       JSON.stringify({
@@ -224,6 +232,12 @@ const acquisitionKinds = {
     success:
       "SaveIT parked task inventory passed (no task termination or fencing verification).",
     failure: "SaveIT parked task inventory failed.",
+  },
+  dns: {
+    command: "check-compute-parked-dns",
+    success:
+      "SaveIT parked private DNS passed (Profiles and live DNS answers unverified).",
+    failure: "SaveIT parked private DNS acquisition failed.",
   },
   images: {
     command: "check-compute-images",
@@ -353,6 +367,8 @@ async function check(
   assert.equal(after.interfaces - before.interfaces, expectedCounts[13] ?? 0);
   assert.equal(after.resolver - before.resolver, expectedCounts[14] ?? 0);
   assert.equal(after.parkedTasks - before.parkedTasks, expectedCounts[15] ?? 0);
+  assert.equal(after.discovery - before.discovery, expectedCounts[16] ?? 0);
+  assert.equal(after.dns - before.dns, expectedCounts[17] ?? 0);
   assert.equal(after.proxy, before.proxy);
   assert.equal(after.monitoring, before.monitoring);
   assert.equal(after.unexpected, 0);
@@ -821,6 +837,22 @@ try {
       [],
       false,
       "parkedTasks",
+    );
+  for (const [mode, passed, discovery, dns] of [
+    ["dns-valid", true, 5, 2],
+    ["dns-foreign", false, 5, 1],
+    ["dns-stale", false, 5, 2],
+    ["dns-instance", false, 3, 0],
+  ])
+    await check(
+      mode,
+      passed,
+      mode,
+      [1, 4, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, discovery, dns],
+      "valid",
+      [],
+      false,
+      "dns",
     );
   console.log(
     `Packaged compute acquisition passed: ${checks} synthetic checks, isolated native TLS/SDK identity and original compute/network metadata; no AWS or provider writes.`,

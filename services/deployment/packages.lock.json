@@ -35,6 +35,15 @@
           "AWSSDK.Core": "[4.0.102.20, 5.0.0)"
         }
       },
+      "AWSSDK.Route53": {
+        "type": "Direct",
+        "requested": "[4.0.100.24, )",
+        "resolved": "4.0.100.24",
+        "contentHash": "KibVyr2jK/8G7TtozPTV5fURgQa29a3pPvbmAoYo4EOty8ATR+hvU9DxMeOG4vYBRJVr0N2hzGuxoE1cqX62og==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.19, 5.0.0)"
+        }
+      },
       "AWSSDK.Route53Resolver": {
         "type": "Direct",
         "requested": "[4.0.100.26, )",

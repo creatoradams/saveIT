@@ -36,6 +36,8 @@ const counts = {
   cluster: 0,
   services: 0,
   parkedTasks: 0,
+  discovery: 0,
+  dns: 0,
   ecr: 0,
   authorization: 0,
   registry: 0,
@@ -152,6 +154,49 @@ const service = httpsServer(options, (request, response) => {
         return;
       }
       const kind = request.headers.host?.split(".")[0];
+      if (kind === "route53") {
+        if (family !== "dns" || body !== "") throw new Error();
+        const zone = "pilot.staging.saveit.internal.";
+        const id = "Z0000000000000001";
+        const path = "/2013-04-01/hostedzone/" + id;
+        const records = request.url === path + "/rrset?maxitems=10";
+        verifySyntheticSigV4(request, body, {
+          access,
+          secret,
+          token,
+          service: "route53",
+          host: "route53.amazonaws.com",
+          method: "GET",
+          path: records ? path + "/rrset" : path,
+          query: records ? "maxitems=10" : "",
+        });
+        counts.dns++;
+        const ns = ' xmlns="https://route53.amazonaws.com/doc/2013-04-01/"';
+        const entry = (name, type, values) =>
+          `<ResourceRecordSet><Name>${name}</Name><Type>${type}</Type><TTL>900</TTL><ResourceRecords>${values.map((value) => `<ResourceRecord><Value>${value}</Value></ResourceRecord>`).join("")}</ResourceRecords></ResourceRecordSet>`;
+        const soa = entry(zone, "SOA", [
+          "ns-0.awsdns-00.com. hostmaster.awsdns.com. 1 7200 900 1209600 86400",
+        ]);
+        const names = entry(zone, "NS", [
+          "ns-0.awsdns-00.com.",
+          "ns-512.awsdns-00.net.",
+          "ns-1024.awsdns-00.org.",
+          "ns-1536.awsdns-00.co.uk.",
+        ]);
+        const stale =
+          mode === "dns-stale" ? entry("api." + zone, "A", ["192.0.2.1"]) : "";
+        const vpc =
+          mode === "dns-foreign"
+            ? "vpc-00000000000000002"
+            : "vpc-00000000000000001";
+        response.setHeader("Content-Type", "text/xml");
+        response.end(
+          records
+            ? `<ListResourceRecordSetsResponse${ns}><ResourceRecordSets>${soa}${names}${stale}</ResourceRecordSets><IsTruncated>false</IsTruncated><MaxItems>10</MaxItems></ListResourceRecordSetsResponse>`
+            : `<GetHostedZoneResponse${ns}><HostedZone><Id>/hostedzone/${id}</Id><Name>${zone}</Name><CallerReference>synthetic</CallerReference><Config><PrivateZone>true</PrivateZone></Config><ResourceRecordSetCount>2</ResourceRecordSetCount></HostedZone><VPCs><VPC><VPCId>${vpc}</VPCId><VPCRegion>us-east-1</VPCRegion></VPC></VPCs></GetHostedZoneResponse>`,
+        );
+        return;
+      }
       if (
         ![
           "sts",
@@ -160,6 +205,7 @@ const service = httpsServer(options, (request, response) => {
           "api",
           "secretsmanager",
           "route53resolver",
+          "servicediscovery",
         ].includes(kind)
       )
         throw new Error();
@@ -202,6 +248,7 @@ const service = httpsServer(options, (request, response) => {
           api: ["BatchGetImage", "GetAuthorizationToken"],
           secretsmanager: ["GetSecretValue"],
           route53resolver: Object.keys(resolverObservations),
+          servicediscovery: ["GetNamespace", "GetService", "ListInstances"],
         }[kind].includes(action)
       )
         throw new Error();
@@ -233,8 +280,73 @@ const service = httpsServer(options, (request, response) => {
         ListResolverRuleAssociations: "resolver",
         ListFirewallRuleGroupAssociations: "resolver",
         GetFirewallConfig: "resolver",
+        GetNamespace: "discovery",
+        GetService: "discovery",
+        ListInstances: "discovery",
       }[action];
       counts[counter]++;
+      if (kind === "servicediscovery") {
+        if (
+          family !== "dns" ||
+          request.headers["x-amz-target"] !==
+            "Route53AutoNaming_v20170314." + action
+        )
+          throw new Error();
+        const namespaceId = "ns-0000000000000001";
+        const base = "arn:aws:servicediscovery:us-east-1:111122223333:";
+        const query = JSON.parse(body);
+        let result;
+        if (action === "GetNamespace") {
+          const arn = base + "namespace/" + namespaceId;
+          if (!isDeepStrictEqual(query, { Id: arn })) throw new Error();
+          result = {
+            Namespace: {
+              Arn: arn,
+              Id: namespaceId,
+              Name: "pilot.staging.saveit.internal",
+              Type: "DNS_PRIVATE",
+              Properties: {
+                DnsProperties: { HostedZoneId: "Z0000000000000001" },
+              },
+            },
+          };
+        } else {
+          const arn = query.Id ?? query.ServiceId;
+          const process = ["api", "relay"].find(
+            (name) =>
+              parked.services.services.find(
+                (s) => s.serviceName === "saveit-pilot-staging-" + name,
+              ).serviceRegistries[0].registryArn === arn,
+          );
+          if (!process) throw new Error();
+          if (action === "ListInstances") {
+            if (!isDeepStrictEqual(query, { ServiceId: arn, MaxResults: 100 }))
+              throw new Error();
+            result = {
+              Instances:
+                mode === "dns-instance" ? [{ Id: "synthetic-instance" }] : [],
+            };
+          } else {
+            if (!isDeepStrictEqual(query, { Id: arn })) throw new Error();
+            result = {
+              Service: {
+                Arn: arn,
+                Id: arn.split("/")[1],
+                Name: process,
+                NamespaceId: namespaceId,
+                DnsConfig: {
+                  RoutingPolicy: "MULTIVALUE",
+                  DnsRecords: [{ Type: "A", TTL: 10 }],
+                },
+                HealthCheckCustomConfig: { FailureThreshold: 1 },
+              },
+            };
+          }
+        }
+        response.setHeader("Content-Type", "application/x-amz-json-1.1");
+        response.end(JSON.stringify(result));
+        return;
+      }
       if (action === "ListTasks") {
         const expected = {
           cluster:
@@ -243,7 +355,7 @@ const service = httpsServer(options, (request, response) => {
           maxResults: 100,
         };
         if (
-          family !== "inventory" ||
+          !["inventory", "dns"].includes(family) ||
           request.headers["x-amz-target"] !==
             "AmazonEC2ContainerServiceV20141113.ListTasks" ||
           !isDeepStrictEqual(JSON.parse(body), expected)
@@ -773,6 +885,10 @@ httpServer((request, response) => {
           "inventory-valid",
           "inventory-active",
           "inventory-page",
+          "dns-valid",
+          "dns-foreign",
+          "dns-stale",
+          "dns-instance",
         ].includes(body)
       ) {
         response.writeHead(400);

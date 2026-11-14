@@ -141,9 +141,12 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
     [InlineData("inventory-duplicate")] [InlineData("inventory-unknown")] [InlineData("inventory-null-token")]
     [InlineData("discovery-valid")] [InlineData("discovery-unbound")] [InlineData("discovery-zone")]
     [InlineData("discovery-routing")] [InlineData("discovery-instance")] [InlineData("discovery-page")]
+    [InlineData("dns-valid")] [InlineData("dns-foreign")] [InlineData("dns-extra-vpc")]
+    [InlineData("dns-public")] [InlineData("dns-stale")] [InlineData("dns-page")]
     public async Task Official_SDK_acquires_exact_cluster_and_four_services_after_identity_and_tasks(string mode)
     {
-        var discovery=mode.StartsWith("discovery-",StringComparison.Ordinal);
+        var dns=mode.StartsWith("dns-",StringComparison.Ordinal);
+        var discovery=dns||mode.StartsWith("discovery-",StringComparison.Ordinal);
         const string namespaceId="ns-0000000000000001", zoneId="Z0000000000000001";
         const string namespaceArn="arn:aws:servicediscovery:us-east-1:111122223333:namespace/"+namespaceId;
         var release=discovery&&mode!="discovery-unbound"
@@ -155,6 +158,17 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
         var session=await Session();
         HttpMessageHandler Provider(string service)=>new Handler(async(request,ct)=>{
             if(service=="sts")return Response("<GetCallerIdentityResponse xmlns=\"https://sts.amazonaws.com/doc/2011-06-15/\"><GetCallerIdentityResult><Arn>arn:aws:sts::111122223333:assumed-role/saveit-pilot-staging-compute-controller/synthetic</Arn><UserId>AROA00000000000000000:synthetic</UserId><Account>111122223333</Account></GetCallerIdentityResult><ResponseMetadata><RequestId>synthetic</RequestId></ResponseMetadata></GetCallerIdentityResponse>");
+            if(service=="route53")
+            {
+                var path="https://route53.amazonaws.com/2013-04-01/hostedzone/"+zoneId;
+                Assert.Equal(HttpMethod.Get,request.Method);
+                Assert.Null(request.Content);
+                Assert.Contains("/us-east-1/route53/aws4_request",request.Headers.GetValues("Authorization").Single());
+                bool records=request.RequestUri!.AbsoluteUri==path+"/rrset?maxitems=10";
+                Assert.Equal(records?path+"/rrset?maxitems=10":path,request.RequestUri.AbsoluteUri);
+                calls.Add(records?"ListResourceRecordSets":"GetHostedZone");
+                return Response(Route53Fixture(records,mode));
+            }
             var action=request.Headers.GetValues("X-Amz-Target").Single().Split('.')[1];calls.Add(action);using var json=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
             if(service=="servicediscovery")
             {
@@ -213,7 +227,13 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
             var body=value.ToJsonString();if(mode=="duplicate")body=body.Replace("\"desiredCount\":0","\"desiredCount\":1,\"desiredC\\u006funt\":0",StringComparison.Ordinal);if(mode=="overflow")body=body.PadRight(524289);
             return Response(body);
         });
-        if(discovery)
+        if(dns)
+        {
+            var operation=ComputeRoute53Acquisition.ReadAsync(release,session,Provider,CancellationToken.None);
+            if(mode=="dns-valid")await operation;
+            else Assert.Equal(ComputeRoute53Acquisition.Failure,(await Assert.ThrowsAsync<InvalidOperationException>(()=>operation)).Message);
+        }
+        else if(discovery)
         {
             var operation=ComputeDiscoveryAcquisition.ReadAsync(release,session,Provider,CancellationToken.None);
             if(mode=="discovery-valid")await operation;
@@ -245,10 +265,33 @@ public sealed class ComputeParkedTests(ComputeReleaseFixture signing):IClassFixt
         IEnumerable<string> sequence=inventory?expected.Append("ListTasks"):expected;
         if(discovery)
         {
-            var reads=mode switch { "discovery-valid"=>5, "discovery-zone"=>1, "discovery-routing"=>2, _=>3 };
+            var reads=mode switch { _ when dns=>5, "discovery-valid"=>5, "discovery-zone"=>1, "discovery-routing"=>2, _=>3 };
             sequence=mode=="discovery-unbound"?[]:sequence.Concat(
                 new[]{"GetNamespace","GetService","ListInstances","GetService","ListInstances"}.Take(reads));
         }
+        if(dns)sequence=sequence.Concat(mode is "dns-foreign" or "dns-extra-vpc" or "dns-public"
+            ?["GetHostedZone"]:new[]{"GetHostedZone","ListResourceRecordSets"});
         Assert.Equal(sequence,calls);
+    }
+
+    private static string Route53Fixture(bool records,string mode)
+    {
+        const string zone="pilot.staging.saveit.internal.";
+        const string ns="https://route53.amazonaws.com/doc/2013-04-01/";
+        if(!records)
+        {
+            var vpc=mode=="dns-foreign"?"vpc-00000000000000002":"vpc-00000000000000001";
+            var extra=mode=="dns-extra-vpc"?"<VPC><VPCId>vpc-00000000000000002</VPCId><VPCRegion>us-east-1</VPCRegion></VPC>":"";
+            var privateZone=mode=="dns-public"?"false":"true";
+            return $"""<GetHostedZoneResponse xmlns="{ns}"><HostedZone><Id>/hostedzone/Z0000000000000001</Id><Name>{zone}</Name><CallerReference>synthetic</CallerReference><Config><PrivateZone>{privateZone}</PrivateZone></Config><ResourceRecordSetCount>2</ResourceRecordSetCount></HostedZone><VPCs><VPC><VPCId>{vpc}</VPCId><VPCRegion>us-east-1</VPCRegion></VPC>{extra}</VPCs></GetHostedZoneResponse>""";
+        }
+        string Record(string name,string type,params string[] values)=>
+            $"<ResourceRecordSet><Name>{name}</Name><Type>{type}</Type><TTL>900</TTL><ResourceRecords>"+
+            string.Concat(values.Select(value=>$"<ResourceRecord><Value>{value}</Value></ResourceRecord>"))+"</ResourceRecords></ResourceRecordSet>";
+        var soa=Record(zone,"SOA","ns-0.awsdns-00.com. hostmaster.awsdns.com. 1 7200 900 1209600 86400");
+        var names=Record(zone,"NS","ns-0.awsdns-00.com.","ns-512.awsdns-00.net.","ns-1024.awsdns-00.org.","ns-1536.awsdns-00.co.uk.");
+        var stale=mode=="dns-stale"?Record("api."+zone,"A","192.0.2.1"):"";
+        var page=mode=="dns-page"?"<NextRecordName>relay."+zone+"</NextRecordName><NextRecordType>A</NextRecordType>":"";
+        return $"""<ListResourceRecordSetsResponse xmlns="{ns}"><ResourceRecordSets>{soa}{names}{stale}</ResourceRecordSets><IsTruncated>{(mode=="dns-page"?"true":"false")}</IsTruncated><MaxItems>10</MaxItems>{page}</ListResourceRecordSetsResponse>""";
     }
 }

@@ -11,6 +11,9 @@ export function verifySyntheticSigV4(
     token,
     service,
     host = service + ".us-east-1.amazonaws.com",
+    method = "POST",
+    path = "/",
+    query = "",
   },
 ) {
   const auth =
@@ -22,8 +25,8 @@ export function verifySyntheticSigV4(
     auth[1] !== access ||
     auth[3] !== service ||
     request.headers["x-amz-security-token"] !== token ||
-    request.method !== "POST" ||
-    request.url !== "/" ||
+    request.method !== method ||
+    request.url !== path + (query ? "?" + query : "") ||
     request.headers.host !== host
   )
     throw new Error();
@@ -35,7 +38,7 @@ export function verifySyntheticSigV4(
       "host",
       "x-amz-date",
       "x-amz-security-token",
-      "content-type",
+      ...(method === "POST" ? ["content-type"] : []),
       ...(request.headers["x-amz-target"] ? ["x-amz-target"] : []),
     ].some((x) => !names.includes(x))
   )
@@ -70,7 +73,7 @@ export function verifySyntheticSigV4(
       );
     })
     .join("");
-  const canonical = `POST\n/\n\n${headers}\n${auth[4]}\n${hash(body)}`;
+  const canonical = `${method}\n${path}\n${query}\n${headers}\n${auth[4]}\n${hash(body)}`;
   const toSign = `AWS4-HMAC-SHA256\n${date}\n${auth[2]}\n${hash(canonical)}`;
   const key = hmac(
     hmac(

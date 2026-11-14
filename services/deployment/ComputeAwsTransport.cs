@@ -20,17 +20,28 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
     {
         var identity=read.Identity;
         var service=read.Endpoint;
-        if(Interlocked.Increment(ref attempts)!=1 || request.Method!=HttpMethod.Post || request.RequestUri?.AbsoluteUri!=$"https://{service}.{scope.Region}.amazonaws.com/" || request.Content is null || request.Content.Headers.ContentEncoding.Count!=0)throw new InvalidOperationException();
+        var rest=read.Route53Path;
+        if(Interlocked.Increment(ref attempts)!=1)throw new InvalidOperationException();
+        if(rest is not null)
+        {
+            if(request.Method!=HttpMethod.Get || request.RequestUri?.AbsoluteUri!="https://route53.amazonaws.com"+rest ||
+                request.Content is not null || request.Headers.Contains("X-Amz-Target"))throw new InvalidOperationException();
+        }
+        else if(request.Method!=HttpMethod.Post || request.RequestUri?.AbsoluteUri!=$"https://{service}.{scope.Region}.amazonaws.com/" ||
+            request.Content is null || request.Content.Headers.ContentEncoding.Count!=0)throw new InvalidOperationException();
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(operation,ct);deadline.CancelAfter(TimeSpan.FromSeconds(5));
-        var requestBytes=await Bounded(request.Content,1024,deadline.Token);
+        var requestBytes=rest is null?await Bounded(request.Content!,1024,deadline.Token):[];
         try
         {
+            if(rest is null)
+            {
             var text=new UTF8Encoding(false,true).GetString(requestBytes);
             read.ValidateRequest(text);
             if(identity||read.Query) {if(request.Headers.Contains("X-Amz-Target"))throw new InvalidOperationException();}
             else if(!request.Headers.TryGetValues("X-Amz-Target",out var targets)||targets.Single()!=read.TargetPrefix+read.Action)throw new InvalidOperationException();
-            var replacement=new ByteArrayContent(requestBytes);foreach(var header in request.Content.Headers)replacement.Headers.TryAddWithoutValidation(header.Key,header.Value);
+            var replacement=new ByteArrayContent(requestBytes);foreach(var header in request.Content!.Headers)replacement.Headers.TryAddWithoutValidation(header.Key,header.Value);
             request.Content.Dispose();request.Content=replacement;
+            }
             request.Version=HttpVersion.Version11;request.VersionPolicy=HttpVersionPolicy.RequestVersionExact;request.Headers.ConnectionClose=true;
             HttpResponseMessage? response=null;
             try
@@ -41,7 +52,8 @@ internal sealed class ComputeAwsTransport(HttpMessageHandler inner,ComputeScope 
                 JsonDocument? document=null;
                 try
                 {
-                    if(read.Query)ResponseXml=ComputeQueryXml.Read(bytes,read.Action);
+                    if(rest is not null)ResponseXml=ComputeQueryXml.Read(bytes,read.Action,ComputeRoute53Acquisition.XmlNamespace);
+                    else if(read.Query)ResponseXml=ComputeQueryXml.Read(bytes,read.Action);
                     else {
                         _=new UTF8Encoding(false,true).GetCharCount(bytes);
                         if(identity)ValidateIdentityXml(bytes);

@@ -6,6 +6,7 @@ using Amazon.ECR;
 using Amazon.SecretsManager;
 using Amazon.EC2;
 using Amazon.Route53Resolver;
+using Amazon.Route53;
 using Amazon.ServiceDiscovery;
 
 namespace SaveIT.Deployment;
@@ -19,6 +20,12 @@ internal static class ComputeSdkConfiguration
     internal static AmazonSecretsManagerConfig Secrets(string region,HttpClient http)=>Configure(new AmazonSecretsManagerConfig(),region,"secretsmanager",http);
     internal static AmazonEC2Config Ec2(string region,HttpClient http)=>Configure(new AmazonEC2Config(),region,"ec2",http);
     internal static AmazonRoute53ResolverConfig Resolver(string region,HttpClient http)=>Configure(new AmazonRoute53ResolverConfig(),region,"route53resolver",http);
+    internal static AmazonRoute53Config Route53(HttpClient http)
+    {
+        var config=Configure(new AmazonRoute53Config(),"us-east-1","route53",http);
+        config.ServiceURL="https://route53.amazonaws.com";
+        return config;
+    }
     internal static AmazonServiceDiscoveryConfig Discovery(string region,HttpClient http)=>Configure(new AmazonServiceDiscoveryConfig(),region,"servicediscovery",http);
     private static T Configure<T>(T config,string region,string service,HttpClient http) where T:ClientConfig
     {
